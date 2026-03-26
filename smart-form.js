@@ -65,6 +65,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var row =
       pill.closest(".options-row") ||
+      pill.closest(".options-row-p") ||
+      pill.closest(".options-row-hob") ||
       pill.closest(".question-wrap") ||
       pill.parentElement;
 
@@ -107,24 +109,17 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function getValByName(name) {
-    var el = qs(document, '[name="' + name + '"]');
-    if (!el) return "";
-    return (el.value || "").trim();
-  }
+  // =========================
+  // ROOT REFERENCES
+  // =========================
+  var overlay = qs(document, ".section-overlay");
+  var modalCard = qs(document, ".modal-card");
+  var smartFormBlock = qs(document, ".smart-form-block");
+  var smartForm = qs(smartFormBlock, "form");
+  var openButtons = qsa(document, ".open-smart-form");
 
-  function yesNoBulgarian(value) {
-    if (!value) return "Не";
-    if (value === "yes") return "Да";
-    if (value === "no") return "Не";
-    if (value === "Да") return "Да";
-    if (value === "Не") return "Не";
-    return value;
-  }
-
-  function safeLine(label, value) {
-    if (!value) return label + ": -";
-    return label + ": " + value;
+  if (!overlay || !modalCard || !smartFormBlock || !smartForm) {
+    return;
   }
 
   // =========================
@@ -278,17 +273,180 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // ROOT REFERENCES
+  // SUMMARY + CLEAN SUBMIT
   // =========================
-  var overlay = qs(document, ".section-overlay");
-  var modalCard = qs(document, ".modal-card");
-  var smartFormBlock = qs(document, ".smart-form-block");
-  var smartForm = qs(smartFormBlock, "form");
-  var openButtons = qsa(document, ".open-smart-form");
-  var summaryReadable = qs(document, "#summary-readable");
+  function collectReadableLines() {
+    var lines = [];
 
-  if (!overlay || !modalCard || !smartFormBlock || !smartForm) {
-    return;
+    function addTitle(title) {
+      lines.push("");
+      lines.push(title);
+      lines.push("----------------");
+    }
+
+    function addLine(label, value) {
+      if (value === undefined || value === null) return;
+      value = String(value).trim();
+      if (!value) return;
+      lines.push(label + ": " + value);
+    }
+
+    var nameField = qs(smartForm, 'input[name="Name"], input[name="name"]');
+    var emailField = qs(smartForm, 'input[name="Email"], input[name="email"], input[type="email"]');
+    var phoneField = qs(smartForm, 'input[name="Phone"], input[name="phone"], input[type="tel"]');
+
+    addTitle("Контакт");
+    if (nameField) addLine("Име", nameField.value);
+    if (emailField) addLine("Имейл", emailField.value);
+    if (phoneField) addLine("Телефон", phoneField.value);
+
+    var aglovaCorner = document.getElementById("aglova-has-corner");
+    if (aglovaCorner && aglovaCorner.value) {
+      addTitle("Ъглова кухня");
+      addLine("Комин в ъгъла", aglovaCorner.value === "yes" ? "Да" : "Не");
+    }
+
+    var dims3a = qsa(smartForm, '.step-3a-aglova .hidden-dimension-input');
+    var dims3b = qsa(smartForm, '.step-3b-aglova .hidden-dimension-input');
+    var dims3aP = qsa(smartForm, '.step-3a-p .hidden-dimension-input');
+    var dims3bP = qsa(smartForm, '.step-3b-p .hidden-dimension-input');
+    var dims3cP = qsa(smartForm, '.step-3c-p .hidden-dimension-input');
+
+    function addDimensionGroup(title, list, labelMap) {
+      var hasAny = list.some(function (el) {
+        return (el.value || "").trim() !== "";
+      });
+
+      if (!hasAny) return;
+
+      addTitle(title);
+
+      list.forEach(function (el) {
+        var value = (el.value || "").trim();
+        if (!value) return;
+
+        var key = el.getAttribute("data-dim") || "";
+        var label = labelMap[key] || key;
+        addLine(label, value);
+      });
+    }
+
+    addDimensionGroup("Ъглова без комин", dims3a, {
+      water_position_3a: "Позиция на вода",
+      chimney_position_3a: "Позиция на комин",
+      wall_1_3a: "Стена 1",
+      wall_2_3a: "Стена 2",
+      room_height_3a: "Височина",
+      bar_enabled_3a: "Бар",
+      bar_length_3a: "Дължина на бар",
+      bar_depth_3a: "Дълбочина на бар",
+      island_enabled_3a: "Остров",
+      island_length_3a: "Дължина на остров",
+      island_depth_3a: "Дълбочина на остров",
+      oven_tall_unit_3a: "Колона за фурна",
+      fridge_type_3a: "Хладилник"
+    });
+
+    addDimensionGroup("Ъглова с комин", dims3b, {
+      water_position_3b: "Позиция на вода",
+      chimney_position_3b: "Позиция на комин",
+      wall_1: "Стена 1",
+      wall_2: "Стена 2",
+      room_height: "Височина",
+      chimney_a: "Комин A",
+      chimney_b: "Комин B",
+      bar_length: "Дължина на бар",
+      bar_depth: "Дълбочина на бар",
+      island_length: "Дължина на остров",
+      island_depth: "Дълбочина на остров",
+      oven_tall_unit: "Колона за фурна",
+      fridge_type: "Хладилник"
+    });
+
+    addDimensionGroup("П кухня без комин", dims3aP, {
+      water_position_p_3a: "Позиция на вода",
+      hob_position_p_3a: "Позиция на котлони",
+      wall_1_p_3a: "Стена 1",
+      wall_2_p_3a: "Стена 2",
+      wall_3_p_3a: "Стена 3",
+      room_height_p_3a: "Височина",
+      bar_enabled_p_3a: "Бар",
+      bar_length_p_3a: "Дължина на бар",
+      bar_depth_p_3a: "Дълбочина на бар",
+      island_enabled_p_3a: "Остров",
+      island_length_p_3a: "Дължина на остров",
+      island_depth_p_3a: "Дълбочина на остров",
+      oven_tall_unit_p_3a: "Колона за фурна",
+      fridge_type_p_3a: "Хладилник"
+    });
+
+    addDimensionGroup("П кухня с комин отляво", dims3bP, {
+      water_position_p_3b: "Позиция на вода",
+      hob_position_p_3b: "Позиция на котлони",
+      wall_1_p_3b: "Стена 1",
+      wall_2_p_3b: "Стена 2",
+      wall_3_p_3b: "Стена 3",
+      room_height_p_3b: "Височина",
+      chimney_left_width_p_3b: "Комин ширина",
+      chimney_left_depth_p_3b: "Комин дълбочина",
+      bar_enabled_p_3b: "Бар",
+      bar_length_p_3b: "Дължина на бар",
+      bar_depth_p_3b: "Дълбочина на бар",
+      island_enabled_p_3b: "Остров",
+      island_length_p_3b: "Дължина на остров",
+      island_depth_p_3b: "Дълбочина на остров",
+      oven_tall_unit_p_3b: "Колона за фурна",
+      fridge_type_p_3b: "Хладилник"
+    });
+
+    addDimensionGroup("П кухня с комин отдясно", dims3cP, {
+      water_position_p_3c: "Позиция на вода",
+      hob_position_p_3c: "Позиция на котлони",
+      wall_1_p_3c: "Стена 1",
+      wall_2_p_3c: "Стена 2",
+      wall_3_p_3c: "Стена 3",
+      room_height_p_3c: "Височина",
+      chimney_right_width_p_3c: "Комин ширина",
+      chimney_right_depth_p_3c: "Комин дълбочина",
+      bar_enabled_p_3c: "Бар",
+      bar_length_p_3c: "Дължина на бар",
+      bar_depth_p_3c: "Дълбочина на бар",
+      island_enabled_p_3c: "Остров",
+      island_length_p_3c: "Дължина на остров",
+      island_depth_p_3c: "Дълбочина на остров",
+      oven_tall_unit_p_3c: "Колона за фурна",
+      fridge_type_p_3c: "Хладилник"
+    });
+
+    return lines.filter(function (line, index, arr) {
+      if (line !== "") return true;
+      return index > 0 && arr[index - 1] !== "";
+    }).join("\n");
+  }
+
+  function buildReadableSummary() {
+    var summaryField = document.getElementById("summary-readable");
+    if (!summaryField) return;
+
+    var text = collectReadableLines();
+    summaryField.value = text;
+  }
+
+  function stripTechnicalFieldNames() {
+    qsa(smartForm, ".hidden-dimension-input").forEach(function (el) {
+      el.removeAttribute("name");
+    });
+
+    qsa(smartForm, 'input[type="hidden"]').forEach(function (el) {
+      if (el.id !== "summary-readable" && el.name !== "summary_readable") {
+        el.removeAttribute("name");
+      }
+    });
+
+    var summaryField = document.getElementById("summary-readable");
+    if (summaryField) {
+      summaryField.setAttribute("name", "summary_readable");
+    }
   }
 
   // =========================
@@ -345,208 +503,22 @@ document.addEventListener("DOMContentLoaded", function () {
     setFieldsState(step3aP, false);
     setFieldsState(step3bP, false);
     setFieldsState(step3cP, false);
+
+    if (activeBranch === "3a-aglova" && step3aAglova) setFieldsState(step3aAglova, true);
+    if (activeBranch === "3b-aglova" && step3bAglova) setFieldsState(step3bAglova, true);
+
+    if (activeBranch === "3a-p" && step3aP) setFieldsState(step3aP, true);
+    if (activeBranch === "3b-p" && step3bP) setFieldsState(step3bP, true);
+    if (activeBranch === "3c-p" && step3cP) setFieldsState(step3cP, true);
   }
 
   function beforeRealSubmit() {
-    if (activeBranch === "3a-aglova") {
-      setFieldsState(step3bAglova, false);
-      setFieldsState(step3aP, false);
-      setFieldsState(step3bP, false);
-      setFieldsState(step3cP, false);
-    } else if (activeBranch === "3b-aglova") {
-      setFieldsState(step3aAglova, false);
-      setFieldsState(step3aP, false);
-      setFieldsState(step3bP, false);
-      setFieldsState(step3cP, false);
-    } else if (activeBranch === "3a-p") {
-      setFieldsState(step3aAglova, false);
-      setFieldsState(step3bAglova, false);
-      setFieldsState(step3bP, false);
-      setFieldsState(step3cP, false);
-    } else if (activeBranch === "3b-p") {
-      setFieldsState(step3aAglova, false);
-      setFieldsState(step3bAglova, false);
-      setFieldsState(step3aP, false);
-      setFieldsState(step3cP, false);
-    } else if (activeBranch === "3c-p") {
-      setFieldsState(step3aAglova, false);
-      setFieldsState(step3bAglova, false);
-      setFieldsState(step3aP, false);
-      setFieldsState(step3bP, false);
-    } else {
-      setFieldsState(step3aAglova, false);
-      setFieldsState(step3bAglova, false);
-      setFieldsState(step3aP, false);
-      setFieldsState(step3bP, false);
-      setFieldsState(step3cP, false);
-    }
-  }
+    if (activeBranch !== "3a-aglova") setFieldsState(step3aAglova, false);
+    if (activeBranch !== "3b-aglova") setFieldsState(step3bAglova, false);
 
-  // =========================
-  // READABLE SUMMARY
-  // =========================
-  function buildReadableSummary() {
-    if (!summaryReadable) return;
-
-    var lines = [];
-    var config = "";
-
-    if (activeBranch === "3a-aglova") config = "Ъглова без комин";
-    if (activeBranch === "3b-aglova") config = "Ъглова с комин";
-    if (activeBranch === "3a-p") config = "П кухня без комин";
-    if (activeBranch === "3b-p") config = "П кухня с комин отляво";
-    if (activeBranch === "3c-p") config = "П кухня с комин отдясно";
-
-    lines.push("Конфигурация: " + (config || "Няма"));
-    lines.push("");
-
-    if (activeBranch === "3a-aglova") {
-      lines.push("Основни размери:");
-      lines.push(safeLine("Стена 1", getValByName("wall_1_3a")));
-      lines.push(safeLine("Стена 2", getValByName("wall_2_3a")));
-      lines.push(safeLine("Височина", getValByName("room_height_3a")));
-      lines.push("");
-
-      lines.push("Бар: " + yesNoBulgarian(getValByName("bar_enabled_3a")));
-      if (yesNoBulgarian(getValByName("bar_enabled_3a")) === "Да") {
-        lines.push(safeLine("Дължина на бар", getValByName("bar_length_3a")));
-        lines.push(safeLine("Дълбочина на бар", getValByName("bar_depth_3a")));
-      }
-      lines.push("");
-
-      lines.push("Остров: " + yesNoBulgarian(getValByName("island_enabled_3a")));
-      if (yesNoBulgarian(getValByName("island_enabled_3a")) === "Да") {
-        lines.push(safeLine("Дължина на остров", getValByName("island_length_3a")));
-        lines.push(safeLine("Дълбочина на остров", getValByName("island_depth_3a")));
-      }
-      lines.push("");
-
-      lines.push("Колона за фурна: " + yesNoBulgarian(getValByName("oven_tall_unit_3a")));
-      lines.push(safeLine("Хладилник", getValByName("fridge_type_3a")));
-    }
-
-    if (activeBranch === "3b-aglova") {
-      lines.push("Основни размери:");
-      lines.push(safeLine("Стена 1", getValByName("wall_1")));
-      lines.push(safeLine("Стена 2", getValByName("wall_2")));
-      lines.push(safeLine("Височина", getValByName("room_height")));
-      lines.push(safeLine("Комин A", getValByName("chimney_a")));
-      lines.push(safeLine("Комин B", getValByName("chimney_b")));
-      lines.push("");
-
-      lines.push("Бар: " + yesNoBulgarian(getValByName("bar_enabled")));
-      if (yesNoBulgarian(getValByName("bar_enabled")) === "Да") {
-        lines.push(safeLine("Дължина на бар", getValByName("bar_length")));
-        lines.push(safeLine("Дълбочина на бар", getValByName("bar_depth")));
-      }
-      lines.push("");
-
-      lines.push("Остров: " + yesNoBulgarian(getValByName("island_enabled")));
-      if (yesNoBulgarian(getValByName("island_enabled")) === "Да") {
-        lines.push(safeLine("Дължина на остров", getValByName("island_length")));
-        lines.push(safeLine("Дълбочина на остров", getValByName("island_depth")));
-      }
-      lines.push("");
-
-      lines.push("Колона за фурна: " + yesNoBulgarian(getValByName("oven_tall_unit")));
-      lines.push(safeLine("Хладилник", getValByName("fridge_type")));
-    }
-
-    if (activeBranch === "3a-p") {
-      lines.push("Основни размери:");
-      lines.push(safeLine("Стена 1", getValByName("wall_1_p_3a")));
-      lines.push(safeLine("Стена 2", getValByName("wall_2_p_3a")));
-      lines.push(safeLine("Стена 3", getValByName("wall_3_p_3a")));
-      lines.push(safeLine("Височина", getValByName("room_height_p_3a")));
-      lines.push("");
-
-      lines.push(safeLine("Позиция вода", getValByName("water_position_p_3a")));
-      lines.push(safeLine("Позиция котлон", getValByName("hob_position_p_3a")));
-      lines.push("");
-
-      lines.push("Бар: " + yesNoBulgarian(getValByName("bar_enabled_p_3a")));
-      if (yesNoBulgarian(getValByName("bar_enabled_p_3a")) === "Да") {
-        lines.push(safeLine("Дължина на бар", getValByName("bar_length_p_3a")));
-        lines.push(safeLine("Дълбочина на бар", getValByName("bar_depth_p_3a")));
-      }
-      lines.push("");
-
-      lines.push("Остров: " + yesNoBulgarian(getValByName("island_enabled_p_3a")));
-      if (yesNoBulgarian(getValByName("island_enabled_p_3a")) === "Да") {
-        lines.push(safeLine("Дължина на остров", getValByName("island_length_p_3a")));
-        lines.push(safeLine("Дълбочина на остров", getValByName("island_depth_p_3a")));
-      }
-      lines.push("");
-
-      lines.push("Колона за фурна: " + yesNoBulgarian(getValByName("oven_tall_unit_p_3a")));
-      lines.push(safeLine("Хладилник", getValByName("fridge_type_p_3a")));
-    }
-
-    if (activeBranch === "3b-p") {
-      lines.push("Основни размери:");
-      lines.push(safeLine("Стена 1", getValByName("wall_1_p_3b")));
-      lines.push(safeLine("Стена 2", getValByName("wall_2_p_3b")));
-      lines.push(safeLine("Стена 3", getValByName("wall_3_p_3b")));
-      lines.push(safeLine("Височина", getValByName("room_height_p_3b")));
-      lines.push(safeLine("Комин A", getValByName("chimney_a_p_3b")));
-      lines.push(safeLine("Комин B", getValByName("chimney_b_p_3b")));
-      lines.push("");
-
-      lines.push(safeLine("Позиция вода", getValByName("water_position_p_3b")));
-      lines.push(safeLine("Позиция котлон", getValByName("hob_position_p_3b")));
-      lines.push("");
-
-      lines.push("Бар: " + yesNoBulgarian(getValByName("bar_enabled_p_3b")));
-      if (yesNoBulgarian(getValByName("bar_enabled_p_3b")) === "Да") {
-        lines.push(safeLine("Дължина на бар", getValByName("bar_length_p_3b")));
-        lines.push(safeLine("Дълбочина на бар", getValByName("bar_depth_p_3b")));
-      }
-      lines.push("");
-
-      lines.push("Остров: " + yesNoBulgarian(getValByName("island_enabled_p_3b")));
-      if (yesNoBulgarian(getValByName("island_enabled_p_3b")) === "Да") {
-        lines.push(safeLine("Дължина на остров", getValByName("island_length_p_3b")));
-        lines.push(safeLine("Дълбочина на остров", getValByName("island_depth_p_3b")));
-      }
-      lines.push("");
-
-      lines.push("Колона за фурна: " + yesNoBulgarian(getValByName("oven_tall_unit_p_3b")));
-      lines.push(safeLine("Хладилник", getValByName("fridge_type_p_3b")));
-    }
-
-    if (activeBranch === "3c-p") {
-      lines.push("Основни размери:");
-      lines.push(safeLine("Стена 1", getValByName("wall_1_p_3c")));
-      lines.push(safeLine("Стена 2", getValByName("wall_2_p_3c")));
-      lines.push(safeLine("Стена 3", getValByName("wall_3_p_3c")));
-      lines.push(safeLine("Височина", getValByName("room_height_p_3c")));
-      lines.push(safeLine("Комин A", getValByName("chimney_a_p_3c")));
-      lines.push(safeLine("Комин B", getValByName("chimney_b_p_3c")));
-      lines.push("");
-
-      lines.push(safeLine("Позиция вода", getValByName("water_position_p_3c")));
-      lines.push(safeLine("Позиция котлон", getValByName("hob_position_p_3c")));
-      lines.push("");
-
-      lines.push("Бар: " + yesNoBulgarian(getValByName("bar_enabled_p_3c")));
-      if (yesNoBulgarian(getValByName("bar_enabled_p_3c")) === "Да") {
-        lines.push(safeLine("Дължина на бар", getValByName("bar_length_p_3c")));
-        lines.push(safeLine("Дълбочина на бар", getValByName("bar_depth_p_3c")));
-      }
-      lines.push("");
-
-      lines.push("Остров: " + yesNoBulgarian(getValByName("island_enabled_p_3c")));
-      if (yesNoBulgarian(getValByName("island_enabled_p_3c")) === "Да") {
-        lines.push(safeLine("Дължина на остров", getValByName("island_length_p_3c")));
-        lines.push(safeLine("Дълбочина на остров", getValByName("island_depth_p_3c")));
-      }
-      lines.push("");
-
-      lines.push("Колона за фурна: " + yesNoBulgarian(getValByName("oven_tall_unit_p_3c")));
-      lines.push(safeLine("Хладилник", getValByName("fridge_type_p_3c")));
-    }
-
-    summaryReadable.value = lines.join("\n");
+    if (activeBranch !== "3a-p") setFieldsState(step3aP, false);
+    if (activeBranch !== "3b-p") setFieldsState(step3bP, false);
+    if (activeBranch !== "3c-p") setFieldsState(step3cP, false);
   }
 
   // =========================
@@ -1097,7 +1069,7 @@ document.addEventListener("DOMContentLoaded", function () {
         state3b.oven = ovenOn ? "yes" : "no";
 
         setHidden("oven-column-3b", ovenOn ? "yes" : "no");
-        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), "Да");
+        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
         return;
       }
 
@@ -1124,7 +1096,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // ===== PART 2 COMES NEXT =====  // =========================
+  // ===== PART 2 COMES NEXT =====// =========================
   // STEP 2 P
   // =========================
   if (step2P) {
@@ -1167,7 +1139,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // STEP 3A P (NO CHIMNEY)
+  // STEP 3A P (без комин)
   // =========================
   var comboSelectWrap3aP = null;
   var dimensionsPhaseWrap3aP = null;
@@ -1175,15 +1147,15 @@ document.addEventListener("DOMContentLoaded", function () {
   var islandWrap3aP = null;
 
   var cadBase3aP = null;
-  var cadP9 = null;
-  var cadP10 = null;
-  var cadP11 = null;
-  var cadP12 = null;
-  var cadP13 = null;
-  var cadP14 = null;
-  var cadP15 = null;
-  var cadP16 = null;
-  var cadP17 = null;
+  var cadPSketch9 = null;
+  var cadPSketch10 = null;
+  var cadPSketch11 = null;
+  var cadPSketch12 = null;
+  var cadPSketch13 = null;
+  var cadPSketch14 = null;
+  var cadPSketch15 = null;
+  var cadPSketch16 = null;
+  var cadPSketch17 = null;
   var all3aPCads = [];
 
   var state3aP = {
@@ -1206,17 +1178,17 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (state3aP.water === "1" && state3aP.hob === "1") return show3aPCad(cadP9);
-    if (state3aP.water === "1" && state3aP.hob === "2") return show3aPCad(cadP10);
-    if (state3aP.water === "1" && state3aP.hob === "3") return show3aPCad(cadP11);
+    if (state3aP.water === "1" && state3aP.hob === "1") return show3aPCad(cadPSketch9);
+    if (state3aP.water === "1" && state3aP.hob === "2") return show3aPCad(cadPSketch10);
+    if (state3aP.water === "1" && state3aP.hob === "3") return show3aPCad(cadPSketch11);
 
-    if (state3aP.water === "2" && state3aP.hob === "1") return show3aPCad(cadP12);
-    if (state3aP.water === "2" && state3aP.hob === "2") return show3aPCad(cadP13);
-    if (state3aP.water === "2" && state3aP.hob === "3") return show3aPCad(cadP14);
+    if (state3aP.water === "2" && state3aP.hob === "1") return show3aPCad(cadPSketch12);
+    if (state3aP.water === "2" && state3aP.hob === "2") return show3aPCad(cadPSketch13);
+    if (state3aP.water === "2" && state3aP.hob === "3") return show3aPCad(cadPSketch14);
 
-    if (state3aP.water === "3" && state3aP.hob === "1") return show3aPCad(cadP15);
-    if (state3aP.water === "3" && state3aP.hob === "2") return show3aPCad(cadP16);
-    if (state3aP.water === "3" && state3aP.hob === "3") return show3aPCad(cadP17);
+    if (state3aP.water === "3" && state3aP.hob === "1") return show3aPCad(cadPSketch15);
+    if (state3aP.water === "3" && state3aP.hob === "2") return show3aPCad(cadPSketch16);
+    if (state3aP.water === "3" && state3aP.hob === "3") return show3aPCad(cadPSketch17);
 
     show3aPCad(cadBase3aP);
   }
@@ -1248,17 +1220,28 @@ document.addEventListener("DOMContentLoaded", function () {
     islandWrap3aP = qs(step3aP, ".island-wrap");
 
     cadBase3aP = qs(step3aP, ".cad-p-3a-base");
-    cadP9 = qs(step3aP, ".cad-p-sketch-9");
-    cadP10 = qs(step3aP, ".cad-p-sketch-10");
-    cadP11 = qs(step3aP, ".cad-p-sketch-11");
-    cadP12 = qs(step3aP, ".cad-p-sketch-12");
-    cadP13 = qs(step3aP, ".cad-p-sketch-13");
-    cadP14 = qs(step3aP, ".cad-p-sketch-14");
-    cadP15 = qs(step3aP, ".cad-p-sketch-15");
-    cadP16 = qs(step3aP, ".cad-p-sketch-16");
-    cadP17 = qs(step3aP, ".cad-p-sketch-17");
+    cadPSketch9 = qs(step3aP, ".cad-p-sketch-9");
+    cadPSketch10 = qs(step3aP, ".cad-p-sketch-10");
+    cadPSketch11 = qs(step3aP, ".cad-p-sketch-11");
+    cadPSketch12 = qs(step3aP, ".cad-p-sketch-12");
+    cadPSketch13 = qs(step3aP, ".cad-p-sketch-13");
+    cadPSketch14 = qs(step3aP, ".cad-p-sketch-14");
+    cadPSketch15 = qs(step3aP, ".cad-p-sketch-15");
+    cadPSketch16 = qs(step3aP, ".cad-p-sketch-16");
+    cadPSketch17 = qs(step3aP, ".cad-p-sketch-17");
 
-    all3aPCads = [cadBase3aP, cadP9, cadP10, cadP11, cadP12, cadP13, cadP14, cadP15, cadP16, cadP17];
+    all3aPCads = [
+      cadBase3aP,
+      cadPSketch9,
+      cadPSketch10,
+      cadPSketch11,
+      cadPSketch12,
+      cadPSketch13,
+      cadPSketch14,
+      cadPSketch15,
+      cadPSketch16,
+      cadPSketch17
+    ];
 
     removeActiveInScope(step3aP, ".option-pill");
     clearHiddenInScope(step3aP);
@@ -1275,6 +1258,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (barWrap3aP) hide(barWrap3aP);
     if (islandWrap3aP) hide(islandWrap3aP);
+
+    setHidden("water-position-p-3a", "");
+    setHidden("hob-position-p-3a", "");
   }
 
   if (step3aP) {
@@ -1295,64 +1281,64 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var water1 = e.target.closest(".water-pos-1");
-      var water2 = e.target.closest(".water-pos-2");
-      var water3 = e.target.closest(".water-pos-3");
+      var targetWater1 = e.target.closest(".water-pos-1");
+      var targetWater2 = e.target.closest(".water-pos-2");
+      var targetWater3 = e.target.closest(".water-pos-3");
 
-      var hob1 = e.target.closest(".hob-pos-1");
-      var hob2 = e.target.closest(".hob-pos-2");
-      var hob3 = e.target.closest(".hob-pos-3");
+      var targetHob1 = e.target.closest(".hob-pos-1");
+      var targetHob2 = e.target.closest(".hob-pos-2");
+      var targetHob3 = e.target.closest(".hob-pos-3");
 
-      if (water1) {
+      if (targetWater1) {
         e.preventDefault();
-        setSingleActive(water1);
+        setSingleActive(targetWater1);
         state3aP.water = "1";
-        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetWater1.closest(".question-wrap"), "Стена 1");
         reveal3aPDimensionsIfReady();
         return;
       }
 
-      if (water2) {
+      if (targetWater2) {
         e.preventDefault();
-        setSingleActive(water2);
+        setSingleActive(targetWater2);
         state3aP.water = "2";
-        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetWater2.closest(".question-wrap"), "Стена 2");
         reveal3aPDimensionsIfReady();
         return;
       }
 
-      if (water3) {
+      if (targetWater3) {
         e.preventDefault();
-        setSingleActive(water3);
+        setSingleActive(targetWater3);
         state3aP.water = "3";
-        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetWater3.closest(".question-wrap"), "Стена 3");
         reveal3aPDimensionsIfReady();
         return;
       }
 
-      if (hob1) {
+      if (targetHob1) {
         e.preventDefault();
-        setSingleActive(hob1);
+        setSingleActive(targetHob1);
         state3aP.hob = "1";
-        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetHob1.closest(".question-wrap"), "Стена 1");
         reveal3aPDimensionsIfReady();
         return;
       }
 
-      if (hob2) {
+      if (targetHob2) {
         e.preventDefault();
-        setSingleActive(hob2);
+        setSingleActive(targetHob2);
         state3aP.hob = "2";
-        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetHob2.closest(".question-wrap"), "Стена 2");
         reveal3aPDimensionsIfReady();
         return;
       }
 
-      if (hob3) {
+      if (targetHob3) {
         e.preventDefault();
-        setSingleActive(hob3);
+        setSingleActive(targetHob3);
         state3aP.hob = "3";
-        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetHob3.closest(".question-wrap"), "Стена 3");
         reveal3aPDimensionsIfReady();
         return;
       }
@@ -1373,7 +1359,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var targetBarYes = e.target.closest(".bar-yes");
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
       if (targetBarYes) {
         e.preventDefault();
         var barOn = toggleActive(targetBarYes);
@@ -1420,7 +1406,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // STEP 3B P (LEFT CHIMNEY)
+  // STEP 3B P (комин вляво)
   // =========================
   var comboSelectWrap3bP = null;
   var dimensionsPhaseWrap3bP = null;
@@ -1428,15 +1414,15 @@ document.addEventListener("DOMContentLoaded", function () {
   var islandWrap3bP = null;
 
   var cadBase3bP = null;
-  var cadP18 = null;
-  var cadP19 = null;
-  var cadP20 = null;
-  var cadP21 = null;
-  var cadP22 = null;
-  var cadP23 = null;
-  var cadP24 = null;
-  var cadP25 = null;
-  var cadP26 = null;
+  var cadPSketch18 = null;
+  var cadPSketch19 = null;
+  var cadPSketch20 = null;
+  var cadPSketch21 = null;
+  var cadPSketch22 = null;
+  var cadPSketch23 = null;
+  var cadPSketch24 = null;
+  var cadPSketch25 = null;
+  var cadPSketch26 = null;
   var all3bPCads = [];
 
   var state3bP = {
@@ -1459,17 +1445,17 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (state3bP.water === "1" && state3bP.hob === "1") return show3bPCad(cadP18);
-    if (state3bP.water === "1" && state3bP.hob === "2") return show3bPCad(cadP19);
-    if (state3bP.water === "1" && state3bP.hob === "3") return show3bPCad(cadP20);
+    if (state3bP.water === "1" && state3bP.hob === "1") return show3bPCad(cadPSketch18);
+    if (state3bP.water === "1" && state3bP.hob === "2") return show3bPCad(cadPSketch19);
+    if (state3bP.water === "1" && state3bP.hob === "3") return show3bPCad(cadPSketch20);
 
-    if (state3bP.water === "2" && state3bP.hob === "1") return show3bPCad(cadP21);
-    if (state3bP.water === "2" && state3bP.hob === "2") return show3bPCad(cadP22);
-    if (state3bP.water === "2" && state3bP.hob === "3") return show3bPCad(cadP23);
+    if (state3bP.water === "2" && state3bP.hob === "1") return show3bPCad(cadPSketch21);
+    if (state3bP.water === "2" && state3bP.hob === "2") return show3bPCad(cadPSketch22);
+    if (state3bP.water === "2" && state3bP.hob === "3") return show3bPCad(cadPSketch23);
 
-    if (state3bP.water === "3" && state3bP.hob === "1") return show3bPCad(cadP24);
-    if (state3bP.water === "3" && state3bP.hob === "2") return show3bPCad(cadP25);
-    if (state3bP.water === "3" && state3bP.hob === "3") return show3bPCad(cadP26);
+    if (state3bP.water === "3" && state3bP.hob === "1") return show3bPCad(cadPSketch24);
+    if (state3bP.water === "3" && state3bP.hob === "2") return show3bPCad(cadPSketch25);
+    if (state3bP.water === "3" && state3bP.hob === "3") return show3bPCad(cadPSketch26);
 
     show3bPCad(cadBase3bP);
   }
@@ -1501,17 +1487,28 @@ document.addEventListener("DOMContentLoaded", function () {
     islandWrap3bP = qs(step3bP, ".island-wrap");
 
     cadBase3bP = qs(step3bP, ".cad-p-3b-base");
-    cadP18 = qs(step3bP, ".cad-p-sketch-18");
-    cadP19 = qs(step3bP, ".cad-p-sketch-19");
-    cadP20 = qs(step3bP, ".cad-p-sketch-20");
-    cadP21 = qs(step3bP, ".cad-p-sketch-21");
-    cadP22 = qs(step3bP, ".cad-p-sketch-22");
-    cadP23 = qs(step3bP, ".cad-p-sketch-23");
-    cadP24 = qs(step3bP, ".cad-p-sketch-24");
-    cadP25 = qs(step3bP, ".cad-p-sketch-25");
-    cadP26 = qs(step3bP, ".cad-p-sketch-26");
+    cadPSketch18 = qs(step3bP, ".cad-p-sketch-18");
+    cadPSketch19 = qs(step3bP, ".cad-p-sketch-19");
+    cadPSketch20 = qs(step3bP, ".cad-p-sketch-20");
+    cadPSketch21 = qs(step3bP, ".cad-p-sketch-21");
+    cadPSketch22 = qs(step3bP, ".cad-p-sketch-22");
+    cadPSketch23 = qs(step3bP, ".cad-p-sketch-23");
+    cadPSketch24 = qs(step3bP, ".cad-p-sketch-24");
+    cadPSketch25 = qs(step3bP, ".cad-p-sketch-25");
+    cadPSketch26 = qs(step3bP, ".cad-p-sketch-26");
 
-    all3bPCads = [cadBase3bP, cadP18, cadP19, cadP20, cadP21, cadP22, cadP23, cadP24, cadP25, cadP26];
+    all3bPCads = [
+      cadBase3bP,
+      cadPSketch18,
+      cadPSketch19,
+      cadPSketch20,
+      cadPSketch21,
+      cadPSketch22,
+      cadPSketch23,
+      cadPSketch24,
+      cadPSketch25,
+      cadPSketch26
+    ];
 
     removeActiveInScope(step3bP, ".option-pill");
     clearHiddenInScope(step3bP);
@@ -1548,64 +1545,64 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var water1 = e.target.closest(".water-pos-1");
-      var water2 = e.target.closest(".water-pos-2");
-      var water3 = e.target.closest(".water-pos-3");
+      var targetWater1 = e.target.closest(".water-pos-1");
+      var targetWater2 = e.target.closest(".water-pos-2");
+      var targetWater3 = e.target.closest(".water-pos-3");
 
-      var hob1 = e.target.closest(".hob-pos-1");
-      var hob2 = e.target.closest(".hob-pos-2");
-      var hob3 = e.target.closest(".hob-pos-3");
+      var targetHob1 = e.target.closest(".hob-pos-1");
+      var targetHob2 = e.target.closest(".hob-pos-2");
+      var targetHob3 = e.target.closest(".hob-pos-3");
 
-      if (water1) {
+      if (targetWater1) {
         e.preventDefault();
-        setSingleActive(water1);
+        setSingleActive(targetWater1);
         state3bP.water = "1";
-        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetWater1.closest(".question-wrap"), "Стена 1");
         reveal3bPDimensionsIfReady();
         return;
       }
 
-      if (water2) {
+      if (targetWater2) {
         e.preventDefault();
-        setSingleActive(water2);
+        setSingleActive(targetWater2);
         state3bP.water = "2";
-        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetWater2.closest(".question-wrap"), "Стена 2");
         reveal3bPDimensionsIfReady();
         return;
       }
 
-      if (water3) {
+      if (targetWater3) {
         e.preventDefault();
-        setSingleActive(water3);
+        setSingleActive(targetWater3);
         state3bP.water = "3";
-        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetWater3.closest(".question-wrap"), "Стена 3");
         reveal3bPDimensionsIfReady();
         return;
       }
 
-      if (hob1) {
+      if (targetHob1) {
         e.preventDefault();
-        setSingleActive(hob1);
+        setSingleActive(targetHob1);
         state3bP.hob = "1";
-        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetHob1.closest(".question-wrap"), "Стена 1");
         reveal3bPDimensionsIfReady();
         return;
       }
 
-      if (hob2) {
+      if (targetHob2) {
         e.preventDefault();
-        setSingleActive(hob2);
+        setSingleActive(targetHob2);
         state3bP.hob = "2";
-        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetHob2.closest(".question-wrap"), "Стена 2");
         reveal3bPDimensionsIfReady();
         return;
       }
 
-      if (hob3) {
+      if (targetHob3) {
         e.preventDefault();
-        setSingleActive(hob3);
+        setSingleActive(targetHob3);
         state3bP.hob = "3";
-        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetHob3.closest(".question-wrap"), "Стена 3");
         reveal3bPDimensionsIfReady();
         return;
       }
@@ -1626,7 +1623,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var targetBarYes = e.target.closest(".bar-yes");
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
       if (targetBarYes) {
         e.preventDefault();
         var barOn = toggleActive(targetBarYes);
@@ -1673,7 +1670,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // STEP 3C P (RIGHT CHIMNEY)
+  // STEP 3C P (комин вдясно)
   // =========================
   var comboSelectWrap3cP = null;
   var dimensionsPhaseWrap3cP = null;
@@ -1681,15 +1678,15 @@ document.addEventListener("DOMContentLoaded", function () {
   var islandWrap3cP = null;
 
   var cadBase3cP = null;
-  var cadP27 = null;
-  var cadP28 = null;
-  var cadP29 = null;
-  var cadP30 = null;
-  var cadP31 = null;
-  var cadP32 = null;
-  var cadP33 = null;
-  var cadP34 = null;
-  var cadP35 = null;
+  var cadPSketch27 = null;
+  var cadPSketch28 = null;
+  var cadPSketch29 = null;
+  var cadPSketch30 = null;
+  var cadPSketch31 = null;
+  var cadPSketch32 = null;
+  var cadPSketch33 = null;
+  var cadPSketch34 = null;
+  var cadPSketch35 = null;
   var all3cPCads = [];
 
   var state3cP = {
@@ -1712,17 +1709,17 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (state3cP.water === "1" && state3cP.hob === "1") return show3cPCad(cadP27);
-    if (state3cP.water === "1" && state3cP.hob === "2") return show3cPCad(cadP28);
-    if (state3cP.water === "1" && state3cP.hob === "3") return show3cPCad(cadP29);
+    if (state3cP.water === "1" && state3cP.hob === "1") return show3cPCad(cadPSketch27);
+    if (state3cP.water === "1" && state3cP.hob === "2") return show3cPCad(cadPSketch28);
+    if (state3cP.water === "1" && state3cP.hob === "3") return show3cPCad(cadPSketch29);
 
-    if (state3cP.water === "2" && state3cP.hob === "1") return show3cPCad(cadP30);
-    if (state3cP.water === "2" && state3cP.hob === "2") return show3cPCad(cadP31);
-    if (state3cP.water === "2" && state3cP.hob === "3") return show3cPCad(cadP32);
+    if (state3cP.water === "2" && state3cP.hob === "1") return show3cPCad(cadPSketch30);
+    if (state3cP.water === "2" && state3cP.hob === "2") return show3cPCad(cadPSketch31);
+    if (state3cP.water === "2" && state3cP.hob === "3") return show3cPCad(cadPSketch32);
 
-    if (state3cP.water === "3" && state3cP.hob === "1") return show3cPCad(cadP33);
-    if (state3cP.water === "3" && state3cP.hob === "2") return show3cPCad(cadP34);
-    if (state3cP.water === "3" && state3cP.hob === "3") return show3cPCad(cadP35);
+    if (state3cP.water === "3" && state3cP.hob === "1") return show3cPCad(cadPSketch33);
+    if (state3cP.water === "3" && state3cP.hob === "2") return show3cPCad(cadPSketch34);
+    if (state3cP.water === "3" && state3cP.hob === "3") return show3cPCad(cadPSketch35);
 
     show3cPCad(cadBase3cP);
   }
@@ -1754,17 +1751,28 @@ document.addEventListener("DOMContentLoaded", function () {
     islandWrap3cP = qs(step3cP, ".island-wrap");
 
     cadBase3cP = qs(step3cP, ".cad-p-3c-base");
-    cadP27 = qs(step3cP, ".cad-p-sketch-27");
-    cadP28 = qs(step3cP, ".cad-p-sketch-28");
-    cadP29 = qs(step3cP, ".cad-p-sketch-29");
-    cadP30 = qs(step3cP, ".cad-p-sketch-30");
-    cadP31 = qs(step3cP, ".cad-p-sketch-31");
-    cadP32 = qs(step3cP, ".cad-p-sketch-32");
-    cadP33 = qs(step3cP, ".cad-p-sketch-33");
-    cadP34 = qs(step3cP, ".cad-p-sketch-34");
-    cadP35 = qs(step3cP, ".cad-p-sketch-35");
+    cadPSketch27 = qs(step3cP, ".cad-p-sketch-27");
+    cadPSketch28 = qs(step3cP, ".cad-p-sketch-28");
+    cadPSketch29 = qs(step3cP, ".cad-p-sketch-29");
+    cadPSketch30 = qs(step3cP, ".cad-p-sketch-30");
+    cadPSketch31 = qs(step3cP, ".cad-p-sketch-31");
+    cadPSketch32 = qs(step3cP, ".cad-p-sketch-32");
+    cadPSketch33 = qs(step3cP, ".cad-p-sketch-33");
+    cadPSketch34 = qs(step3cP, ".cad-p-sketch-34");
+    cadPSketch35 = qs(step3cP, ".cad-p-sketch-35");
 
-    all3cPCads = [cadBase3cP, cadP27, cadP28, cadP29, cadP30, cadP31, cadP32, cadP33, cadP34, cadP35];
+    all3cPCads = [
+      cadBase3cP,
+      cadPSketch27,
+      cadPSketch28,
+      cadPSketch29,
+      cadPSketch30,
+      cadPSketch31,
+      cadPSketch32,
+      cadPSketch33,
+      cadPSketch34,
+      cadPSketch35
+    ];
 
     removeActiveInScope(step3cP, ".option-pill");
     clearHiddenInScope(step3cP);
@@ -1801,64 +1809,64 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var water1 = e.target.closest(".water-pos-1");
-      var water2 = e.target.closest(".water-pos-2");
-      var water3 = e.target.closest(".water-pos-3");
+      var targetWater1 = e.target.closest(".water-pos-1");
+      var targetWater2 = e.target.closest(".water-pos-2");
+      var targetWater3 = e.target.closest(".water-pos-3");
 
-      var hob1 = e.target.closest(".hob-pos-1");
-      var hob2 = e.target.closest(".hob-pos-2");
-      var hob3 = e.target.closest(".hob-pos-3");
+      var targetHob1 = e.target.closest(".hob-pos-1");
+      var targetHob2 = e.target.closest(".hob-pos-2");
+      var targetHob3 = e.target.closest(".hob-pos-3");
 
-      if (water1) {
+      if (targetWater1) {
         e.preventDefault();
-        setSingleActive(water1);
+        setSingleActive(targetWater1);
         state3cP.water = "1";
-        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetWater1.closest(".question-wrap"), "Стена 1");
         reveal3cPDimensionsIfReady();
         return;
       }
 
-      if (water2) {
+      if (targetWater2) {
         e.preventDefault();
-        setSingleActive(water2);
+        setSingleActive(targetWater2);
         state3cP.water = "2";
-        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetWater2.closest(".question-wrap"), "Стена 2");
         reveal3cPDimensionsIfReady();
         return;
       }
 
-      if (water3) {
+      if (targetWater3) {
         e.preventDefault();
-        setSingleActive(water3);
+        setSingleActive(targetWater3);
         state3cP.water = "3";
-        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetWater3.closest(".question-wrap"), "Стена 3");
         reveal3cPDimensionsIfReady();
         return;
       }
 
-      if (hob1) {
+      if (targetHob1) {
         e.preventDefault();
-        setSingleActive(hob1);
+        setSingleActive(targetHob1);
         state3cP.hob = "1";
-        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        setFirstHiddenInScope(targetHob1.closest(".question-wrap"), "Стена 1");
         reveal3cPDimensionsIfReady();
         return;
       }
 
-      if (hob2) {
+      if (targetHob2) {
         e.preventDefault();
-        setSingleActive(hob2);
+        setSingleActive(targetHob2);
         state3cP.hob = "2";
-        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        setFirstHiddenInScope(targetHob2.closest(".question-wrap"), "Стена 2");
         reveal3cPDimensionsIfReady();
         return;
       }
 
-      if (hob3) {
+      if (targetHob3) {
         e.preventDefault();
-        setSingleActive(hob3);
+        setSingleActive(targetHob3);
         state3cP.hob = "3";
-        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        setFirstHiddenInScope(targetHob3.closest(".question-wrap"), "Стена 3");
         reveal3cPDimensionsIfReady();
         return;
       }
@@ -1879,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      var targetBarYes = e.target.closest(".bar-yes");
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
       if (targetBarYes) {
         e.preventDefault();
         var barOn = toggleActive(targetBarYes);
@@ -1937,7 +1945,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var visibleStep = getVisibleStep();
 
-      if (visibleStep === step2Aglova || visibleStep === step2Prava || visibleStep === step2P) {
+      if (visibleStep === step2Aglova || visibleStep === step2P || visibleStep === step2Prava) {
         showStep(step1);
         return;
       }
@@ -1957,22 +1965,18 @@ document.addEventListener("DOMContentLoaded", function () {
           showStep(step3aAglova);
           return;
         }
-
         if (activeBranch === "3b-aglova" && step3bAglova) {
           showStep(step3bAglova);
           return;
         }
-
         if (activeBranch === "3a-p" && step3aP) {
           showStep(step3aP);
           return;
         }
-
         if (activeBranch === "3b-p" && step3bP) {
           showStep(step3bP);
           return;
         }
-
         if (activeBranch === "3c-p" && step3cP) {
           showStep(step3cP);
           return;
@@ -1990,28 +1994,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var currentStep = getVisibleStep();
 
-      if (currentStep === step3aAglova && step5) {
-        showStep(step5);
-        return;
-      }
-
-      if (currentStep === step3bAglova && step5) {
-        showStep(step5);
-        return;
-      }
-
-      if (currentStep === step3aP && step5) {
-        showStep(step5);
-        return;
-      }
-
-      if (currentStep === step3bP && step5) {
-        showStep(step5);
-        return;
-      }
-
-      if (currentStep === step3cP && step5) {
-        showStep(step5);
+      if (
+        currentStep === step3aAglova ||
+        currentStep === step3bAglova ||
+        currentStep === step3aP ||
+        currentStep === step3bP ||
+        currentStep === step3cP
+      ) {
+        if (step5) showStep(step5);
         return;
       }
 
@@ -2060,6 +2050,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     buildReadableSummary();
+    stripTechnicalFieldNames();
     HTMLFormElement.prototype.submit.call(smartForm);
   });
 });
