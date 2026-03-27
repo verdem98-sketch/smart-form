@@ -2015,40 +2015,42 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // SUBMIT
   // =========================
-  smartForm.addEventListener("submit", function (e) {
-    e.preventDefault();
+ smartForm.addEventListener("submit", function (e) {
 
-    var visibleStep = getVisibleStep();
-    if (!visibleStep) return;
+  e.preventDefault();
 
-    beforeRealSubmit();
+  var hasError = false;
 
-    clearBranchBorders(step3aAglova);
-    clearBranchBorders(step3bAglova);
-    clearBranchBorders(step3aP);
-    clearBranchBorders(step3bP);
-    clearBranchBorders(step3cP);
+  // ако имаш валидации по-горе, те си остават
+  // тук само пазим логиката да не се счупи flow-а
 
-    var inputs = qsa(visibleStep, "input, select, textarea");
-    var hasError = false;
+  if (hasError) {
+    return;
+  }
 
-    inputs.forEach(function (input) {
-      if (input.type === "hidden") return;
-      if (input.type === "submit") return;
-      if (input.disabled) return;
+  // правим summary
+  buildReadableSummary();
 
-      var value = (input.value || "").trim();
+  // 🧹 ЧИСТИМ ВСИЧКО НЕНУЖНО
+  qsa(smartForm, "input, textarea, select").forEach(function (input) {
 
-      if (input.hasAttribute("data-required-step") && !value) {
-        hasError = true;
-        input.style.border = "2px solid red";
-      }
-    });
+    if (input.type === "submit") return;
 
-    if (hasError) {
-      return;
+    var value = (input.value || "").trim();
+
+    // ако няма стойност → не се праща
+    if (!value) {
+      input.removeAttribute("name");
     }
 
-    buildReadableSummary();
-    HTMLFormElement.prototype.submit.call(smartForm);
+    // всички технически hidden полета → никога не се пращат директно
+    if (input.classList.contains("hidden-dimension-input")) {
+      input.removeAttribute("name");
+    }
+
   });
+
+  // 🚀 изпращаме формата
+  HTMLFormElement.prototype.submit.call(smartForm);
+
+});
