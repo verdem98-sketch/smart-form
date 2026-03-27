@@ -2021,6 +2021,12 @@ document.addEventListener("DOMContentLoaded", function () {
     var visibleStep = getVisibleStep();
     if (!visibleStep) return;
 
+    // за всеки случай връщаме disabled полетата обратно
+    qsa(smartForm, "input, select, textarea").forEach(function (field) {
+      if (field.type === "submit") return;
+      field.disabled = false;
+    });
+
     beforeRealSubmit();
 
     clearBranchBorders(step3aAglova);
@@ -2052,17 +2058,12 @@ document.addEventListener("DOMContentLoaded", function () {
     buildReadableSummary();
     stripTechnicalFieldNames();
 
-    // махаме от submit-а всички празни полета
-    qsa(smartForm, "input, select, textarea").forEach(function (field) {
-      if (field.type === "submit") return;
+    // спираме от submit-а САМО празните hidden технически полета
+    qsa(smartForm, 'input[type="hidden"], textarea').forEach(function (field) {
+      if (field.name === "summary_readable") return;
 
       var value = (field.value || "").trim();
 
-      // ако е textarea за обобщението - оставяме го
-      if (field.name === "summary_readable") return;
-
-      // ако е име / email / телефон - оставяме ги, ако са попълнени
-      // ако са празни -> няма да се пратят
       if (!value) {
         field.disabled = true;
       }
