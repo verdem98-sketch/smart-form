@@ -1945,69 +1945,55 @@ form.addEventListener("submit", function () {
     return (el.value || "").trim();
   }
 
-  function addRow(label, value) {
-    if (!value) return "";
-    return label + ": " + value + "<br><br>";
+  function setMail(id, value) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = value || "";
   }
-
-  var summary = "";
 
   // =========================
   // КОНФИГУРАЦИЯ
   // =========================
-  var config = val("configuration");
-  if (config) {
-    summary += "<strong>КОНФИГУРАЦИЯ</strong><br><br>";
-    summary += addRow("Тип", config);
-  }
+  setMail("mail_configuration", val("configuration"));
 
   // =========================
-  // РАЗМЕРИ
+  // РАЗМЕРИ (P кухня пример)
   // =========================
-  var w1 = val("wall_1");
-  var w2 = val("wall_2");
-  var w3 = val("wall_3");
-  var h = val("room_height");
-
-  if (w1 || w2 || w3 || h) {
-    summary += "<strong>РАЗМЕРИ</strong><br><br>";
-    summary += addRow("Стена 1", w1);
-    summary += addRow("Стена 2", w2);
-    summary += addRow("Стена 3", w3);
-    summary += addRow("Височина", h);
-  }
+  setMail("mail_wall_1", val("wall_1_p_3a") || val("wall_1_p_3b") || val("wall_1_p_3c"));
+  setMail("mail_wall_2", val("wall_2_p_3a") || val("wall_2_p_3b") || val("wall_2_p_3c"));
+  setMail("mail_wall_3", val("wall_3_p_3a") || val("wall_3_p_3b") || val("wall_3_p_3c"));
+  setMail("mail_room_height", val("room_height_p_3a") || val("room_height_p_3b") || val("room_height_p_3c"));
 
   // =========================
   // ПОЗИЦИИ
   // =========================
-  var water = val("water_position");
-  var hob = val("hob_position");
-
-  if (water || hob) {
-    summary += "<strong>ПОЗИЦИИ</strong><br><br>";
-    summary += addRow("Вода", water);
-    summary += addRow("Котлон", hob);
-  }
+  setMail("mail_water_position", val("water_position_p_3a") || val("water_position_p_3b") || val("water_position_p_3c"));
+  setMail("mail_hob_position", val("hob_position_p_3a") || val("hob_position_p_3b") || val("hob_position_p_3c"));
 
   // =========================
-  // ДОПЪЛНИТЕЛНО
+  // КОМИН
   // =========================
-  var island = val("island_enabled");
-  var bar = val("bar_enabled");
-  var fridge = val("fridge_type");
-  var oven = val("oven_tall_unit");
+  setMail("mail_chimney_a", val("chimney_a_p_3b") || val("chimney_a_p_3c"));
+  setMail("mail_chimney_b", val("chimney_b_p_3b") || val("chimney_b_p_3c"));
 
-  if (island || bar || fridge || oven) {
-    summary += "<strong>ДОПЪЛНИТЕЛНО</strong><br><br>";
-    summary += addRow("Остров", island);
-    summary += addRow("Бар", bar);
-    summary += addRow("Хладилник", fridge);
-    summary += addRow("Фурна", oven);
-  }
+  // =========================
+  // БАР
+  // =========================
+  setMail("mail_bar_enabled", val("bar_enabled_p_3a") || val("bar_enabled_p_3b") || val("bar_enabled_p_3c"));
+  setMail("mail_bar_length", val("bar_length_p_3a") || val("bar_length_p_3b") || val("bar_length_p_3c"));
+  setMail("mail_bar_depth", val("bar_depth_p_3a") || val("bar_depth_p_3b") || val("bar_depth_p_3c"));
 
-  var summaryField = form.querySelector('[name="summary_readable"]');
-  if (summaryField) {
-    summaryField.value = summary;
-  }
+  // =========================
+  // ОСТРОВ
+  // =========================
+  setMail("mail_island_enabled", val("island_enabled_p_3a") || val("island_enabled_p_3b") || val("island_enabled_p_3c"));
+  setMail("mail_island_length", val("island_length_p_3a") || val("island_length_p_3b") || val("island_length_p_3c"));
+  setMail("mail_island_depth", val("island_depth_p_3a") || val("island_depth_p_3b") || val("island_depth_p_3c"));
+
+  // =========================
+  // УРЕДИ
+  // =========================
+  setMail("mail_oven_tall_unit", val("oven_tall_unit_p_3a") || val("oven_tall_unit_p_3b") || val("oven_tall_unit_p_3c"));
+  setMail("mail_fridge_type", val("fridge_type_p_3a") || val("fridge_type_p_3b") || val("fridge_type_p_3c"));
 
 });
