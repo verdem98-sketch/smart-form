@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // HELPERS
@@ -26,7 +25,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function setHidden(name, value) {
     var el = qs(formEl, '[name="' + name + '"]');
-    if (!el) el.value = value || "";
+    if (!el) return;
+    el.value = value || "";
   }
 
   function getHidden(name) {
@@ -42,13 +42,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (el.type === "hidden") return;
       if (el.type === "submit") return;
       el.disabled = !enabled;
-    });
-  }
-
-  function clearBranchBorders(scopeEl) {
-    if (!scopeEl) return;
-    qsa(scopeEl, "input, select, textarea").forEach(function (el) {
-      el.style.border = "";
     });
   }
 
@@ -111,6 +104,24 @@ document.addEventListener("DOMContentLoaded", function () {
     return classes.some(function (cls) {
       return el.classList.contains(cls);
     });
+  }
+
+  function firstExisting(scope, selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var found = qs(scope, selectors[i]);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function allExisting(scope, selectors) {
+    var out = [];
+    selectors.forEach(function (sel) {
+      qsa(scope, sel).forEach(function (el) {
+        if (out.indexOf(el) === -1) out.push(el);
+      });
+    });
+    return out;
   }
 
   // =========================
@@ -269,7 +280,6 @@ document.addEventListener("DOMContentLoaded", function () {
   var overlay = qs(document, ".section-overlay");
   var modalCard = qs(document, ".modal-card");
   var smartFormBlock = qs(document, ".smart-form-block");
-  var formWrap = qs(smartFormBlock, ".w-form");
   var formEl = qs(smartFormBlock, "form");
   var openButtons = qsa(document, ".open-smart-form");
 
@@ -296,10 +306,52 @@ document.addEventListener("DOMContentLoaded", function () {
   var step4 = qs(smartFormBlock, ".step-4");
 
   // =========================
+  // STEP 4 REFERENCES
+  // =========================
+  var visionSetStraight = step4
+    ? firstExisting(step4, [".vision-set.straight", ".vision-set-straight", ".vision-set\\/straight"])
+    : null;
+
+  var visionSetCorner = step4
+    ? firstExisting(step4, [".vision-set.corner", ".vision-set-corner", ".vision-set\\/corner"])
+    : null;
+
+  var visionSetU = step4
+    ? firstExisting(step4, [".vision-set.u", ".vision-set-u", ".vision-set\\/u"])
+    : null;
+
+  var visionCards = step4 ? allExisting(step4, [".vision-card"]) : [];
+  var planPills = step4 ? allExisting(step4, [".option-pill.plan"]) : [];
+  var contactPills = step4 ? allExisting(step4, [".option-pill.contact"]) : [];
+  var stepSubmitBtn = step4 ? firstExisting(step4, [".step-submit", '[type="submit"]']) : null;
+
+  // =========================
   // ACTIVE BRANCH
   // =========================
   var activeBranch = "";
   var activeKitchenType = "";
+
+  function getBranchStepByKey(branchKey) {
+    if (branchKey === "3a") return step3aAglova;
+    if (branchKey === "3b") return step3bAglova;
+    if (branchKey === "3a-p") return step3aP;
+    if (branchKey === "3b-p") return step3bP;
+    if (branchKey === "3c-p") return step3cP;
+    return null;
+  }
+
+  function syncConfigurationHidden() {
+    var label = "";
+
+    if (activeBranch === "3a") label = "Ъглова без комин";
+    if (activeBranch === "3b") label = "Ъглова с комин";
+    if (activeBranch === "3a-p") label = "П кухня без комин";
+    if (activeBranch === "3b-p") label = "П кухня с комин отляво";
+    if (activeBranch === "3c-p") label = "П кухня с комин отдясно";
+    if (!label && activeKitchenType === "straight") label = "Права кухня";
+
+    setHidden("configuration", label);
+  }
 
   function getVisibleStep() {
     var visible = null;
@@ -350,19 +402,26 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function applyBranchState() {
-    setFieldsState(step3aAglova, false);
-    setFieldsState(step3bAglova, false);
-    setFieldsState(step3aP, false);
-    setFieldsState(step3bP, false);
-    setFieldsState(step3cP, false);
+    [step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
+      if (!step) return;
+      setFieldsState(step, false);
+    });
+
+    var activeStepEl = getBranchStepByKey(activeBranch);
+    if (activeStepEl && getVisibleStep() === activeStepEl) {
+      setFieldsState(activeStepEl, true);
+    }
   }
 
   function beforeRealSubmit() {
-    setFieldsState(step3aAglova, false);
-    setFieldsState(step3bAglova, false);
-    setFieldsState(step3aP, false);
-    setFieldsState(step3bP, false);
-    setFieldsState(step3cP, false);
+    [step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
+      if (!step) return;
+      setFieldsState(step, false);
+    });
+
+    if (step4 && getVisibleStep() === step4) {
+      setFieldsState(step4, true);
+    }
   }
 
   // =========================
@@ -392,8 +451,10 @@ document.addEventListener("DOMContentLoaded", function () {
     var summary = qs(formEl, '[name="summary_readable"]');
     if (!summary) return;
 
+    syncConfigurationHidden();
+    pushIf(lines, "Конфигурация", readValue("configuration"));
+
     if (activeBranch === "3a") {
-      lines.push("Конфигурация: Ъглова без комин");
       pushIf(lines, "Вода", readValue("water_position_3a"));
       pushIf(lines, "Комин", readValue("chimney_position_3a"));
       pushIf(lines, "Стена 1", readValue("stena1_3a"));
@@ -410,7 +471,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (activeBranch === "3b") {
-      lines.push("Конфигурация: Ъглова с комин");
       pushIf(lines, "Вода", readValue("water_position_3b"));
       pushIf(lines, "Комин", readValue("chimney_position_3b"));
       pushIf(lines, "Стена 1", readValue("stena1_3b"));
@@ -429,7 +489,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (activeBranch === "3a-p") {
-      lines.push("Конфигурация: П кухня без комин");
       pushIf(lines, "Вода", readValue("water_position_p_3a"));
       pushIf(lines, "Котлони", readValue("hob_position_p_3a"));
       pushIf(lines, "Стена 1", readValue("stena1_p_3a"));
@@ -447,7 +506,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (activeBranch === "3b-p") {
-      lines.push("Конфигурация: П кухня с комин отляво");
       pushIf(lines, "Вода", readValue("water_position_p_3b"));
       pushIf(lines, "Котлони", readValue("hob_position_p_3b"));
       pushIf(lines, "Стена 1", readValue("stena1_p_3b"));
@@ -467,7 +525,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (activeBranch === "3c-p") {
-      lines.push("Конфигурация: П кухня с комин отдясно");
       pushIf(lines, "Вода", readValue("water_position_p_3c"));
       pushIf(lines, "Котлони", readValue("hob_position_p_3c"));
       pushIf(lines, "Стена 1", readValue("stena1_p_3c"));
@@ -505,6 +562,7 @@ document.addEventListener("DOMContentLoaded", function () {
     hideAllSteps();
 
     if (step1) showStep(step1);
+    syncConfigurationHidden();
     applyBranchState();
   }
 
@@ -537,6 +595,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================
   hideAllSteps();
   if (step1) showStep(step1);
+  syncConfigurationHidden();
   applyBranchState();
 
   // =========================
@@ -553,18 +612,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (index === 0 && flowPrava) {
           activeKitchenType = "straight";
+          syncConfigurationHidden();
           showStep(flowPrava);
           return;
         }
 
         if (index === 1 && flowAglova) {
           activeKitchenType = "corner";
+          syncConfigurationHidden();
           showStep(flowAglova);
           return;
         }
 
         if (index === 2 && flowP) {
           activeKitchenType = "u";
+          syncConfigurationHidden();
           showStep(flowP);
           return;
         }
@@ -585,6 +647,7 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         activeBranch = "3a";
         activeKitchenType = "corner";
+        syncConfigurationHidden();
         setHidden("aglova-has-corner", "no");
         resetStep3aState();
         if (step3aAglova) showStep(step3aAglova);
@@ -598,6 +661,7 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         activeBranch = "3b";
         activeKitchenType = "corner";
+        syncConfigurationHidden();
         setHidden("aglova-has-corner", "yes");
         resetStep3bState();
         if (step3bAglova) showStep(step3bAglova);
@@ -1078,7 +1142,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // ===== КРАЙ НА ЧАСТ 1/2 =====
   // =========================
   // FLOW P
   // =========================
@@ -1093,6 +1156,7 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         activeBranch = "3a-p";
         activeKitchenType = "u";
+        syncConfigurationHidden();
         resetStep3aPState();
         if (step3aP) showStep(step3aP);
         applyBranchState();
@@ -1105,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         activeBranch = "3b-p";
         activeKitchenType = "u";
+        syncConfigurationHidden();
         resetStep3bPState();
         if (step3bP) showStep(step3bP);
         applyBranchState();
@@ -1117,6 +1182,7 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         activeBranch = "3c-p";
         activeKitchenType = "u";
+        syncConfigurationHidden();
         resetStep3cPState();
         if (step3cP) showStep(step3cP);
         applyBranchState();
@@ -1999,6 +2065,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (stepSubmitBtn) {
       stepSubmitBtn.addEventListener("click", function () {
+        syncConfigurationHidden();
         buildReadableSummary();
         beforeRealSubmit();
       });
@@ -2056,6 +2123,7 @@ document.addEventListener("DOMContentLoaded", function () {
         currentStep === flowPrava
       ) {
         resetStep4State();
+        syncConfigurationHidden();
         if (step4) showStep(step4);
         return;
       }
@@ -2066,6 +2134,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // SUBMIT
   // =========================
   formEl.addEventListener("submit", function () {
+    syncConfigurationHidden();
     buildReadableSummary();
     beforeRealSubmit();
 
@@ -2082,27 +2151,158 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     setMail("mail_configuration", val("configuration"));
-    setMail("mail_wall_1", val("wall_1_p_3a") || val("wall_1_p_3b") || val("wall_1_p_3c") || val("stena1_3a") || val("stena1_3b"));
-    setMail("mail_wall_2", val("wall_2_p_3a") || val("wall_2_p_3b") || val("wall_2_p_3c") || val("stena2_3a") || val("stena2_3b"));
-    setMail("mail_wall_3", val("wall_3_p_3a") || val("wall_3_p_3b") || val("wall_3_p_3c"));
-    setMail("mail_room_height", val("room_height_p_3a") || val("room_height_p_3b") || val("room_height_p_3c") || val("visochina_3a") || val("visochina_3b"));
 
-    setMail("mail_water_position", val("water_position_p_3a") || val("water_position_p_3b") || val("water_position_p_3c") || val("water_position_3a") || val("water_position_3b"));
-    setMail("mail_hob_position", val("hob_position_p_3a") || val("hob_position_p_3b") || val("hob_position_p_3c"));
+    setMail(
+      "mail_wall_1",
+      val("stena1_p_3a") ||
+      val("stena1_p_3b") ||
+      val("stena1_p_3c") ||
+      val("stena1_3a") ||
+      val("stena1_3b") ||
+      val("wall_1_p_3a") ||
+      val("wall_1_p_3b") ||
+      val("wall_1_p_3c")
+    );
 
-    setMail("mail_chimney_a", val("chimney_a_p_3b") || val("chimney_a_p_3c") || val("komin_a_3b"));
-    setMail("mail_chimney_b", val("chimney_b_p_3b") || val("chimney_b_p_3c") || val("komin_b_3b"));
+    setMail(
+      "mail_wall_2",
+      val("stena2_p_3a") ||
+      val("stena2_p_3b") ||
+      val("stena2_p_3c") ||
+      val("stena2_3a") ||
+      val("stena2_3b") ||
+      val("wall_2_p_3a") ||
+      val("wall_2_p_3b") ||
+      val("wall_2_p_3c")
+    );
 
-    setMail("mail_bar_enabled", val("bar_enabled_p_3a") || val("bar_enabled_p_3b") || val("bar_enabled_p_3c") || val("bar_enabled_3a") || val("bar_enabled_3b"));
-    setMail("mail_bar_length", val("bar_length_p_3a") || val("bar_length_p_3b") || val("bar_length_p_3c") || val("bar_length_3a") || val("bar_length_3b"));
-    setMail("mail_bar_depth", val("bar_depth_p_3a") || val("bar_depth_p_3b") || val("bar_depth_p_3c") || val("bar_depth_3a") || val("bar_depth_3b"));
+    setMail(
+      "mail_wall_3",
+      val("stena3_p_3a") ||
+      val("stena3_p_3b") ||
+      val("stena3_p_3c") ||
+      val("wall_3_p_3a") ||
+      val("wall_3_p_3b") ||
+      val("wall_3_p_3c")
+    );
 
-    setMail("mail_island_enabled", val("island_enabled_p_3a") || val("island_enabled_p_3b") || val("island_enabled_p_3c") || val("island_enabled_3a") || val("island_enabled_3b"));
-    setMail("mail_island_length", val("island_length_p_3a") || val("island_length_p_3b") || val("island_length_p_3c") || val("island_length_3a") || val("island_length_3b"));
-    setMail("mail_island_depth", val("island_depth_p_3a") || val("island_depth_p_3b") || val("island_depth_p_3c") || val("island_depth_3a") || val("island_depth_3b"));
+    setMail(
+      "mail_room_height",
+      val("visochina_p_3a") ||
+      val("visochina_p_3b") ||
+      val("visochina_p_3c") ||
+      val("visochina_3a") ||
+      val("visochina_3b") ||
+      val("room_height_p_3a") ||
+      val("room_height_p_3b") ||
+      val("room_height_p_3c")
+    );
 
-    setMail("mail_oven_tall_unit", val("oven_tall_unit_p_3a") || val("oven_tall_unit_p_3b") || val("oven_tall_unit_p_3c") || val("oven_tall_unit_3a") || val("oven_tall_unit_3b"));
-    setMail("mail_fridge_type", val("fridge_type_p_3a") || val("fridge_type_p_3b") || val("fridge_type_p_3c") || val("fridge_type_3a") || val("fridge_type_3b"));
+    setMail(
+      "mail_water_position",
+      val("water_position_p_3a") ||
+      val("water_position_p_3b") ||
+      val("water_position_p_3c") ||
+      val("water_position_3a") ||
+      val("water_position_3b")
+    );
+
+    setMail(
+      "mail_hob_position",
+      val("hob_position_p_3a") ||
+      val("hob_position_p_3b") ||
+      val("hob_position_p_3c")
+    );
+
+    setMail(
+      "mail_chimney_a",
+      val("komin_a_p_3b") ||
+      val("komin_a_p_3c") ||
+      val("chimney_a_p_3b") ||
+      val("chimney_a_p_3c") ||
+      val("komin_a_3b")
+    );
+
+    setMail(
+      "mail_chimney_b",
+      val("komin_b_p_3b") ||
+      val("komin_b_p_3c") ||
+      val("chimney_b_p_3b") ||
+      val("chimney_b_p_3c") ||
+      val("komin_b_3b")
+    );
+
+    setMail(
+      "mail_bar_enabled",
+      val("bar_enabled_p_3a") ||
+      val("bar_enabled_p_3b") ||
+      val("bar_enabled_p_3c") ||
+      val("bar_enabled_3a") ||
+      val("bar_enabled_3b")
+    );
+
+    setMail(
+      "mail_bar_length",
+      val("bar_length_p_3a") ||
+      val("bar_length_p_3b") ||
+      val("bar_length_p_3c") ||
+      val("bar_length_3a") ||
+      val("bar_length_3b")
+    );
+
+    setMail(
+      "mail_bar_depth",
+      val("bar_depth_p_3a") ||
+      val("bar_depth_p_3b") ||
+      val("bar_depth_p_3c") ||
+      val("bar_depth_3a") ||
+      val("bar_depth_3b")
+    );
+
+    setMail(
+      "mail_island_enabled",
+      val("island_enabled_p_3a") ||
+      val("island_enabled_p_3b") ||
+      val("island_enabled_p_3c") ||
+      val("island_enabled_3a") ||
+      val("island_enabled_3b")
+    );
+
+    setMail(
+      "mail_island_length",
+      val("island_length_p_3a") ||
+      val("island_length_p_3b") ||
+      val("island_length_p_3c") ||
+      val("island_length_3a") ||
+      val("island_length_3b")
+    );
+
+    setMail(
+      "mail_island_depth",
+      val("island_depth_p_3a") ||
+      val("island_depth_p_3b") ||
+      val("island_depth_p_3c") ||
+      val("island_depth_3a") ||
+      val("island_depth_3b")
+    );
+
+    setMail(
+      "mail_oven_tall_unit",
+      val("oven_tall_unit_p_3a") ||
+      val("oven_tall_unit_p_3b") ||
+      val("oven_tall_unit_p_3c") ||
+      val("oven_tall_unit_3a") ||
+      val("oven_tall_unit_3b")
+    );
+
+    setMail(
+      "mail_fridge_type",
+      val("fridge_type_p_3a") ||
+      val("fridge_type_p_3b") ||
+      val("fridge_type_p_3c") ||
+      val("fridge_type_3a") ||
+      val("fridge_type_3b")
+    );
 
     setMail("mail_vision", val("vision"));
     setMail("mail_plan", val("plan"));
