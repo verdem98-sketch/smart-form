@@ -2012,7 +2012,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // =========================
+// =========================
   // SUBMIT
   // =========================
   smartForm.addEventListener("submit", function (e) {
@@ -2051,6 +2051,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
     buildReadableSummary();
     stripTechnicalFieldNames();
+
+    // махаме от submit-а всички празни полета
+    qsa(smartForm, "input, select, textarea").forEach(function (field) {
+      if (field.type === "submit") return;
+
+      var value = (field.value || "").trim();
+
+      // ако е textarea за обобщението - оставяме го
+      if (field.name === "summary_readable") return;
+
+      // ако е име / email / телефон - оставяме ги, ако са попълнени
+      // ако са празни -> няма да се пратят
+      if (!value) {
+        field.disabled = true;
+      }
+    });
+
     HTMLFormElement.prototype.submit.call(smartForm);
   });
-});
