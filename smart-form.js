@@ -1937,30 +1937,89 @@ smartFormBlock.addEventListener("click", function (e) {
 // =========================
 // SUBMIT
 // =========================
-formEl.addEventListener("submit", function (e) {
-  e.preventDefault();
+form.addEventListener("submit", function () {
 
-  var hasError = false;
+  function val(name) {
+    var el = form.querySelector('[name="' + name + '"]');
+    if (!el) return "";
+    return (el.value || "").trim();
+  }
 
-  qsa(formEl, "input, select, textarea").forEach(function (input) {
-    if (input.type === "hidden") return;
-    if (input.type === "submit") return;
-    if (input.disabled) return;
+  function addRow(label, value) {
+    if (!value) return "";
+    return label.padEnd(16, " ") + ": " + value + "\n";
+  }
 
-    var value = (input.value || "").trim();
+  var summary = "";
 
-    if (input.hasAttribute("data-required-step") && !value) {
-      hasError = true;
-      input.style.border = "2px solid red";
-    }
-  });
+  // =========================
+  // КОНФИГУРАЦИЯ
+  // =========================
+  var config = val("configuration");
+  if (config) {
+    summary += "КОНФИГУРАЦИЯ\n";
+    summary += "----------------------------\n";
+    summary += addRow("Тип", config);
+    summary += "\n";
+  }
 
-  if (hasError) return;
+  // =========================
+  // РАЗМЕРИ
+  // =========================
+  var w1 = val("wall_1");
+  var w2 = val("wall_2");
+  var w3 = val("wall_3");
+  var h = val("room_height");
 
-  buildReadableSummary();
+  if (w1 || w2 || w3 || h) {
+    summary += "РАЗМЕРИ\n";
+    summary += "----------------------------\n";
+    summary += addRow("Стена 1", w1);
+    summary += addRow("Стена 2", w2);
+    summary += addRow("Стена 3", w3);
+    summary += addRow("Височина", h);
+    summary += "\n";
+  }
 
-  HTMLFormElement.prototype.submit.call(formEl);
+  // =========================
+  // ПОЗИЦИИ
+  // =========================
+  var water = val("water_position");
+  var hob = val("hob_position");
+
+  if (water || hob) {
+    summary += "ПОЗИЦИИ\n";
+    summary += "----------------------------\n";
+    summary += addRow("Вода", water);
+    summary += addRow("Котлон", hob);
+    summary += "\n";
+  }
+
+  // =========================
+  // ДОПЪЛНИТЕЛНО
+  // =========================
+  var island = val("island_enabled");
+  var bar = val("bar_enabled");
+  var fridge = val("fridge_type");
+  var oven = val("oven_tall_unit");
+
+  if (island || bar || fridge || oven) {
+    summary += "ДОПЪЛНИТЕЛНО\n";
+    summary += "----------------------------\n";
+    summary += addRow("Остров", island);
+    summary += addRow("Бар", bar);
+    summary += addRow("Хладилник", fridge);
+    summary += addRow("Фурна", oven);
+    summary += "\n";
+  }
+
+  // =========================
+  // ПЪХАМЕ В СКРИТОТО ПОЛЕ
+  // =========================
+  var summaryField = form.querySelector('[name="summary_readable"]');
+  if (summaryField) {
+    summaryField.value = summary.trim();
+  }
+
 });
-});
-
                           
