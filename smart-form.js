@@ -2309,3 +2309,47 @@ document.addEventListener("DOMContentLoaded", function () {
     setMail("mail_contact_preference", val("contact_preference"));
   });
 });
+// =========================
+// FORCE NEXT/BACK FIX
+// =========================
+document.addEventListener("click", function (e) {
+  var nextBtn = e.target.closest(".next-button");
+  var backBtn = e.target.closest(".back-button");
+
+  if (nextBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("NEXT CLICKED"); // debug
+
+    var currentStep = document.querySelector(
+      ".step-3a-aglova:not([style*='display: none'])," +
+      ".step-3b-aglova:not([style*='display: none'])," +
+      ".step-3a-p:not([style*='display: none'])," +
+      ".step-3b-p:not([style*='display: none'])," +
+      ".step-3c-p:not([style*='display: none'])," +
+      ".flow-p:not([style*='display: none'])"
+    );
+
+    var step4 = document.querySelector(".step-4");
+
+    if (currentStep && step4) {
+      currentStep.style.display = "none";
+      step4.style.display = "block";
+    }
+  }
+
+  if (backBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    var step4 = document.querySelector(".step-4");
+
+    if (step4 && step4.style.display !== "none") {
+      step4.style.display = "none";
+
+      var fallback = document.querySelector(".step-3a-aglova");
+      if (fallback) fallback.style.display = "block";
+    }
+  }
+});
