@@ -1947,7 +1947,7 @@ form.addEventListener("submit", function () {
 
   function addRow(label, value) {
     if (!value) return "";
-    return label.padEnd(16, " ") + ": " + value + "\n";
+    return label + ": " + value + "<br><br>";
   }
 
   var summary = "";
@@ -1957,10 +1957,8 @@ form.addEventListener("submit", function () {
   // =========================
   var config = val("configuration");
   if (config) {
-    summary += "КОНФИГУРАЦИЯ\n";
-    summary += "----------------------------\n";
+    summary += "<strong>КОНФИГУРАЦИЯ</strong><br><br>";
     summary += addRow("Тип", config);
-    summary += "\n";
   }
 
   // =========================
@@ -1972,13 +1970,11 @@ form.addEventListener("submit", function () {
   var h = val("room_height");
 
   if (w1 || w2 || w3 || h) {
-    summary += "РАЗМЕРИ\n";
-    summary += "----------------------------\n";
+    summary += "<strong>РАЗМЕРИ</strong><br><br>";
     summary += addRow("Стена 1", w1);
     summary += addRow("Стена 2", w2);
     summary += addRow("Стена 3", w3);
     summary += addRow("Височина", h);
-    summary += "\n";
   }
 
   // =========================
@@ -1988,11 +1984,9 @@ form.addEventListener("submit", function () {
   var hob = val("hob_position");
 
   if (water || hob) {
-    summary += "ПОЗИЦИИ\n";
-    summary += "----------------------------\n";
+    summary += "<strong>ПОЗИЦИИ</strong><br><br>";
     summary += addRow("Вода", water);
     summary += addRow("Котлон", hob);
-    summary += "\n";
   }
 
   // =========================
@@ -2004,22 +1998,16 @@ form.addEventListener("submit", function () {
   var oven = val("oven_tall_unit");
 
   if (island || bar || fridge || oven) {
-    summary += "ДОПЪЛНИТЕЛНО\n";
-    summary += "----------------------------\n";
+    summary += "<strong>ДОПЪЛНИТЕЛНО</strong><br><br>";
     summary += addRow("Остров", island);
     summary += addRow("Бар", bar);
     summary += addRow("Хладилник", fridge);
     summary += addRow("Фурна", oven);
-    summary += "\n";
   }
 
-  // =========================
-  // ПЪХАМЕ В СКРИТОТО ПОЛЕ
-  // =========================
   var summaryField = form.querySelector('[name="summary_readable"]');
   if (summaryField) {
-    summaryField.value = summary.trim();
+    summaryField.value = summary;
   }
 
 });
-                          
