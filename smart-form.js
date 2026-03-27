@@ -2012,7 +2012,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-// =========================
+  // =========================
   // SUBMIT
   // =========================
   smartForm.addEventListener("submit", function (e) {
@@ -2020,11 +2020,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var visibleStep = getVisibleStep();
     if (!visibleStep) return;
-
-    // връщаме disabled състоянието само на нашите технически hidden полета
-    qsa(smartForm, ".hidden-dimension-input").forEach(function (field) {
-      field.disabled = false;
-    });
 
     beforeRealSubmit();
 
@@ -2055,16 +2050,5 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     buildReadableSummary();
-    stripTechnicalFieldNames();
-
-    // спираме от submit-а САМО празните технически hidden полета
-    qsa(smartForm, ".hidden-dimension-input").forEach(function (field) {
-      var value = (field.value || "").trim();
-
-      if (!value) {
-        field.disabled = true;
-      }
-    });
-
     HTMLFormElement.prototype.submit.call(smartForm);
   });
