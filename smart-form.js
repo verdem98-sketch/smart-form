@@ -2021,9 +2021,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var visibleStep = getVisibleStep();
     if (!visibleStep) return;
 
-    // за всеки случай връщаме disabled полетата обратно
-    qsa(smartForm, "input, select, textarea").forEach(function (field) {
-      if (field.type === "submit") return;
+    // връщаме disabled състоянието само на нашите технически hidden полета
+    qsa(smartForm, ".hidden-dimension-input").forEach(function (field) {
       field.disabled = false;
     });
 
@@ -2058,10 +2057,8 @@ document.addEventListener("DOMContentLoaded", function () {
     buildReadableSummary();
     stripTechnicalFieldNames();
 
-    // спираме от submit-а САМО празните hidden технически полета
-    qsa(smartForm, 'input[type="hidden"], textarea').forEach(function (field) {
-      if (field.name === "summary_readable") return;
-
+    // спираме от submit-а САМО празните технически hidden полета
+    qsa(smartForm, ".hidden-dimension-input").forEach(function (field) {
       var value = (field.value || "").trim();
 
       if (!value) {
