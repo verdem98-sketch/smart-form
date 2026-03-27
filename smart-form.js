@@ -2012,45 +2012,77 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // =========================
-  // SUBMIT
-  // =========================
- smartForm.addEventListener("submit", function (e) {
-
+// ============================
+// SUBMIT
+// ============================
+smartForm.addEventListener("submit", function (e) {
   e.preventDefault();
 
+  var visibleStep = getVisibleStep();
+  if (!visibleStep) return;
+
+  beforeRealSubmit();
+
+  clearBranchBorders(step3aAglova);
+  clearBranchBorders(step3bAglova);
+  clearBranchBorders(step3aP);
+  clearBranchBorders(step3bP);
+  clearBranchBorders(step3cP);
+
+  var inputs = qsa(visibleStep, "input, select, textarea");
   var hasError = false;
 
-  // ако имаш валидации по-горе, те си остават
-  // тук само пазим логиката да не се счупи flow-а
+  inputs.forEach(function (input) {
+    if (input.type === "hidden") return;
+    if (input.type === "submit") return;
+    if (input.disabled) return;
+
+    var value = (input.value || "").trim();
+
+    if (input.hasAttribute("data-required-step") && !value) {
+      hasError = true;
+      input.style.border = "2px solid red";
+    }
+  });
 
   if (hasError) {
     return;
   }
 
-  // правим summary
+  // правим човешкото обобщение
   buildReadableSummary();
 
-  // 🧹 ЧИСТИМ ВСИЧКО НЕНУЖНО
+  // чистим submit-а:
+  // - празните полета не се пращат
+  // - полета без name не се пращат
+  // - summary_readable винаги остава
   qsa(smartForm, "input, textarea, select").forEach(function (input) {
-
     if (input.type === "submit") return;
 
     var value = (input.value || "").trim();
+    var fieldName = (input.name || "").trim();
 
-    // ако няма стойност → не се праща
+    // summary полето винаги остава
+    if (fieldName === "summary_readable") {
+      input.disabled = false;
+      return;
+    }
+
+    // ако няма name -> не се праща
+    if (!fieldName) {
+      input.disabled = true;
+      return;
+    }
+
+    // ако е празно -> не се праща
     if (!value) {
-      input.removeAttribute("name");
+      input.disabled = true;
+      return;
     }
 
-    // всички технически hidden полета → никога не се пращат директно
-    if (input.classList.contains("hidden-dimension-input")) {
-      input.removeAttribute("name");
-    }
-
+    // ако има name и има стойност -> праща се
+    input.disabled = false;
   });
 
-  // 🚀 изпращаме формата
   HTMLFormElement.prototype.submit.call(smartForm);
-
 });
