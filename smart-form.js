@@ -26,14 +26,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function setHidden(name, value) {
     var el = qs(formEl, '[name="' + name + '"]');
-    if (el) el.value = value;
+    if (!el) el.value = value || "";
+  }
+
+  function getHidden(name) {
+    var el = qs(formEl, '[name="' + name + '"]');
+    if (!el) return "";
+    return (el.value || "").trim();
   }
 
   function setFieldsState(scopeEl, enabled) {
     if (!scopeEl) return;
 
     qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
-      if (el.closest(".w-form")) return;
       if (el.type === "hidden") return;
       if (el.type === "submit") return;
       el.disabled = !enabled;
@@ -54,14 +59,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function removeActiveFromRow(row) {
+  function removeActiveFromRow(row, selector) {
     if (!row) return;
-    qsa(row, ".option-pill").forEach(function (pill) {
+    qsa(row, selector || ".option-pill").forEach(function (pill) {
       pill.classList.remove("active");
     });
   }
 
-  function setSingleActive(pill) {
+  function setSingleActive(pill, selector) {
     if (!pill) return;
 
     var row =
@@ -71,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!row) return;
 
-    removeActiveFromRow(row);
+    removeActiveFromRow(row, selector || ".option-pill");
     pill.classList.add("active");
   }
 
@@ -276,9 +281,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // STEP REFERENCES
   // =========================
   var step1 = qs(smartFormBlock, ".step-1");
-  var step2Prava = qs(smartFormBlock, ".step-2-prava");
-  var step2Aglova = qs(smartFormBlock, ".step-2-aglova");
-  var step2P = qs(smartFormBlock, ".step-2-p");
+
+  var flowPrava = qs(smartFormBlock, ".flow-prava") || qs(smartFormBlock, ".step-2-prava");
+  var flowAglova = qs(smartFormBlock, ".flow-aglova") || qs(smartFormBlock, ".step-2-aglova");
+  var flowP = qs(smartFormBlock, ".flow-p") || qs(smartFormBlock, ".step-2-p");
 
   var step3aAglova = qs(smartFormBlock, ".step-3a-aglova");
   var step3bAglova = qs(smartFormBlock, ".step-3b-aglova");
@@ -287,19 +293,30 @@ document.addEventListener("DOMContentLoaded", function () {
   var step3bP = qs(smartFormBlock, ".step-3b-p");
   var step3cP = qs(smartFormBlock, ".step-3c-p");
 
-  var step5 = qs(smartFormBlock, ".step-5");
-  var step6 = qs(smartFormBlock, ".step-6");
+  var step4 = qs(smartFormBlock, ".step-4");
 
   // =========================
   // ACTIVE BRANCH
   // =========================
   var activeBranch = "";
+  var activeKitchenType = "";
 
   function getVisibleStep() {
     var visible = null;
 
-    qsa(smartFormBlock, ".step").forEach(function (step) {
-      if (window.getComputedStyle(step).display !== "none") {
+    [
+      step1,
+      flowPrava,
+      flowAglova,
+      flowP,
+      step3aAglova,
+      step3bAglova,
+      step3aP,
+      step3bP,
+      step3cP,
+      step4
+    ].forEach(function (step) {
+      if (step && window.getComputedStyle(step).display !== "none") {
         visible = step;
       }
     });
@@ -308,7 +325,19 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function hideAllSteps() {
-    qsa(smartFormBlock, ".step").forEach(function (step) {
+    [
+      step1,
+      flowPrava,
+      flowAglova,
+      flowP,
+      step3aAglova,
+      step3bAglova,
+      step3aP,
+      step3bP,
+      step3cP,
+      step4
+    ].forEach(function (step) {
+      if (!step) return;
       hide(step);
       setFieldsState(step, false);
     });
@@ -457,6 +486,10 @@ document.addEventListener("DOMContentLoaded", function () {
       pushIf(lines, "Хладилник", readValue("fridge_type_p_3c"));
     }
 
+    pushIf(lines, "Визия", getHidden("vision"));
+    pushIf(lines, "Кога планирате", getHidden("plan"));
+    pushIf(lines, "Предпочитан контакт", getHidden("contact_preference"));
+
     summary.value = lines.join("\n");
   }
 
@@ -468,6 +501,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.style.overflow = "hidden";
 
     activeBranch = "";
+    activeKitchenType = "";
     hideAllSteps();
 
     if (step1) showStep(step1);
@@ -506,7 +540,7 @@ document.addEventListener("DOMContentLoaded", function () {
   applyBranchState();
 
   // =========================
-  // STEP 1 -> STEP 2
+  // STEP 1 -> FLOW
   // =========================
   if (step1) {
     qsa(step1, ".kitchen-card").forEach(function (card, index) {
@@ -517,18 +551,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
         activeBranch = "";
 
-        if (index === 0 && step2Prava) {
-          showStep(step2Prava);
+        if (index === 0 && flowPrava) {
+          activeKitchenType = "straight";
+          showStep(flowPrava);
           return;
         }
 
-        if (index === 1 && step2Aglova) {
-          showStep(step2Aglova);
+        if (index === 1 && flowAglova) {
+          activeKitchenType = "corner";
+          showStep(flowAglova);
           return;
         }
 
-        if (index === 2 && step2P) {
-          showStep(step2P);
+        if (index === 2 && flowP) {
+          activeKitchenType = "u";
+          showStep(flowP);
           return;
         }
       });
@@ -536,17 +573,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // STEP 2 AGLOVA
+  // FLOW AGLOVA
   // =========================
-  if (step2Aglova) {
-    var aglovaChoiceNoCorner = qs(step2Aglova, ".choice-card-no-corner");
-    var aglovaChoiceWithCorner = qs(step2Aglova, ".choice-card-with-corner");
+  if (flowAglova) {
+    var aglovaChoiceNoCorner = qs(flowAglova, ".choice-card-no-corner");
+    var aglovaChoiceWithCorner = qs(flowAglova, ".choice-card-with-corner");
 
     if (aglovaChoiceNoCorner) {
       aglovaChoiceNoCorner.style.cursor = "pointer";
       aglovaChoiceNoCorner.addEventListener("click", function (e) {
         e.preventDefault();
         activeBranch = "3a";
+        activeKitchenType = "corner";
         setHidden("aglova-has-corner", "no");
         resetStep3aState();
         if (step3aAglova) showStep(step3aAglova);
@@ -559,6 +597,7 @@ document.addEventListener("DOMContentLoaded", function () {
       aglovaChoiceWithCorner.addEventListener("click", function (e) {
         e.preventDefault();
         activeBranch = "3b";
+        activeKitchenType = "corner";
         setHidden("aglova-has-corner", "yes");
         resetStep3bState();
         if (step3bAglova) showStep(step3bAglova);
@@ -662,6 +701,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setHidden("water_position_3a", "");
     setHidden("chimney_position_3a", "");
     setHidden("bar_enabled_3a", "no");
+    setHidden("island_enabled_3a", "no");
     setHidden("oven_tall_unit_3a", "no");
     setHidden("fridge_type_3a", "");
   }
@@ -897,6 +937,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setHidden("water_position_3b", "");
     setHidden("chimney_position_3b", "");
     setHidden("bar_enabled_3b", "no");
+    setHidden("island_enabled_3b", "no");
     setHidden("oven_tall_unit_3b", "no");
     setHidden("fridge_type_3b", "");
   }
@@ -1037,113 +1078,328 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // ===== КРАЙ НА ЧАСТ 1/2 =====
   // =========================
-  // STEP 2 P
-  // =========================if (step2P) {
-  var pChoiceNoChimney = qs(step2P, ".choice-card-no-chimney");
-  var pChoiceLeftChimney = qs(step2P, ".choice-card-left-chimney");
-  var pChoiceRightChimney = qs(step2P, ".choice-card-right-chimney");
+  // FLOW P
+  // =========================
+  if (flowP) {
+    var pChoiceNoChimney = qs(flowP, ".choice-card-no-chimney");
+    var pChoiceLeftChimney = qs(flowP, ".choice-card-left-chimney");
+    var pChoiceRightChimney = qs(flowP, ".choice-card-right-chimney");
 
-  if (pChoiceNoChimney) {
-    pChoiceNoChimney.style.cursor = "pointer";
-    pChoiceNoChimney.addEventListener("click", function (e) {
-      e.preventDefault();
-      activeBranch = "3a-p";
-      resetStep3aPState();
-      if (step3aP) showStep(step3aP);
-      applyBranchState();
-    });
+    if (pChoiceNoChimney) {
+      pChoiceNoChimney.style.cursor = "pointer";
+      pChoiceNoChimney.addEventListener("click", function (e) {
+        e.preventDefault();
+        activeBranch = "3a-p";
+        activeKitchenType = "u";
+        resetStep3aPState();
+        if (step3aP) showStep(step3aP);
+        applyBranchState();
+      });
+    }
+
+    if (pChoiceLeftChimney) {
+      pChoiceLeftChimney.style.cursor = "pointer";
+      pChoiceLeftChimney.addEventListener("click", function (e) {
+        e.preventDefault();
+        activeBranch = "3b-p";
+        activeKitchenType = "u";
+        resetStep3bPState();
+        if (step3bP) showStep(step3bP);
+        applyBranchState();
+      });
+    }
+
+    if (pChoiceRightChimney) {
+      pChoiceRightChimney.style.cursor = "pointer";
+      pChoiceRightChimney.addEventListener("click", function (e) {
+        e.preventDefault();
+        activeBranch = "3c-p";
+        activeKitchenType = "u";
+        resetStep3cPState();
+        if (step3cP) showStep(step3cP);
+        applyBranchState();
+      });
+    }
   }
 
-  if (pChoiceLeftChimney) {
-    pChoiceLeftChimney.style.cursor = "pointer";
-    pChoiceLeftChimney.addEventListener("click", function (e) {
-      e.preventDefault();
-      activeBranch = "3b-p";
-      resetStep3bPState();
-      if (step3bP) showStep(step3bP);
-      applyBranchState();
-    });
+  // =========================
+  // STEP 3A P
+  // =========================
+  var comboSelectWrap3aP = null;
+  var dimensionsPhaseWrap3aP = null;
+  var barWrap3aP = null;
+  var islandWrap3aP = null;
+
+  var cadBase3aP = null;
+  var all3aPCads = [];
+
+  var state3aP = {
+    water: "",
+    hob: "",
+    island: "no",
+    bar: "no",
+    oven: "no",
+    fridge: ""
+  };
+
+  function show3aPCad(cadEl) {
+    hideAll(all3aPCads);
+    show(cadEl);
   }
 
-  if (pChoiceRightChimney) {
-    pChoiceRightChimney.style.cursor = "pointer";
-    pChoiceRightChimney.addEventListener("click", function (e) {
-      e.preventDefault();
-      activeBranch = "3c-p";
-      resetStep3cPState();
-      if (step3cP) showStep(step3cP);
-      applyBranchState();
-    });
+  function update3aPCad() {
+    if (!state3aP.water || !state3aP.hob) {
+      show3aPCad(cadBase3aP);
+      return;
+    }
+
+    var map = {
+      "1-1": ".cad-p-sketch-9",
+      "1-2": ".cad-p-sketch-10",
+      "1-3": ".cad-p-sketch-11",
+      "2-1": ".cad-p-sketch-12",
+      "2-2": ".cad-p-sketch-13",
+      "2-3": ".cad-p-sketch-14",
+      "3-1": ".cad-p-sketch-15",
+      "3-2": ".cad-p-sketch-16",
+      "3-3": ".cad-p-sketch-17"
+    };
+
+    var key = state3aP.water + "-" + state3aP.hob;
+    var target = qs(step3aP, map[key]);
+
+    if (target) {
+      show3aPCad(target);
+    } else {
+      show3aPCad(cadBase3aP);
+    }
   }
-}
 
-// =========================
-// STEP 3A P
-// =========================
-var comboSelectWrap3aP = null;
-var dimensionsPhaseWrap3aP = null;
-var barWrap3aP = null;
-var islandWrap3aP = null;
+  function reveal3aPDimensionsIfReady() {
+    if (!state3aP.water || !state3aP.hob) return;
 
-var cadBase3aP = null;
-var all3aPCads = [];
+    update3aPCad();
 
-var state3aP = {
-  water: "",
-  hob: "",
-  island: "no",
-  bar: "no",
-  oven: "no",
-  fridge: ""
-};
+    if (comboSelectWrap3aP) hide(comboSelectWrap3aP);
+    if (dimensionsPhaseWrap3aP) show(dimensionsPhaseWrap3aP, "block");
+  }
 
-function show3aPCad(cadEl) {
-  hideAll(all3aPCads);
-  show(cadEl);
-}
+  function resetStep3aPState() {
+    if (!step3aP) return;
 
-function update3aPCad() {
-  if (!state3aP.water || !state3aP.hob) {
+    state3aP = {
+      water: "",
+      hob: "",
+      island: "no",
+      bar: "no",
+      oven: "no",
+      fridge: ""
+    };
+
+    comboSelectWrap3aP = qs(step3aP, ".combo-select-wrap");
+    dimensionsPhaseWrap3aP = qs(step3aP, ".dimensions-phase-wrap");
+    barWrap3aP = qs(step3aP, ".bar-wrap");
+    islandWrap3aP = qs(step3aP, ".island-wrap");
+
+    cadBase3aP = qs(step3aP, ".cad-p-3a-base");
+    all3aPCads = qsa(step3aP, ".cad-global-wrap img");
+
+    removeActiveInScope(step3aP, ".option-pill");
+    clearHiddenInScope(step3aP);
+
+    qsa(step3aP, ".dimension-row").forEach(function (row) {
+      resetPickerRow(row);
+    });
+
+    hideAll(all3aPCads);
     show3aPCad(cadBase3aP);
-    return;
+
+    if (comboSelectWrap3aP) show(comboSelectWrap3aP, "block");
+    if (dimensionsPhaseWrap3aP) hide(dimensionsPhaseWrap3aP);
+
+    if (barWrap3aP) hide(barWrap3aP);
+    if (islandWrap3aP) hide(islandWrap3aP);
+
+    setHidden("water_position_p_3a", "");
+    setHidden("hob_position_p_3a", "");
+    setHidden("bar_enabled_p_3a", "no");
+    setHidden("oven_tall_unit_p_3a", "no");
+    setHidden("fridge_type_p_3a", "");
+    setHidden("island_enabled_p_3a", "no");
   }
 
-  var map = {
-    "1-1": ".cad-p-sketch-9",
-    "1-2": ".cad-p-sketch-10",
-    "1-3": ".cad-p-sketch-11",
-    "2-1": ".cad-p-sketch-12",
-    "2-2": ".cad-p-sketch-13",
-    "2-3": ".cad-p-sketch-14",
-    "3-1": ".cad-p-sketch-15",
-    "3-2": ".cad-p-sketch-16",
-    "3-3": ".cad-p-sketch-17"
-  };
+  if (step3aP) {
+    resetStep3aPState();
 
-  var key = state3aP.water + "-" + state3aP.hob;
-  var target = qs(step3aP, map[key]);
+    step3aP.addEventListener("click", function (e) {
+      var pickerBtn = e.target.closest(".picker-btn");
+      if (pickerBtn && step3aP.contains(pickerBtn)) {
+        e.preventDefault();
+        handlePickerButtonClick(pickerBtn);
+        return;
+      }
 
-  if (target) {
-    show3aPCad(target);
-  } else {
-    show3aPCad(cadBase3aP);
+      var resetBtn = e.target.closest(".reset-combo-button");
+      if (resetBtn) {
+        e.preventDefault();
+        resetStep3aPState();
+        return;
+      }
+
+      var water1 = e.target.closest(".water-pos-1");
+      var water2 = e.target.closest(".water-pos-2");
+      var water3 = e.target.closest(".water-pos-3");
+      var hob1 = e.target.closest(".hob-pos-1");
+      var hob2 = e.target.closest(".hob-pos-2");
+      var hob3 = e.target.closest(".hob-pos-3");
+
+      if (water1) {
+        e.preventDefault();
+        setSingleActive(water1);
+        state3aP.water = "1";
+        setHidden("water_position_p_3a", "Позиция 1");
+        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      if (water2) {
+        e.preventDefault();
+        setSingleActive(water2);
+        state3aP.water = "2";
+        setHidden("water_position_p_3a", "Позиция 2");
+        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      if (water3) {
+        e.preventDefault();
+        setSingleActive(water3);
+        state3aP.water = "3";
+        setHidden("water_position_p_3a", "Позиция 3");
+        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      if (hob1) {
+        e.preventDefault();
+        setSingleActive(hob1);
+        state3aP.hob = "1";
+        setHidden("hob_position_p_3a", "Позиция 1");
+        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      if (hob2) {
+        e.preventDefault();
+        setSingleActive(hob2);
+        state3aP.hob = "2";
+        setHidden("hob_position_p_3a", "Позиция 2");
+        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      if (hob3) {
+        e.preventDefault();
+        setSingleActive(hob3);
+        state3aP.hob = "3";
+        setHidden("hob_position_p_3a", "Позиция 3");
+        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        reveal3aPDimensionsIfReady();
+        return;
+      }
+
+      var targetIslandYes = e.target.closest(".island-yes");
+      if (targetIslandYes) {
+        e.preventDefault();
+
+        var islandOn = toggleActive(targetIslandYes);
+        state3aP.island = islandOn ? "yes" : "no";
+
+        setHidden("island_enabled_p_3a", islandOn ? "yes" : "no");
+        setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
+
+        if (islandOn) {
+          show(islandWrap3aP, "block");
+        } else {
+          hide(islandWrap3aP);
+          resetPickerScope(islandWrap3aP);
+        }
+        return;
+      }
+
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
+      if (targetBarYes) {
+        e.preventDefault();
+
+        var barOn = toggleActive(targetBarYes);
+        state3aP.bar = barOn ? "yes" : "no";
+
+        setHidden("bar_enabled_p_3a", barOn ? "yes" : "no");
+        setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
+
+        if (barOn) {
+          show(barWrap3aP, "block");
+        } else {
+          hide(barWrap3aP);
+          resetPickerScope(barWrap3aP);
+        }
+        return;
+      }
+
+      var targetOvenYes = e.target.closest(".oven-column-yes");
+      if (targetOvenYes) {
+        e.preventDefault();
+
+        var ovenOn = toggleActive(targetOvenYes);
+        state3aP.oven = ovenOn ? "yes" : "no";
+
+        setHidden("oven_tall_unit_p_3a", ovenOn ? "yes" : "no");
+        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
+        return;
+      }
+
+      var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
+      var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
+
+      if (targetFridgeBuiltIn) {
+        e.preventDefault();
+        setSingleActive(targetFridgeBuiltIn);
+        state3aP.fridge = "built-in";
+        setHidden("fridge_type_p_3a", "Вграден");
+        setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
+        return;
+      }
+
+      if (targetFridgeFreeStanding) {
+        e.preventDefault();
+        setSingleActive(targetFridgeFreeStanding);
+        state3aP.fridge = "free-standing";
+        setHidden("fridge_type_p_3a", "Свободно стоящ");
+        setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
+        return;
+      }
+    });
   }
-}
 
-function reveal3aPDimensionsIfReady() {
-  if (!state3aP.water || !state3aP.hob) return;
+  // =========================
+  // STEP 3B P
+  // =========================
+  var comboSelectWrap3bP = null;
+  var dimensionsPhaseWrap3bP = null;
+  var barWrap3bP = null;
+  var islandWrap3bP = null;
 
-  update3aPCad();
+  var cadBase3bP = null;
+  var all3bPCads = [];
 
-  if (comboSelectWrap3aP) hide(comboSelectWrap3aP);
-  if (dimensionsPhaseWrap3aP) show(dimensionsPhaseWrap3aP, "block");
-}
-
-function resetStep3aPState() {
-  if (!step3aP) return;
-
-  state3aP = {
+  var state3bP = {
     water: "",
     hob: "",
     island: "no",
@@ -1152,262 +1408,262 @@ function resetStep3aPState() {
     fridge: ""
   };
 
-  comboSelectWrap3aP = qs(step3aP, ".combo-select-wrap");
-  dimensionsPhaseWrap3aP = qs(step3aP, ".dimensions-phase-wrap");
-  barWrap3aP = qs(step3aP, ".bar-wrap");
-  islandWrap3aP = qs(step3aP, ".island-wrap");
+  function show3bPCad(cadEl) {
+    hideAll(all3bPCads);
+    show(cadEl);
+  }
 
-  cadBase3aP = qs(step3aP, ".cad-p-3a-base");
-  all3aPCads = qsa(step3aP, ".cad-global-wrap img");
-
-  removeActiveInScope(step3aP, ".option-pill");
-  clearHiddenInScope(step3aP);
-
-  qsa(step3aP, ".dimension-row").forEach(function (row) {
-    resetPickerRow(row);
-  });
-
-  hideAll(all3aPCads);
-  show3aPCad(cadBase3aP);
-
-  if (comboSelectWrap3aP) show(comboSelectWrap3aP, "block");
-  if (dimensionsPhaseWrap3aP) hide(dimensionsPhaseWrap3aP);
-
-  if (barWrap3aP) hide(barWrap3aP);
-  if (islandWrap3aP) hide(islandWrap3aP);
-
-  setHidden("water_position_p_3a", "");
-  setHidden("hob_position_p_3a", "");
-  setHidden("bar_enabled_p_3a", "no");
-  setHidden("oven_tall_unit_p_3a", "no");
-  setHidden("fridge_type_p_3a", "");
-  setHidden("island_enabled_p_3a", "no");
-}
-
-if (step3aP) {
-  resetStep3aPState();
-
-  step3aP.addEventListener("click", function (e) {
-    var pickerBtn = e.target.closest(".picker-btn");
-    if (pickerBtn && step3aP.contains(pickerBtn)) {
-      e.preventDefault();
-      handlePickerButtonClick(pickerBtn);
+  function update3bPCad() {
+    if (!state3bP.water || !state3bP.hob) {
+      show3bPCad(cadBase3bP);
       return;
     }
 
-    var resetBtn = e.target.closest(".reset-combo-button");
-    if (resetBtn) {
-      e.preventDefault();
-      resetStep3aPState();
-      return;
+    var map = {
+      "1-1": ".cad-p-sketch-18",
+      "1-2": ".cad-p-sketch-19",
+      "1-3": ".cad-p-sketch-20",
+      "2-1": ".cad-p-sketch-21",
+      "2-2": ".cad-p-sketch-22",
+      "2-3": ".cad-p-sketch-23",
+      "3-1": ".cad-p-sketch-24",
+      "3-2": ".cad-p-sketch-25",
+      "3-3": ".cad-p-sketch-26"
+    };
+
+    var key = state3bP.water + "-" + state3bP.hob;
+    var target = qs(step3bP, map[key]);
+
+    if (target) {
+      show3bPCad(target);
+    } else {
+      show3bPCad(cadBase3bP);
     }
+  }
 
-    var water1 = e.target.closest(".water-pos-1");
-    var water2 = e.target.closest(".water-pos-2");
-    var water3 = e.target.closest(".water-pos-3");
-    var hob1 = e.target.closest(".hob-pos-1");
-    var hob2 = e.target.closest(".hob-pos-2");
-    var hob3 = e.target.closest(".hob-pos-3");
+  function reveal3bPDimensionsIfReady() {
+    if (!state3bP.water || !state3bP.hob) return;
 
-    if (water1) {
-      e.preventDefault();
-      setSingleActive(water1);
-      state3aP.water = "1";
-      setHidden("water_position_p_3a", "Позиция 1");
-      setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+    update3bPCad();
 
-    if (water2) {
-      e.preventDefault();
-      setSingleActive(water2);
-      state3aP.water = "2";
-      setHidden("water_position_p_3a", "Позиция 2");
-      setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+    if (comboSelectWrap3bP) hide(comboSelectWrap3bP);
+    if (dimensionsPhaseWrap3bP) show(dimensionsPhaseWrap3bP, "block");
+  }
 
-    if (water3) {
-      e.preventDefault();
-      setSingleActive(water3);
-      state3aP.water = "3";
-      setHidden("water_position_p_3a", "Позиция 3");
-      setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+  function resetStep3bPState() {
+    if (!step3bP) return;
 
-    if (hob1) {
-      e.preventDefault();
-      setSingleActive(hob1);
-      state3aP.hob = "1";
-      setHidden("hob_position_p_3a", "Позиция 1");
-      setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+    state3bP = {
+      water: "",
+      hob: "",
+      island: "no",
+      bar: "no",
+      oven: "no",
+      fridge: ""
+    };
 
-    if (hob2) {
-      e.preventDefault();
-      setSingleActive(hob2);
-      state3aP.hob = "2";
-      setHidden("hob_position_p_3a", "Позиция 2");
-      setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+    comboSelectWrap3bP = qs(step3bP, ".combo-select-wrap");
+    dimensionsPhaseWrap3bP = qs(step3bP, ".dimensions-phase-wrap");
+    barWrap3bP = qs(step3bP, ".bar-wrap");
+    islandWrap3bP = qs(step3bP, ".island-wrap");
 
-    if (hob3) {
-      e.preventDefault();
-      setSingleActive(hob3);
-      state3aP.hob = "3";
-      setHidden("hob_position_p_3a", "Позиция 3");
-      setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
-      reveal3aPDimensionsIfReady();
-      return;
-    }
+    cadBase3bP = qs(step3bP, ".cad-p-3b-base");
+    all3bPCads = qsa(step3bP, ".cad-global-wrap img");
 
-    var targetIslandYes = e.target.closest(".island-yes");
-    if (targetIslandYes) {
-      e.preventDefault();
+    removeActiveInScope(step3bP, ".option-pill");
+    clearHiddenInScope(step3bP);
 
-      var islandOn = toggleActive(targetIslandYes);
-      state3aP.island = islandOn ? "yes" : "no";
+    qsa(step3bP, ".dimension-row").forEach(function (row) {
+      resetPickerRow(row);
+    });
 
-      setHidden("island_enabled_p_3a", islandOn ? "yes" : "no");
-      setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
-
-      if (islandOn) {
-        show(islandWrap3aP, "block");
-      } else {
-        hide(islandWrap3aP);
-        resetPickerScope(islandWrap3aP);
-      }
-      return;
-    }
-
-    var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
-    if (targetBarYes) {
-      e.preventDefault();
-
-      var barOn = toggleActive(targetBarYes);
-      state3aP.bar = barOn ? "yes" : "no";
-
-      setHidden("bar_enabled_p_3a", barOn ? "yes" : "no");
-      setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
-
-      if (barOn) {
-        show(barWrap3aP, "block");
-      } else {
-        hide(barWrap3aP);
-        resetPickerScope(barWrap3aP);
-      }
-      return;
-    }
-
-    var targetOvenYes = e.target.closest(".oven-column-yes");
-    if (targetOvenYes) {
-      e.preventDefault();
-
-      var ovenOn = toggleActive(targetOvenYes);
-      state3aP.oven = ovenOn ? "yes" : "no";
-
-      setHidden("oven_tall_unit_p_3a", ovenOn ? "yes" : "no");
-      setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
-      return;
-    }
-
-    var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
-    var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-    if (targetFridgeBuiltIn) {
-      e.preventDefault();
-      setSingleActive(targetFridgeBuiltIn);
-      state3aP.fridge = "built-in";
-      setHidden("fridge_type_p_3a", "Вграден");
-      setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
-      return;
-    }
-
-    if (targetFridgeFreeStanding) {
-      e.preventDefault();
-      setSingleActive(targetFridgeFreeStanding);
-      state3aP.fridge = "free-standing";
-      setHidden("fridge_type_p_3a", "Свободно стоящ");
-      setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
-      return;
-    }
-  });
-}
-
-// =========================
-// STEP 3B P
-// =========================
-var comboSelectWrap3bP = null;
-var dimensionsPhaseWrap3bP = null;
-var barWrap3bP = null;
-var islandWrap3bP = null;
-
-var cadBase3bP = null;
-var all3bPCads = [];
-
-var state3bP = {
-  water: "",
-  hob: "",
-  island: "no",
-  bar: "no",
-  oven: "no",
-  fridge: ""
-};
-
-function show3bPCad(cadEl) {
-  hideAll(all3bPCads);
-  show(cadEl);
-}
-
-function update3bPCad() {
-  if (!state3bP.water || !state3bP.hob) {
+    hideAll(all3bPCads);
     show3bPCad(cadBase3bP);
-    return;
+
+    if (comboSelectWrap3bP) show(comboSelectWrap3bP, "block");
+    if (dimensionsPhaseWrap3bP) hide(dimensionsPhaseWrap3bP);
+
+    if (barWrap3bP) hide(barWrap3bP);
+    if (islandWrap3bP) hide(islandWrap3bP);
+
+    setHidden("water_position_p_3b", "");
+    setHidden("hob_position_p_3b", "");
+    setHidden("bar_enabled_p_3b", "no");
+    setHidden("oven_tall_unit_p_3b", "no");
+    setHidden("fridge_type_p_3b", "");
+    setHidden("island_enabled_p_3b", "no");
   }
 
-  var map = {
-    "1-1": ".cad-p-sketch-18",
-    "1-2": ".cad-p-sketch-19",
-    "1-3": ".cad-p-sketch-20",
-    "2-1": ".cad-p-sketch-21",
-    "2-2": ".cad-p-sketch-22",
-    "2-3": ".cad-p-sketch-23",
-    "3-1": ".cad-p-sketch-24",
-    "3-2": ".cad-p-sketch-25",
-    "3-3": ".cad-p-sketch-26"
-  };
+  if (step3bP) {
+    resetStep3bPState();
 
-  var key = state3bP.water + "-" + state3bP.hob;
-  var target = qs(step3bP, map[key]);
+    step3bP.addEventListener("click", function (e) {
+      var pickerBtn = e.target.closest(".picker-btn");
+      if (pickerBtn && step3bP.contains(pickerBtn)) {
+        e.preventDefault();
+        handlePickerButtonClick(pickerBtn);
+        return;
+      }
 
-  if (target) {
-    show3bPCad(target);
-  } else {
-    show3bPCad(cadBase3bP);
+      var resetBtn = e.target.closest(".reset-combo-button");
+      if (resetBtn) {
+        e.preventDefault();
+        resetStep3bPState();
+        return;
+      }
+
+      var water1 = e.target.closest(".water-pos-1");
+      var water2 = e.target.closest(".water-pos-2");
+      var water3 = e.target.closest(".water-pos-3");
+      var hob1 = e.target.closest(".hob-pos-1");
+      var hob2 = e.target.closest(".hob-pos-2");
+      var hob3 = e.target.closest(".hob-pos-3");
+
+      if (water1) {
+        e.preventDefault();
+        setSingleActive(water1);
+        state3bP.water = "1";
+        setHidden("water_position_p_3b", "Позиция 1");
+        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      if (water2) {
+        e.preventDefault();
+        setSingleActive(water2);
+        state3bP.water = "2";
+        setHidden("water_position_p_3b", "Позиция 2");
+        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      if (water3) {
+        e.preventDefault();
+        setSingleActive(water3);
+        state3bP.water = "3";
+        setHidden("water_position_p_3b", "Позиция 3");
+        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      if (hob1) {
+        e.preventDefault();
+        setSingleActive(hob1);
+        state3bP.hob = "1";
+        setHidden("hob_position_p_3b", "Позиция 1");
+        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      if (hob2) {
+        e.preventDefault();
+        setSingleActive(hob2);
+        state3bP.hob = "2";
+        setHidden("hob_position_p_3b", "Позиция 2");
+        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      if (hob3) {
+        e.preventDefault();
+        setSingleActive(hob3);
+        state3bP.hob = "3";
+        setHidden("hob_position_p_3b", "Позиция 3");
+        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        reveal3bPDimensionsIfReady();
+        return;
+      }
+
+      var targetIslandYes = e.target.closest(".island-yes");
+      if (targetIslandYes) {
+        e.preventDefault();
+
+        var islandOn = toggleActive(targetIslandYes);
+        state3bP.island = islandOn ? "yes" : "no";
+
+        setHidden("island_enabled_p_3b", islandOn ? "yes" : "no");
+        setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
+
+        if (islandOn) {
+          show(islandWrap3bP, "block");
+        } else {
+          hide(islandWrap3bP);
+          resetPickerScope(islandWrap3bP);
+        }
+        return;
+      }
+
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
+      if (targetBarYes) {
+        e.preventDefault();
+
+        var barOn = toggleActive(targetBarYes);
+        state3bP.bar = barOn ? "yes" : "no";
+
+        setHidden("bar_enabled_p_3b", barOn ? "yes" : "no");
+        setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
+
+        if (barOn) {
+          show(barWrap3bP, "block");
+        } else {
+          hide(barWrap3bP);
+          resetPickerScope(barWrap3bP);
+        }
+        return;
+      }
+
+      var targetOvenYes = e.target.closest(".oven-column-yes");
+      if (targetOvenYes) {
+        e.preventDefault();
+
+        var ovenOn = toggleActive(targetOvenYes);
+        state3bP.oven = ovenOn ? "yes" : "no";
+
+        setHidden("oven_tall_unit_p_3b", ovenOn ? "yes" : "no");
+        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
+        return;
+      }
+
+      var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
+      var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
+
+      if (targetFridgeBuiltIn) {
+        e.preventDefault();
+        setSingleActive(targetFridgeBuiltIn);
+        state3bP.fridge = "built-in";
+        setHidden("fridge_type_p_3b", "Вграден");
+        setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
+        return;
+      }
+
+      if (targetFridgeFreeStanding) {
+        e.preventDefault();
+        setSingleActive(targetFridgeFreeStanding);
+        state3bP.fridge = "free-standing";
+        setHidden("fridge_type_p_3b", "Свободно стоящ");
+        setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
+        return;
+      }
+    });
   }
-}
 
-function reveal3bPDimensionsIfReady() {
-  if (!state3bP.water || !state3bP.hob) return;
+  // =========================
+  // STEP 3C P
+  // =========================
+  var comboSelectWrap3cP = null;
+  var dimensionsPhaseWrap3cP = null;
+  var barWrap3cP = null;
+  var islandWrap3cP = null;
 
-  update3bPCad();
+  var cadBase3cP = null;
+  var all3cPCads = [];
 
-  if (comboSelectWrap3bP) hide(comboSelectWrap3bP);
-  if (dimensionsPhaseWrap3bP) show(dimensionsPhaseWrap3bP, "block");
-}
-
-function resetStep3bPState() {
-  if (!step3bP) return;
-
-  state3bP = {
+  var state3cP = {
     water: "",
     hob: "",
     island: "no",
@@ -1416,584 +1672,440 @@ function resetStep3bPState() {
     fridge: ""
   };
 
-  comboSelectWrap3bP = qs(step3bP, ".combo-select-wrap");
-  dimensionsPhaseWrap3bP = qs(step3bP, ".dimensions-phase-wrap");
-  barWrap3bP = qs(step3bP, ".bar-wrap");
-  islandWrap3bP = qs(step3bP, ".island-wrap");
+  function show3cPCad(cadEl) {
+    hideAll(all3cPCads);
+    show(cadEl);
+  }
 
-  cadBase3bP = qs(step3bP, ".cad-p-3b-base");
-  all3bPCads = qsa(step3bP, ".cad-global-wrap img");
-
-  removeActiveInScope(step3bP, ".option-pill");
-  clearHiddenInScope(step3bP);
-
-  qsa(step3bP, ".dimension-row").forEach(function (row) {
-    resetPickerRow(row);
-  });
-
-  hideAll(all3bPCads);
-  show3bPCad(cadBase3bP);
-
-  if (comboSelectWrap3bP) show(comboSelectWrap3bP, "block");
-  if (dimensionsPhaseWrap3bP) hide(dimensionsPhaseWrap3bP);
-
-  if (barWrap3bP) hide(barWrap3bP);
-  if (islandWrap3bP) hide(islandWrap3bP);
-
-  setHidden("water_position_p_3b", "");
-  setHidden("hob_position_p_3b", "");
-  setHidden("bar_enabled_p_3b", "no");
-  setHidden("oven_tall_unit_p_3b", "no");
-  setHidden("fridge_type_p_3b", "");
-  setHidden("island_enabled_p_3b", "no");
-}
-
-if (step3bP) {
-  resetStep3bPState();
-
-  step3bP.addEventListener("click", function (e) {
-    var pickerBtn = e.target.closest(".picker-btn");
-    if (pickerBtn && step3bP.contains(pickerBtn)) {
-      e.preventDefault();
-      handlePickerButtonClick(pickerBtn);
+  function update3cPCad() {
+    if (!state3cP.water || !state3cP.hob) {
+      show3cPCad(cadBase3cP);
       return;
     }
 
-    var resetBtn = e.target.closest(".reset-combo-button");
-    if (resetBtn) {
-      e.preventDefault();
-      resetStep3bPState();
-      return;
+    var map = {
+      "1-1": ".cad-p-sketch-27",
+      "1-2": ".cad-p-sketch-28",
+      "1-3": ".cad-p-sketch-29",
+      "2-1": ".cad-p-sketch-30",
+      "2-2": ".cad-p-sketch-31",
+      "2-3": ".cad-p-sketch-32",
+      "3-1": ".cad-p-sketch-33",
+      "3-2": ".cad-p-sketch-34",
+      "3-3": ".cad-p-sketch-35"
+    };
+
+    var key = state3cP.water + "-" + state3cP.hob;
+    var target = qs(step3cP, map[key]);
+
+    if (target) {
+      show3cPCad(target);
+    } else {
+      show3cPCad(cadBase3cP);
     }
+  }
 
-    var water1 = e.target.closest(".water-pos-1");
-    var water2 = e.target.closest(".water-pos-2");
-    var water3 = e.target.closest(".water-pos-3");
-    var hob1 = e.target.closest(".hob-pos-1");
-    var hob2 = e.target.closest(".hob-pos-2");
-    var hob3 = e.target.closest(".hob-pos-3");
+  function reveal3cPDimensionsIfReady() {
+    if (!state3cP.water || !state3cP.hob) return;
 
-    if (water1) {
-      e.preventDefault();
-      setSingleActive(water1);
-      state3bP.water = "1";
-      setHidden("water_position_p_3b", "Позиция 1");
-      setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+    update3cPCad();
 
-    if (water2) {
-      e.preventDefault();
-      setSingleActive(water2);
-      state3bP.water = "2";
-      setHidden("water_position_p_3b", "Позиция 2");
-      setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+    if (comboSelectWrap3cP) hide(comboSelectWrap3cP);
+    if (dimensionsPhaseWrap3cP) show(dimensionsPhaseWrap3cP, "block");
+  }
 
-    if (water3) {
-      e.preventDefault();
-      setSingleActive(water3);
-      state3bP.water = "3";
-      setHidden("water_position_p_3b", "Позиция 3");
-      setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+  function resetStep3cPState() {
+    if (!step3cP) return;
 
-    if (hob1) {
-      e.preventDefault();
-      setSingleActive(hob1);
-      state3bP.hob = "1";
-      setHidden("hob_position_p_3b", "Позиция 1");
-      setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+    state3cP = {
+      water: "",
+      hob: "",
+      island: "no",
+      bar: "no",
+      oven: "no",
+      fridge: ""
+    };
 
-    if (hob2) {
-      e.preventDefault();
-      setSingleActive(hob2);
-      state3bP.hob = "2";
-      setHidden("hob_position_p_3b", "Позиция 2");
-      setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+    comboSelectWrap3cP = qs(step3cP, ".combo-select-wrap");
+    dimensionsPhaseWrap3cP = qs(step3cP, ".dimensions-phase-wrap");
+    barWrap3cP = qs(step3cP, ".bar-wrap");
+    islandWrap3cP = qs(step3cP, ".island-wrap");
 
-    if (hob3) {
-      e.preventDefault();
-      setSingleActive(hob3);
-      state3bP.hob = "3";
-      setHidden("hob_position_p_3b", "Позиция 3");
-      setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
-      reveal3bPDimensionsIfReady();
-      return;
-    }
+    cadBase3cP = qs(step3cP, ".cad-p-3c-base");
+    all3cPCads = qsa(step3cP, ".cad-global-wrap img");
 
-    var targetIslandYes = e.target.closest(".island-yes");
-    if (targetIslandYes) {
-      e.preventDefault();
+    removeActiveInScope(step3cP, ".option-pill");
+    clearHiddenInScope(step3cP);
 
-      var islandOn = toggleActive(targetIslandYes);
-      state3bP.island = islandOn ? "yes" : "no";
+    qsa(step3cP, ".dimension-row").forEach(function (row) {
+      resetPickerRow(row);
+    });
 
-      setHidden("island_enabled_p_3b", islandOn ? "yes" : "no");
-      setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
-
-      if (islandOn) {
-        show(islandWrap3bP, "block");
-      } else {
-        hide(islandWrap3bP);
-        resetPickerScope(islandWrap3bP);
-      }
-      return;
-    }
-
-    var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
-    if (targetBarYes) {
-      e.preventDefault();
-
-      var barOn = toggleActive(targetBarYes);
-      state3bP.bar = barOn ? "yes" : "no";
-
-      setHidden("bar_enabled_p_3b", barOn ? "yes" : "no");
-      setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
-
-      if (barOn) {
-        show(barWrap3bP, "block");
-      } else {
-        hide(barWrap3bP);
-        resetPickerScope(barWrap3bP);
-      }
-      return;
-    }
-
-    var targetOvenYes = e.target.closest(".oven-column-yes");
-    if (targetOvenYes) {
-      e.preventDefault();
-
-      var ovenOn = toggleActive(targetOvenYes);
-      state3bP.oven = ovenOn ? "yes" : "no";
-
-      setHidden("oven_tall_unit_p_3b", ovenOn ? "yes" : "no");
-      setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
-      return;
-    }
-
-    var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
-    var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-    if (targetFridgeBuiltIn) {
-      e.preventDefault();
-      setSingleActive(targetFridgeBuiltIn);
-      state3bP.fridge = "built-in";
-      setHidden("fridge_type_p_3b", "Вграден");
-      setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
-      return;
-    }
-
-    if (targetFridgeFreeStanding) {
-      e.preventDefault();
-      setSingleActive(targetFridgeFreeStanding);
-      state3bP.fridge = "free-standing";
-      setHidden("fridge_type_p_3b", "Свободно стоящ");
-      setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
-      return;
-    }
-  });
-}
-
-// =========================
-// STEP 3C P
-// =========================
-var comboSelectWrap3cP = null;
-var dimensionsPhaseWrap3cP = null;
-var barWrap3cP = null;
-var islandWrap3cP = null;
-
-var cadBase3cP = null;
-var all3cPCads = [];
-
-var state3cP = {
-  water: "",
-  hob: "",
-  island: "no",
-  bar: "no",
-  oven: "no",
-  fridge: ""
-};
-
-function show3cPCad(cadEl) {
-  hideAll(all3cPCads);
-  show(cadEl);
-}
-
-function update3cPCad() {
-  if (!state3cP.water || !state3cP.hob) {
+    hideAll(all3cPCads);
     show3cPCad(cadBase3cP);
-    return;
+
+    if (comboSelectWrap3cP) show(comboSelectWrap3cP, "block");
+    if (dimensionsPhaseWrap3cP) hide(dimensionsPhaseWrap3cP);
+
+    if (barWrap3cP) hide(barWrap3cP);
+    if (islandWrap3cP) hide(islandWrap3cP);
+
+    setHidden("water_position_p_3c", "");
+    setHidden("hob_position_p_3c", "");
+    setHidden("bar_enabled_p_3c", "no");
+    setHidden("oven_tall_unit_p_3c", "no");
+    setHidden("fridge_type_p_3c", "");
+    setHidden("island_enabled_p_3c", "no");
   }
 
-  var map = {
-    "1-1": ".cad-p-sketch-27",
-    "1-2": ".cad-p-sketch-28",
-    "1-3": ".cad-p-sketch-29",
-    "2-1": ".cad-p-sketch-30",
-    "2-2": ".cad-p-sketch-31",
-    "2-3": ".cad-p-sketch-32",
-    "3-1": ".cad-p-sketch-33",
-    "3-2": ".cad-p-sketch-34",
-    "3-3": ".cad-p-sketch-35"
-  };
+  if (step3cP) {
+    resetStep3cPState();
 
-  var key = state3cP.water + "-" + state3cP.hob;
-  var target = qs(step3cP, map[key]);
+    step3cP.addEventListener("click", function (e) {
+      var pickerBtn = e.target.closest(".picker-btn");
+      if (pickerBtn && step3cP.contains(pickerBtn)) {
+        e.preventDefault();
+        handlePickerButtonClick(pickerBtn);
+        return;
+      }
 
-  if (target) {
-    show3cPCad(target);
-  } else {
-    show3cPCad(cadBase3cP);
+      var resetBtn = e.target.closest(".reset-combo-button");
+      if (resetBtn) {
+        e.preventDefault();
+        resetStep3cPState();
+        return;
+      }
+
+      var water1 = e.target.closest(".water-pos-1");
+      var water2 = e.target.closest(".water-pos-2");
+      var water3 = e.target.closest(".water-pos-3");
+      var hob1 = e.target.closest(".hob-pos-1");
+      var hob2 = e.target.closest(".hob-pos-2");
+      var hob3 = e.target.closest(".hob-pos-3");
+
+      if (water1) {
+        e.preventDefault();
+        setSingleActive(water1);
+        state3cP.water = "1";
+        setHidden("water_position_p_3c", "Позиция 1");
+        setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      if (water2) {
+        e.preventDefault();
+        setSingleActive(water2);
+        state3cP.water = "2";
+        setHidden("water_position_p_3c", "Позиция 2");
+        setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      if (water3) {
+        e.preventDefault();
+        setSingleActive(water3);
+        state3cP.water = "3";
+        setHidden("water_position_p_3c", "Позиция 3");
+        setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      if (hob1) {
+        e.preventDefault();
+        setSingleActive(hob1);
+        state3cP.hob = "1";
+        setHidden("hob_position_p_3c", "Позиция 1");
+        setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      if (hob2) {
+        e.preventDefault();
+        setSingleActive(hob2);
+        state3cP.hob = "2";
+        setHidden("hob_position_p_3c", "Позиция 2");
+        setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      if (hob3) {
+        e.preventDefault();
+        setSingleActive(hob3);
+        state3cP.hob = "3";
+        setHidden("hob_position_p_3c", "Позиция 3");
+        setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
+        reveal3cPDimensionsIfReady();
+        return;
+      }
+
+      var targetIslandYes = e.target.closest(".island-yes");
+      if (targetIslandYes) {
+        e.preventDefault();
+
+        var islandOn = toggleActive(targetIslandYes);
+        state3cP.island = islandOn ? "yes" : "no";
+
+        setHidden("island_enabled_p_3c", islandOn ? "yes" : "no");
+        setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
+
+        if (islandOn) {
+          show(islandWrap3cP, "block");
+        } else {
+          hide(islandWrap3cP);
+          resetPickerScope(islandWrap3cP);
+        }
+        return;
+      }
+
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
+      if (targetBarYes) {
+        e.preventDefault();
+
+        var barOn = toggleActive(targetBarYes);
+        state3cP.bar = barOn ? "yes" : "no";
+
+        setHidden("bar_enabled_p_3c", barOn ? "yes" : "no");
+        setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
+
+        if (barOn) {
+          show(barWrap3cP, "block");
+        } else {
+          hide(barWrap3cP);
+          resetPickerScope(barWrap3cP);
+        }
+        return;
+      }
+
+      var targetOvenYes = e.target.closest(".oven-column-yes");
+      if (targetOvenYes) {
+        e.preventDefault();
+
+        var ovenOn = toggleActive(targetOvenYes);
+        state3cP.oven = ovenOn ? "yes" : "no";
+
+        setHidden("oven_tall_unit_p_3c", ovenOn ? "yes" : "no");
+        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
+        return;
+      }
+
+      var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
+      var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
+
+      if (targetFridgeBuiltIn) {
+        e.preventDefault();
+        setSingleActive(targetFridgeBuiltIn);
+        state3cP.fridge = "built-in";
+        setHidden("fridge_type_p_3c", "Вграден");
+        setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
+        return;
+      }
+
+      if (targetFridgeFreeStanding) {
+        e.preventDefault();
+        setSingleActive(targetFridgeFreeStanding);
+        state3cP.fridge = "free-standing";
+        setHidden("fridge_type_p_3c", "Свободно стоящ");
+        setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
+        return;
+      }
+    });
   }
-}
 
-function reveal3cPDimensionsIfReady() {
-  if (!state3cP.water || !state3cP.hob) return;
+  // =========================
+  // STEP 4 LOGIC
+  // =========================
+  function getVisionLabelFromCard(card) {
+    if (!card) return "";
+    var textEl = qs(card, ".vision-text");
+    return textEl ? (textEl.textContent || "").trim() : "";
+  }
 
-  update3cPCad();
+  function showVisionSetForKitchenType() {
+    if (!step4) return;
 
-  if (comboSelectWrap3cP) hide(comboSelectWrap3cP);
-  if (dimensionsPhaseWrap3cP) show(dimensionsPhaseWrap3cP, "block");
-}
+    hide(visionSetStraight);
+    hide(visionSetCorner);
+    hide(visionSetU);
 
-function resetStep3cPState() {
-  if (!step3cP) return;
+    if (activeKitchenType === "straight" && visionSetStraight) {
+      show(visionSetStraight, "block");
+    }
 
-  state3cP = {
-    water: "",
-    hob: "",
-    island: "no",
-    bar: "no",
-    oven: "no",
-    fridge: ""
-  };
+    if (activeKitchenType === "corner" && visionSetCorner) {
+      show(visionSetCorner, "block");
+    }
 
-  comboSelectWrap3cP = qs(step3cP, ".combo-select-wrap");
-  dimensionsPhaseWrap3cP = qs(step3cP, ".dimensions-phase-wrap");
-  barWrap3cP = qs(step3cP, ".bar-wrap");
-  islandWrap3cP = qs(step3cP, ".island-wrap");
+    if (activeKitchenType === "u" && visionSetU) {
+      show(visionSetU, "block");
+    }
+  }
 
-  cadBase3cP = qs(step3cP, ".cad-p-3c-base");
-  all3cPCads = qsa(step3cP, ".cad-global-wrap img");
+  function resetStep4State() {
+    if (!step4) return;
 
-  removeActiveInScope(step3cP, ".option-pill");
-  clearHiddenInScope(step3cP);
+    removeActiveInScope(step4, ".vision-card");
+    removeActiveInScope(step4, ".option-pill.plan");
+    removeActiveInScope(step4, ".option-pill.contact");
 
-  qsa(step3cP, ".dimension-row").forEach(function (row) {
-    resetPickerRow(row);
+    setHidden("vision", "");
+    setHidden("plan", "");
+    setHidden("contact_preference", "");
+
+    showVisionSetForKitchenType();
+  }
+
+  if (step4) {
+    visionCards.forEach(function (card) {
+      card.style.cursor = "pointer";
+
+      card.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        var parentSet = card.parentElement;
+        if (!parentSet) return;
+
+        removeActiveFromRow(parentSet, ".vision-card");
+        card.classList.add("active");
+
+        var visionText = getVisionLabelFromCard(card);
+        setHidden("vision", visionText);
+      });
+    });
+
+    planPills.forEach(function (pill) {
+      pill.style.cursor = "pointer";
+
+      pill.addEventListener("click", function (e) {
+        e.preventDefault();
+        setSingleActive(pill, ".option-pill.plan");
+        setHidden("plan", (pill.textContent || "").trim());
+      });
+    });
+
+    contactPills.forEach(function (pill) {
+      pill.style.cursor = "pointer";
+
+      pill.addEventListener("click", function (e) {
+        e.preventDefault();
+        setSingleActive(pill, ".option-pill.contact");
+        setHidden("contact_preference", (pill.textContent || "").trim());
+      });
+    });
+
+    if (stepSubmitBtn) {
+      stepSubmitBtn.addEventListener("click", function () {
+        buildReadableSummary();
+        beforeRealSubmit();
+      });
+    }
+  }
+
+  // =========================
+  // GLOBAL NAVIGATION BUTTONS
+  // =========================
+  smartFormBlock.addEventListener("click", function (e) {
+    var backBtn = e.target.closest(".back-button");
+    var nextBtn = e.target.closest(".next-button");
+
+    if (backBtn) {
+      e.preventDefault();
+
+      var visibleStep = getVisibleStep();
+
+      if (visibleStep === flowAglova || visibleStep === flowPrava || visibleStep === flowP) {
+        showStep(step1);
+        return;
+      }
+
+      if (visibleStep === step3aAglova || visibleStep === step3bAglova) {
+        showStep(flowAglova);
+        return;
+      }
+
+      if (visibleStep === step3aP || visibleStep === step3bP || visibleStep === step3cP) {
+        showStep(flowP);
+        return;
+      }
+
+      if (visibleStep === step4) {
+        if (activeBranch === "3a" && step3aAglova) return showStep(step3aAglova);
+        if (activeBranch === "3b" && step3bAglova) return showStep(step3bAglova);
+        if (activeBranch === "3a-p" && step3aP) return showStep(step3aP);
+        if (activeBranch === "3b-p" && step3bP) return showStep(step3bP);
+        if (activeBranch === "3c-p" && step3cP) return showStep(step3cP);
+        if (activeKitchenType === "straight" && flowPrava) return showStep(flowPrava);
+      }
+    }
+
+    if (nextBtn) {
+      e.preventDefault();
+
+      var currentStep = getVisibleStep();
+
+      if (
+        currentStep === step3aAglova ||
+        currentStep === step3bAglova ||
+        currentStep === step3aP ||
+        currentStep === step3bP ||
+        currentStep === step3cP ||
+        currentStep === flowPrava
+      ) {
+        resetStep4State();
+        if (step4) showStep(step4);
+        return;
+      }
+    }
   });
 
-  hideAll(all3cPCads);
-  show3cPCad(cadBase3cP);
+  // =========================
+  // SUBMIT
+  // =========================
+  formEl.addEventListener("submit", function () {
+    buildReadableSummary();
+    beforeRealSubmit();
 
-  if (comboSelectWrap3cP) show(comboSelectWrap3cP, "block");
-  if (dimensionsPhaseWrap3cP) hide(dimensionsPhaseWrap3cP);
-
-  if (barWrap3cP) hide(barWrap3cP);
-  if (islandWrap3cP) hide(islandWrap3cP);
-
-  setHidden("water_position_p_3c", "");
-  setHidden("hob_position_p_3c", "");
-  setHidden("bar_enabled_p_3c", "no");
-  setHidden("oven_tall_unit_p_3c", "no");
-  setHidden("fridge_type_p_3c", "");
-  setHidden("island_enabled_p_3c", "no");
-}
-
-if (step3cP) {
-  resetStep3cPState();
-
-  step3cP.addEventListener("click", function (e) {
-    var pickerBtn = e.target.closest(".picker-btn");
-    if (pickerBtn && step3cP.contains(pickerBtn)) {
-      e.preventDefault();
-      handlePickerButtonClick(pickerBtn);
-      return;
+    function val(name) {
+      var el = formEl.querySelector('[name="' + name + '"]');
+      if (!el) return "";
+      return (el.value || "").trim();
     }
 
-    var resetBtn = e.target.closest(".reset-combo-button");
-    if (resetBtn) {
-      e.preventDefault();
-      resetStep3cPState();
-      return;
+    function setMail(id, value) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.value = value || "";
     }
 
-    var water1 = e.target.closest(".water-pos-1");
-    var water2 = e.target.closest(".water-pos-2");
-    var water3 = e.target.closest(".water-pos-3");
-    var hob1 = e.target.closest(".hob-pos-1");
-    var hob2 = e.target.closest(".hob-pos-2");
-    var hob3 = e.target.closest(".hob-pos-3");
+    setMail("mail_configuration", val("configuration"));
+    setMail("mail_wall_1", val("wall_1_p_3a") || val("wall_1_p_3b") || val("wall_1_p_3c") || val("stena1_3a") || val("stena1_3b"));
+    setMail("mail_wall_2", val("wall_2_p_3a") || val("wall_2_p_3b") || val("wall_2_p_3c") || val("stena2_3a") || val("stena2_3b"));
+    setMail("mail_wall_3", val("wall_3_p_3a") || val("wall_3_p_3b") || val("wall_3_p_3c"));
+    setMail("mail_room_height", val("room_height_p_3a") || val("room_height_p_3b") || val("room_height_p_3c") || val("visochina_3a") || val("visochina_3b"));
 
-    if (water1) {
-      e.preventDefault();
-      setSingleActive(water1);
-      state3cP.water = "1";
-      setHidden("water_position_p_3c", "Позиция 1");
-      setFirstHiddenInScope(water1.closest(".question-wrap"), "Позиция 1");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
+    setMail("mail_water_position", val("water_position_p_3a") || val("water_position_p_3b") || val("water_position_p_3c") || val("water_position_3a") || val("water_position_3b"));
+    setMail("mail_hob_position", val("hob_position_p_3a") || val("hob_position_p_3b") || val("hob_position_p_3c"));
 
-    if (water2) {
-      e.preventDefault();
-      setSingleActive(water2);
-      state3cP.water = "2";
-      setHidden("water_position_p_3c", "Позиция 2");
-      setFirstHiddenInScope(water2.closest(".question-wrap"), "Позиция 2");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
+    setMail("mail_chimney_a", val("chimney_a_p_3b") || val("chimney_a_p_3c") || val("komin_a_3b"));
+    setMail("mail_chimney_b", val("chimney_b_p_3b") || val("chimney_b_p_3c") || val("komin_b_3b"));
 
-    if (water3) {
-      e.preventDefault();
-      setSingleActive(water3);
-      state3cP.water = "3";
-      setHidden("water_position_p_3c", "Позиция 3");
-      setFirstHiddenInScope(water3.closest(".question-wrap"), "Позиция 3");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
+    setMail("mail_bar_enabled", val("bar_enabled_p_3a") || val("bar_enabled_p_3b") || val("bar_enabled_p_3c") || val("bar_enabled_3a") || val("bar_enabled_3b"));
+    setMail("mail_bar_length", val("bar_length_p_3a") || val("bar_length_p_3b") || val("bar_length_p_3c") || val("bar_length_3a") || val("bar_length_3b"));
+    setMail("mail_bar_depth", val("bar_depth_p_3a") || val("bar_depth_p_3b") || val("bar_depth_p_3c") || val("bar_depth_3a") || val("bar_depth_3b"));
 
-    if (hob1) {
-      e.preventDefault();
-      setSingleActive(hob1);
-      state3cP.hob = "1";
-      setHidden("hob_position_p_3c", "Позиция 1");
-      setFirstHiddenInScope(hob1.closest(".question-wrap"), "Позиция 1");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
+    setMail("mail_island_enabled", val("island_enabled_p_3a") || val("island_enabled_p_3b") || val("island_enabled_p_3c") || val("island_enabled_3a") || val("island_enabled_3b"));
+    setMail("mail_island_length", val("island_length_p_3a") || val("island_length_p_3b") || val("island_length_p_3c") || val("island_length_3a") || val("island_length_3b"));
+    setMail("mail_island_depth", val("island_depth_p_3a") || val("island_depth_p_3b") || val("island_depth_p_3c") || val("island_depth_3a") || val("island_depth_3b"));
 
-    if (hob2) {
-      e.preventDefault();
-      setSingleActive(hob2);
-      state3cP.hob = "2";
-      setHidden("hob_position_p_3c", "Позиция 2");
-      setFirstHiddenInScope(hob2.closest(".question-wrap"), "Позиция 2");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
+    setMail("mail_oven_tall_unit", val("oven_tall_unit_p_3a") || val("oven_tall_unit_p_3b") || val("oven_tall_unit_p_3c") || val("oven_tall_unit_3a") || val("oven_tall_unit_3b"));
+    setMail("mail_fridge_type", val("fridge_type_p_3a") || val("fridge_type_p_3b") || val("fridge_type_p_3c") || val("fridge_type_3a") || val("fridge_type_3b"));
 
-    if (hob3) {
-      e.preventDefault();
-      setSingleActive(hob3);
-      state3cP.hob = "3";
-      setHidden("hob_position_p_3c", "Позиция 3");
-      setFirstHiddenInScope(hob3.closest(".question-wrap"), "Позиция 3");
-      reveal3cPDimensionsIfReady();
-      return;
-    }
-
-    var targetIslandYes = e.target.closest(".island-yes");
-    if (targetIslandYes) {
-      e.preventDefault();
-
-      var islandOn = toggleActive(targetIslandYes);
-      state3cP.island = islandOn ? "yes" : "no";
-
-      setHidden("island_enabled_p_3c", islandOn ? "yes" : "no");
-      setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
-
-      if (islandOn) {
-        show(islandWrap3cP, "block");
-      } else {
-        hide(islandWrap3cP);
-        resetPickerScope(islandWrap3cP);
-      }
-      return;
-    }
-
-    var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
-    if (targetBarYes) {
-      e.preventDefault();
-
-      var barOn = toggleActive(targetBarYes);
-      state3cP.bar = barOn ? "yes" : "no";
-
-      setHidden("bar_enabled_p_3c", barOn ? "yes" : "no");
-      setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
-
-      if (barOn) {
-        show(barWrap3cP, "block");
-      } else {
-        hide(barWrap3cP);
-        resetPickerScope(barWrap3cP);
-      }
-      return;
-    }
-
-    var targetOvenYes = e.target.closest(".oven-column-yes");
-    if (targetOvenYes) {
-      e.preventDefault();
-
-      var ovenOn = toggleActive(targetOvenYes);
-      state3cP.oven = ovenOn ? "yes" : "no";
-
-      setHidden("oven_tall_unit_p_3c", ovenOn ? "yes" : "no");
-      setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
-      return;
-    }
-
-    var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
-    var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-    if (targetFridgeBuiltIn) {
-      e.preventDefault();
-      setSingleActive(targetFridgeBuiltIn);
-      state3cP.fridge = "built-in";
-      setHidden("fridge_type_p_3c", "Вграден");
-      setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
-      return;
-    }
-
-    if (targetFridgeFreeStanding) {
-      e.preventDefault();
-      setSingleActive(targetFridgeFreeStanding);
-      state3cP.fridge = "free-standing";
-      setHidden("fridge_type_p_3c", "Свободно стоящ");
-      setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
-      return;
-    }
+    setMail("mail_vision", val("vision"));
+    setMail("mail_plan", val("plan"));
+    setMail("mail_contact_preference", val("contact_preference"));
   });
-}
-
-// =========================
-// GLOBAL NAVIGATION BUTTONS
-// =========================
-smartFormBlock.addEventListener("click", function (e) {
-  var backBtn = e.target.closest(".back-button");
-  var nextBtn = e.target.closest(".next-button");
-
-  if (backBtn) {
-    e.preventDefault();
-
-    var visibleStep = getVisibleStep();
-
-    if (visibleStep === step2Aglova || visibleStep === step2Prava || visibleStep === step2P) {
-      showStep(step1);
-      return;
-    }
-
-    if (visibleStep === step3aAglova || visibleStep === step3bAglova) {
-      showStep(step2Aglova);
-      return;
-    }
-
-    if (visibleStep === step3aP || visibleStep === step3bP || visibleStep === step3cP) {
-      showStep(step2P);
-      return;
-    }
-
-    if (visibleStep === step5) {
-      if (activeBranch === "3a" && step3aAglova) return showStep(step3aAglova);
-      if (activeBranch === "3b" && step3bAglova) return showStep(step3bAglova);
-      if (activeBranch === "3a-p" && step3aP) return showStep(step3aP);
-      if (activeBranch === "3b-p" && step3bP) return showStep(step3bP);
-      if (activeBranch === "3c-p" && step3cP) return showStep(step3cP);
-    }
-
-    if (visibleStep === step6 && step5) {
-      showStep(step5);
-      return;
-    }
-  }
-
-  if (nextBtn) {
-    e.preventDefault();
-
-    var currentStep = getVisibleStep();
-
-    if (
-      currentStep === step3aAglova ||
-      currentStep === step3bAglova ||
-      currentStep === step3aP ||
-      currentStep === step3bP ||
-      currentStep === step3cP
-    ) {
-      if (step5) showStep(step5);
-      return;
-    }
-
-    if (currentStep === step5 && step6) {
-      showStep(step6);
-      return;
-    }
-  }
-});
-
-// =========================
-// SUBMIT
-// =========================
-form.addEventListener("submit", function () {
-
-  function val(name) {
-    var el = form.querySelector('[name="' + name + '"]');
-    if (!el) return "";
-    return (el.value || "").trim();
-  }
-
-  function setMail(id, value) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.value = value || "";
-  }
-
-  // =========================
-  // КОНФИГУРАЦИЯ
-  // =========================
-  setMail("mail_configuration", val("configuration"));
-
-  // =========================
-  // РАЗМЕРИ (P кухня пример)
-  // =========================
-  setMail("mail_wall_1", val("wall_1_p_3a") || val("wall_1_p_3b") || val("wall_1_p_3c"));
-  setMail("mail_wall_2", val("wall_2_p_3a") || val("wall_2_p_3b") || val("wall_2_p_3c"));
-  setMail("mail_wall_3", val("wall_3_p_3a") || val("wall_3_p_3b") || val("wall_3_p_3c"));
-  setMail("mail_room_height", val("room_height_p_3a") || val("room_height_p_3b") || val("room_height_p_3c"));
-
-  // =========================
-  // ПОЗИЦИИ
-  // =========================
-  setMail("mail_water_position", val("water_position_p_3a") || val("water_position_p_3b") || val("water_position_p_3c"));
-  setMail("mail_hob_position", val("hob_position_p_3a") || val("hob_position_p_3b") || val("hob_position_p_3c"));
-
-  // =========================
-  // КОМИН
-  // =========================
-  setMail("mail_chimney_a", val("chimney_a_p_3b") || val("chimney_a_p_3c"));
-  setMail("mail_chimney_b", val("chimney_b_p_3b") || val("chimney_b_p_3c"));
-
-  // =========================
-  // БАР
-  // =========================
-  setMail("mail_bar_enabled", val("bar_enabled_p_3a") || val("bar_enabled_p_3b") || val("bar_enabled_p_3c"));
-  setMail("mail_bar_length", val("bar_length_p_3a") || val("bar_length_p_3b") || val("bar_length_p_3c"));
-  setMail("mail_bar_depth", val("bar_depth_p_3a") || val("bar_depth_p_3b") || val("bar_depth_p_3c"));
-
-  // =========================
-  // ОСТРОВ
-  // =========================
-  setMail("mail_island_enabled", val("island_enabled_p_3a") || val("island_enabled_p_3b") || val("island_enabled_p_3c"));
-  setMail("mail_island_length", val("island_length_p_3a") || val("island_length_p_3b") || val("island_length_p_3c"));
-  setMail("mail_island_depth", val("island_depth_p_3a") || val("island_depth_p_3b") || val("island_depth_p_3c"));
-
-  // =========================
-  // УРЕДИ
-  // =========================
-  setMail("mail_oven_tall_unit", val("oven_tall_unit_p_3a") || val("oven_tall_unit_p_3b") || val("oven_tall_unit_p_3c"));
-  setMail("mail_fridge_type", val("fridge_type_p_3a") || val("fridge_type_p_3b") || val("fridge_type_p_3c"));
-
 });
