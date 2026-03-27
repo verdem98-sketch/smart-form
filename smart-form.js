@@ -2045,43 +2045,47 @@ smartForm.addEventListener("submit", function (e) {
     }
   });
 
-  if (hasError) {
-    return;
-  }
+  if (hasError) return;
 
-  // правим човешкото обобщение
+  // правим summary
   buildReadableSummary();
 
-  // чистим submit-а:
-  // - празните полета не се пращат
-  // - полета без name не се пращат
-  // - summary_readable винаги остава
+  // 🧨 ТУК Е МАГИЯТА
   qsa(smartForm, "input, textarea, select").forEach(function (input) {
+
     if (input.type === "submit") return;
 
     var value = (input.value || "").trim();
     var fieldName = (input.name || "").trim();
 
-    // summary полето винаги остава
-    if (fieldName === "summary_readable") {
-      input.disabled = false;
+    // винаги оставяме тези
+    if (
+      fieldName === "Name" ||
+      fieldName === "Email" ||
+      fieldName === "Phone" ||
+      fieldName === "summary_readable"
+    ) {
       return;
     }
 
-    // ако няма name -> не се праща
-    if (!fieldName) {
-      input.disabled = true;
-      return;
-    }
-
-    // ако е празно -> не се праща
+    // ако е празно → махаме го от формата
     if (!value) {
-      input.disabled = true;
+      input.remove();
       return;
     }
 
-    // ако има name и има стойност -> праща се
-    input.disabled = false;
+    // ако е hidden техническо → махаме го
+    if (input.classList.contains("hidden-dimension-input")) {
+      input.remove();
+      return;
+    }
+
+    // ако не е част от текущия step → махаме го
+    if (!visibleStep.contains(input)) {
+      input.remove();
+      return;
+    }
+
   });
 
   HTMLFormElement.prototype.submit.call(smartForm);
