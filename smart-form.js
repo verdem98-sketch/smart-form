@@ -2081,35 +2081,25 @@ if (stepSubmitBtn) {
     }
   }
 
- // =========================
+// =========================
 // GLOBAL NAVIGATION BUTTONS
 // =========================
 var nextButtons = qsa(smartFormBlock, ".next-button");
 var backButtons = qsa(smartFormBlock, ".back-button");
 
+// NEXT → винаги отива в step 4 (тест режим)
 nextButtons.forEach(function (btn) {
   btn.addEventListener("click", function (e) {
     e.preventDefault();
     e.stopPropagation();
 
-    var currentStep = getVisibleStep();
-
-    if (
-      currentStep === step3aAglova ||
-      currentStep === step3bAglova ||
-      currentStep === step3aP ||
-      currentStep === step3bP ||
-      currentStep === step3cP ||
-      currentStep === flowPrava
-    ) {
-      resetStep4State();
-      syncConfigurationHidden();
-      showStep(step4);
-      return;
-    }
+    resetStep4State();
+    syncConfigurationHidden();
+    showStep(step4);
   });
 });
 
+// BACK (оставяме го както си е)
 backButtons.forEach(function (btn) {
   btn.addEventListener("click", function (e) {
     e.preventDefault();
@@ -2165,7 +2155,6 @@ backButtons.forEach(function (btn) {
     }
   });
 });
-
   // =========================
   // SUBMIT
   // =========================
