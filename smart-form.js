@@ -2075,60 +2075,94 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // GLOBAL NAVIGATION BUTTONS
   // =========================
-  smartFormBlock.addEventListener("click", function (e) {
-    var backBtn = e.target.closest(".back-button");
-    var nextBtn = e.target.closest(".next-button");
+ // =========================
+// GLOBAL NAVIGATION BUTTONS
+// =========================
+function isActuallyVisible(el) {
+  if (!el) return false;
+  return window.getComputedStyle(el).display !== "none";
+}
 
-    if (backBtn) {
-      e.preventDefault();
+function clickedInside(target, selector) {
+  return !!(target && target.closest(selector));
+}
 
-      var visibleStep = getVisibleStep();
+smartFormBlock.addEventListener("click", function (e) {
+  var clickedBack = clickedInside(e.target, ".back-button");
+  var clickedNext = clickedInside(e.target, ".next-button");
 
-      if (visibleStep === flowAglova || visibleStep === flowPrava || visibleStep === flowP) {
-        showStep(step1);
-        return;
-      }
+  if (!clickedBack && !clickedNext) return;
 
-      if (visibleStep === step3aAglova || visibleStep === step3bAglova) {
-        showStep(flowAglova);
-        return;
-      }
+  e.preventDefault();
+  e.stopPropagation();
 
-      if (visibleStep === step3aP || visibleStep === step3bP || visibleStep === step3cP) {
-        showStep(flowP);
-        return;
-      }
+  var currentStep = getVisibleStep();
 
-      if (visibleStep === step4) {
-        if (activeBranch === "3a" && step3aAglova) return showStep(step3aAglova);
-        if (activeBranch === "3b" && step3bAglova) return showStep(step3bAglova);
-        if (activeBranch === "3a-p" && step3aP) return showStep(step3aP);
-        if (activeBranch === "3b-p" && step3bP) return showStep(step3bP);
-        if (activeBranch === "3c-p" && step3cP) return showStep(step3cP);
-        if (activeKitchenType === "straight" && flowPrava) return showStep(flowPrava);
-      }
+  if (clickedBack) {
+    if (currentStep === flowAglova || currentStep === flowPrava || currentStep === flowP) {
+      showStep(step1);
+      return;
     }
 
-    if (nextBtn) {
-      e.preventDefault();
+    if (currentStep === step3aAglova || currentStep === step3bAglova) {
+      showStep(flowAglova);
+      return;
+    }
 
-      var currentStep = getVisibleStep();
+    if (currentStep === step3aP || currentStep === step3bP || currentStep === step3cP) {
+      showStep(flowP);
+      return;
+    }
 
-      if (
-        currentStep === step3aAglova ||
-        currentStep === step3bAglova ||
-        currentStep === step3aP ||
-        currentStep === step3bP ||
-        currentStep === step3cP ||
-        currentStep === flowPrava
-      ) {
-        resetStep4State();
-        syncConfigurationHidden();
-        if (step4) showStep(step4);
+    if (currentStep === step4) {
+      if (activeBranch === "3a" && step3aAglova) {
+        showStep(step3aAglova);
+        return;
+      }
+
+      if (activeBranch === "3b" && step3bAglova) {
+        showStep(step3bAglova);
+        return;
+      }
+
+      if (activeBranch === "3a-p" && step3aP) {
+        showStep(step3aP);
+        return;
+      }
+
+      if (activeBranch === "3b-p" && step3bP) {
+        showStep(step3bP);
+        return;
+      }
+
+      if (activeBranch === "3c-p" && step3cP) {
+        showStep(step3cP);
+        return;
+      }
+
+      if (activeKitchenType === "straight" && flowPrava) {
+        showStep(flowPrava);
         return;
       }
     }
-  });
+  }
+
+  if (clickedNext) {
+    if (
+      currentStep === step3aAglova ||
+      currentStep === step3bAglova ||
+      currentStep === step3aP ||
+      currentStep === step3bP ||
+      currentStep === step3cP ||
+      currentStep === flowPrava
+    ) {
+      resetStep4State();
+      syncConfigurationHidden();
+      showStep(step4);
+      return;
+    }
+  }
+});
 
   // =========================
   // SUBMIT
@@ -2308,48 +2342,4 @@ document.addEventListener("DOMContentLoaded", function () {
     setMail("mail_plan", val("plan"));
     setMail("mail_contact_preference", val("contact_preference"));
   });
-});
-// =========================
-// FORCE NEXT/BACK FIX
-// =========================
-document.addEventListener("click", function (e) {
-  var nextBtn = e.target.closest(".next-button");
-  var backBtn = e.target.closest(".back-button");
-
-  if (nextBtn) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    console.log("NEXT CLICKED"); // debug
-
-    var currentStep = document.querySelector(
-      ".step-3a-aglova:not([style*='display: none'])," +
-      ".step-3b-aglova:not([style*='display: none'])," +
-      ".step-3a-p:not([style*='display: none'])," +
-      ".step-3b-p:not([style*='display: none'])," +
-      ".step-3c-p:not([style*='display: none'])," +
-      ".flow-p:not([style*='display: none'])"
-    );
-
-    var step4 = document.querySelector(".step-4");
-
-    if (currentStep && step4) {
-      currentStep.style.display = "none";
-      step4.style.display = "block";
-    }
-  }
-
-  if (backBtn) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    var step4 = document.querySelector(".step-4");
-
-    if (step4 && step4.style.display !== "none") {
-      step4.style.display = "none";
-
-      var fallback = document.querySelector(".step-3a-aglova");
-      if (fallback) fallback.style.display = "block";
-    }
-  }
 });
