@@ -2081,33 +2081,42 @@ if (stepSubmitBtn) {
     }
   }
 
-  // =========================
-  // GLOBAL NAVIGATION BUTTONS
-  // =========================
  // =========================
 // GLOBAL NAVIGATION BUTTONS
 // =========================
-function isActuallyVisible(el) {
-  if (!el) return false;
-  return window.getComputedStyle(el).display !== "none";
-}
+var nextButtons = qsa(smartFormBlock, ".next-button");
+var backButtons = qsa(smartFormBlock, ".back-button");
 
-function clickedInside(target, selector) {
-  return !!(target && target.closest(selector));
-}
+nextButtons.forEach(function (btn) {
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
 
-smartFormBlock.addEventListener("click", function (e) {
-  var clickedBack = clickedInside(e.target, ".back-button");
-  var clickedNext = clickedInside(e.target, ".next-button");
+    var currentStep = getVisibleStep();
 
-  if (!clickedBack && !clickedNext) return;
+    if (
+      currentStep === step3aAglova ||
+      currentStep === step3bAglova ||
+      currentStep === step3aP ||
+      currentStep === step3bP ||
+      currentStep === step3cP ||
+      currentStep === flowPrava
+    ) {
+      resetStep4State();
+      syncConfigurationHidden();
+      showStep(step4);
+      return;
+    }
+  });
+});
 
-  e.preventDefault();
-  e.stopPropagation();
+backButtons.forEach(function (btn) {
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
 
-  var currentStep = getVisibleStep();
+    var currentStep = getVisibleStep();
 
-  if (clickedBack) {
     if (currentStep === flowAglova || currentStep === flowPrava || currentStep === flowP) {
       showStep(step1);
       return;
@@ -2154,23 +2163,7 @@ smartFormBlock.addEventListener("click", function (e) {
         return;
       }
     }
-  }
-
-  if (clickedNext) {
-    if (
-      currentStep === step3aAglova ||
-      currentStep === step3bAglova ||
-      currentStep === step3aP ||
-      currentStep === step3bP ||
-      currentStep === step3cP ||
-      currentStep === flowPrava
-    ) {
-      resetStep4State();
-      syncConfigurationHidden();
-      showStep(step4);
-      return;
-    }
-  }
+  });
 });
 
   // =========================
