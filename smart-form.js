@@ -324,7 +324,16 @@ document.addEventListener("DOMContentLoaded", function () {
   var planPills = step4 ? allExisting(step4, [".option-pill.plan"]) : [];
   var contactPills = step4 ? allExisting(step4, [".option-pill.contact"]) : [];
   var stepSubmitBtn = step4 ? firstExisting(step4, [".step-submit", '[type="submit"]']) : null;
+// =========================
+// FORCE BUTTON TYPES
+// =========================
+qsa(smartFormBlock, ".next-button, .back-button").forEach(function (btn) {
+  btn.setAttribute("type", "button");
+});
 
+if (stepSubmitBtn) {
+  stepSubmitBtn.setAttribute("type", "submit");
+}
   // =========================
   // ACTIVE BRANCH
   // =========================
