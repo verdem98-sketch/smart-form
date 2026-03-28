@@ -1,3 +1,6 @@
+
+
+
 document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // HELPERS
@@ -324,16 +327,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var planPills = step4 ? allExisting(step4, [".option-pill.plan"]) : [];
   var contactPills = step4 ? allExisting(step4, [".option-pill.contact"]) : [];
   var stepSubmitBtn = step4 ? firstExisting(step4, [".step-submit", '[type="submit"]']) : null;
-// =========================
-// FORCE BUTTON TYPES
-// =========================
-qsa(smartFormBlock, ".next-button, .back-button").forEach(function (btn) {
-  btn.setAttribute("type", "button");
-});
 
-if (stepSubmitBtn) {
-  stepSubmitBtn.setAttribute("type", "submit");
-}
   // =========================
   // ACTIVE BRANCH
   // =========================
@@ -2081,80 +2075,64 @@ if (stepSubmitBtn) {
     }
   }
 
-// =========================
-// GLOBAL NAVIGATION BUTTONS
-// =========================
-var nextButtons = qsa(smartFormBlock, ".next-button");
-var backButtons = qsa(smartFormBlock, ".back-button");
+  // =========================
+  // GLOBAL NAVIGATION BUTTONS
+  // =========================
+  smartFormBlock.addEventListener("click", function (e) {
+    var backBtn = e.target.closest(".back-button");
+    var nextBtn = e.target.closest(".next-button");
 
-// NEXT → винаги отива в step 4 (тест режим)
-nextButtons.forEach(function (btn) {
-  btn.addEventListener("click", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
+    if (backBtn) {
+      e.preventDefault();
 
-    resetStep4State();
-    syncConfigurationHidden();
-    showStep(step4);
-  });
-});
+      var visibleStep = getVisibleStep();
 
-// BACK (оставяме го както си е)
-backButtons.forEach(function (btn) {
-  btn.addEventListener("click", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
+      if (visibleStep === flowAglova || visibleStep === flowPrava || visibleStep === flowP) {
+        showStep(step1);
+        return;
+      }
 
-    var currentStep = getVisibleStep();
+      if (visibleStep === step3aAglova || visibleStep === step3bAglova) {
+        showStep(flowAglova);
+        return;
+      }
 
-    if (currentStep === flowAglova || currentStep === flowPrava || currentStep === flowP) {
-      showStep(step1);
-      return;
+      if (visibleStep === step3aP || visibleStep === step3bP || visibleStep === step3cP) {
+        showStep(flowP);
+        return;
+      }
+
+      if (visibleStep === step4) {
+        if (activeBranch === "3a" && step3aAglova) return showStep(step3aAglova);
+        if (activeBranch === "3b" && step3bAglova) return showStep(step3bAglova);
+        if (activeBranch === "3a-p" && step3aP) return showStep(step3aP);
+        if (activeBranch === "3b-p" && step3bP) return showStep(step3bP);
+        if (activeBranch === "3c-p" && step3cP) return showStep(step3cP);
+        if (activeKitchenType === "straight" && flowPrava) return showStep(flowPrava);
+      }
     }
 
-    if (currentStep === step3aAglova || currentStep === step3bAglova) {
-      showStep(flowAglova);
-      return;
-    }
+    if (nextBtn) {
+      e.preventDefault();
 
-    if (currentStep === step3aP || currentStep === step3bP || currentStep === step3cP) {
-      showStep(flowP);
-      return;
-    }
+      var currentStep = getVisibleStep();
 
-    if (currentStep === step4) {
-      if (activeBranch === "3a" && step3aAglova) {
-        showStep(step3aAglova);
-        return;
-      }
-
-      if (activeBranch === "3b" && step3bAglova) {
-        showStep(step3bAglova);
-        return;
-      }
-
-      if (activeBranch === "3a-p" && step3aP) {
-        showStep(step3aP);
-        return;
-      }
-
-      if (activeBranch === "3b-p" && step3bP) {
-        showStep(step3bP);
-        return;
-      }
-
-      if (activeBranch === "3c-p" && step3cP) {
-        showStep(step3cP);
-        return;
-      }
-
-      if (activeKitchenType === "straight" && flowPrava) {
-        showStep(flowPrava);
+      if (
+        currentStep === step3aAglova ||
+        currentStep === step3bAglova ||
+        currentStep === step3aP ||
+        currentStep === step3bP ||
+        currentStep === step3cP ||
+        currentStep === flowPrava
+      ) {
+        resetStep4State();
+        syncConfigurationHidden();
+        if (step4) showStep(step4);
         return;
       }
     }
   });
-});
+
   // =========================
   // SUBMIT
   // =========================
