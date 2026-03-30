@@ -1138,7 +1138,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
-  <script>
+  
   // =========================
   // STEP 3B AGLOVA
   // =========================
