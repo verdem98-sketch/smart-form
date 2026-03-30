@@ -1,6 +1,4 @@
 
-
-
 document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // HELPERS
@@ -125,6 +123,14 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
     return out;
+  }
+
+  function getTextOrDataValue(el) {
+    if (!el) return "";
+    return (
+      (el.getAttribute("data-value") || "").trim() ||
+      (el.textContent || "").trim()
+    );
   }
 
   // =========================
@@ -295,7 +301,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================
   var step1 = qs(smartFormBlock, ".step-1");
 
-  var flowPrava = qs(smartFormBlock, ".flow-prava") || qs(smartFormBlock, ".step-2-prava");
+  var flowPrava = qs(smartFormBlock, ".flow-prava") || qs(smartFormBlock, ".step-3-prava") || qs(smartFormBlock, ".step-2-prava");
   var flowAglova = qs(smartFormBlock, ".flow-aglova") || qs(smartFormBlock, ".step-2-aglova");
   var flowP = qs(smartFormBlock, ".flow-p") || qs(smartFormBlock, ".step-2-p");
 
@@ -306,28 +312,6 @@ document.addEventListener("DOMContentLoaded", function () {
   var step3bP = qs(smartFormBlock, ".step-3b-p");
   var step3cP = qs(smartFormBlock, ".step-3c-p");
 
-  var step4 = qs(smartFormBlock, ".step-4");
-
-  // =========================
-  // STEP 4 REFERENCES
-  // =========================
-  var visionSetStraight = step4
-    ? firstExisting(step4, [".vision-set.straight", ".vision-set-straight", ".vision-set\\/straight"])
-    : null;
-
-  var visionSetCorner = step4
-    ? firstExisting(step4, [".vision-set.corner", ".vision-set-corner", ".vision-set\\/corner"])
-    : null;
-
-  var visionSetU = step4
-    ? firstExisting(step4, [".vision-set.u", ".vision-set-u", ".vision-set\\/u"])
-    : null;
-
-  var visionCards = step4 ? allExisting(step4, [".vision-card"]) : [];
-  var planPills = step4 ? allExisting(step4, [".option-pill.plan"]) : [];
-  var contactPills = step4 ? allExisting(step4, [".option-pill.contact"]) : [];
-  var stepSubmitBtn = step4 ? firstExisting(step4, [".step-submit", '[type="submit"]']) : null;
-
   // =========================
   // ACTIVE BRANCH
   // =========================
@@ -335,6 +319,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var activeKitchenType = "";
 
   function getBranchStepByKey(branchKey) {
+    if (branchKey === "prava-3") return flowPrava;
     if (branchKey === "3a") return step3aAglova;
     if (branchKey === "3b") return step3bAglova;
     if (branchKey === "3a-p") return step3aP;
@@ -346,12 +331,16 @@ document.addEventListener("DOMContentLoaded", function () {
   function syncConfigurationHidden() {
     var label = "";
 
+    if (activeBranch === "prava-3") label = "Права кухня";
     if (activeBranch === "3a") label = "Ъглова без комин";
     if (activeBranch === "3b") label = "Ъглова с комин";
     if (activeBranch === "3a-p") label = "П кухня без комин";
     if (activeBranch === "3b-p") label = "П кухня с комин отляво";
     if (activeBranch === "3c-p") label = "П кухня с комин отдясно";
+
     if (!label && activeKitchenType === "straight") label = "Права кухня";
+    if (!label && activeKitchenType === "corner") label = "Ъглова кухня";
+    if (!label && activeKitchenType === "u") label = "П кухня";
 
     setHidden("configuration", label);
   }
@@ -368,8 +357,7 @@ document.addEventListener("DOMContentLoaded", function () {
       step3bAglova,
       step3aP,
       step3bP,
-      step3cP,
-      step4
+      step3cP
     ].forEach(function (step) {
       if (step && window.getComputedStyle(step).display !== "none") {
         visible = step;
@@ -389,8 +377,7 @@ document.addEventListener("DOMContentLoaded", function () {
       step3bAglova,
       step3aP,
       step3bP,
-      step3cP,
-      step4
+      step3cP
     ].forEach(function (step) {
       if (!step) return;
       hide(step);
@@ -405,7 +392,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function applyBranchState() {
-    [step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
+    [flowPrava, step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
       if (!step) return;
       setFieldsState(step, false);
     });
@@ -417,13 +404,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function beforeRealSubmit() {
-    [step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
+    [flowPrava, step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (step) {
       if (!step) return;
       setFieldsState(step, false);
     });
 
-    if (step4 && getVisibleStep() === step4) {
-      setFieldsState(step4, true);
+    var activeStepEl = getBranchStepByKey(activeBranch);
+    if (activeStepEl && getVisibleStep() === activeStepEl) {
+      setFieldsState(activeStepEl, true);
     }
   }
 
@@ -437,7 +425,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function yesNo(v) {
-    if (!v) return "Не";
+    if (!v) return "";
     var low = String(v).toLowerCase();
     if (low === "yes" || low === "да") return "Да";
     if (low === "no" || low === "не") return "Не";
@@ -457,6 +445,23 @@ document.addEventListener("DOMContentLoaded", function () {
     syncConfigurationHidden();
     pushIf(lines, "Конфигурация", readValue("configuration"));
 
+    if (activeBranch === "prava-3" || activeKitchenType === "straight") {
+      pushIf(lines, "Позиция", readValue("water_prava_3"));
+      pushIf(lines, "Дължина", readValue("length_1_prava_3"));
+      pushIf(lines, "Височина", readValue("height_prava_3"));
+      pushIf(lines, "Бар", yesNo(readValue("has_bar_prava_3")));
+      pushIf(lines, "Бар дължина", readValue("bar_length_prava_3"));
+      pushIf(lines, "Бар височина", readValue("bar_height_prava_3"));
+      pushIf(lines, "Остров", yesNo(readValue("has_island_prava_3")));
+      pushIf(lines, "Остров дължина", readValue("island_length_prava_3"));
+      pushIf(lines, "Остров височина", readValue("island_height_prava_3"));
+      pushIf(lines, "Колона за фурна", yesNo(readValue("tall_unit_prava_3")));
+      pushIf(lines, "Хладилник", readValue("fridge_prava_3"));
+      pushIf(lines, "Визия", readValue("vision_prava_3"));
+      pushIf(lines, "Кога планирате", readValue("plan_prava_3"));
+      pushIf(lines, "Предпочитан контакт", readValue("contact_preference_rava_3"));
+    }
+
     if (activeBranch === "3a") {
       pushIf(lines, "Вода", readValue("water_position_3a"));
       pushIf(lines, "Комин", readValue("chimney_position_3a"));
@@ -471,6 +476,10 @@ document.addEventListener("DOMContentLoaded", function () {
       pushIf(lines, "Остров дълбочина", readValue("island_depth_3a"));
       pushIf(lines, "Колона за фурна", yesNo(readValue("oven_tall_unit_3a")));
       pushIf(lines, "Хладилник", readValue("fridge_type_3a"));
+      pushIf(lines, "Съдомиялна", yesNo(readValue("dishwasher_aglova_3a")));
+      pushIf(lines, "Пералня", yesNo(readValue("washing_machine_aglova_3a")));
+      pushIf(lines, "Микровълнова", yesNo(readValue("microwave_aglova_3a")));
+      pushIf(lines, "Кафе машина", yesNo(readValue("coffee_machine_aglova_3a")));
     }
 
     if (activeBranch === "3b") {
@@ -546,10 +555,6 @@ document.addEventListener("DOMContentLoaded", function () {
       pushIf(lines, "Хладилник", readValue("fridge_type_p_3c"));
     }
 
-    pushIf(lines, "Визия", getHidden("vision"));
-    pushIf(lines, "Кога планирате", getHidden("plan"));
-    pushIf(lines, "Предпочитан контакт", getHidden("contact_preference"));
-
     summary.value = lines.join("\n");
   }
 
@@ -615,8 +620,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (index === 0 && flowPrava) {
           activeKitchenType = "straight";
+          activeBranch = "prava-3";
           syncConfigurationHidden();
+          resetPravaState();
           showStep(flowPrava);
+          applyBranchState();
           return;
         }
 
@@ -634,6 +642,228 @@ document.addEventListener("DOMContentLoaded", function () {
           return;
         }
       });
+    });
+  }
+
+  // =========================
+  // FLOW PRAVA
+  // =========================
+  var comboSelectWrapPrava = null;
+  var dimensionsPhaseWrapPrava = null;
+  var barWrapPrava = null;
+  var islandWrapPrava = null;
+
+  var cadBasePrava = null;
+  var cadSketch36 = null;
+  var cadSketch37 = null;
+  var allPravaCads = [];
+
+  var statePrava = {
+    combo: "",
+    bar: "no",
+    island: "no",
+    oven: "no",
+    fridge: ""
+  };
+
+  function showPravaCad(cadEl) {
+    hideAll(allPravaCads);
+    show(cadEl);
+  }
+
+  function updatePravaCadByPill(pill) {
+    if (!pill) {
+      showPravaCad(cadBasePrava);
+      return;
+    }
+
+    if (pill.classList.contains("chimney-left") || pill.classList.contains("water-left") || pill.classList.contains("left")) {
+      showPravaCad(cadSketch36 || cadBasePrava);
+      return;
+    }
+
+    if (pill.classList.contains("chimney-right") || pill.classList.contains("water-right") || pill.classList.contains("right")) {
+      showPravaCad(cadSketch37 || cadBasePrava);
+      return;
+    }
+
+    var allPills = qsa(comboSelectWrapPrava, ".option-pill");
+    var index = allPills.indexOf(pill);
+
+    if (index === 0) {
+      showPravaCad(cadSketch36 || cadBasePrava);
+      return;
+    }
+
+    if (index === 1) {
+      showPravaCad(cadSketch37 || cadBasePrava);
+      return;
+    }
+
+    showPravaCad(cadBasePrava);
+  }
+
+  function revealPravaDimensionsIfReady(pill) {
+    if (!statePrava.combo) return;
+
+    updatePravaCadByPill(pill);
+
+    if (comboSelectWrapPrava) hide(comboSelectWrapPrava);
+    if (dimensionsPhaseWrapPrava) show(dimensionsPhaseWrapPrava, "block");
+  }
+
+  function resetPravaState() {
+    if (!flowPrava) return;
+
+    statePrava = {
+      combo: "",
+      bar: "no",
+      island: "no",
+      oven: "no",
+      fridge: ""
+    };
+
+    comboSelectWrapPrava = qs(flowPrava, ".combo-select-wrap");
+    dimensionsPhaseWrapPrava = qs(flowPrava, ".dimensions-phase-wrap");
+    barWrapPrava = qs(flowPrava, ".bar-wrap");
+    islandWrapPrava = qs(flowPrava, ".island-wrap");
+
+    cadBasePrava = qs(flowPrava, ".cad-prava-base");
+    cadSketch36 = qs(flowPrava, ".cad-prava-sketch-36");
+    cadSketch37 = qs(flowPrava, ".cad-prava-sketch-37");
+    allPravaCads = [cadBasePrava, cadSketch36, cadSketch37];
+
+    removeActiveInScope(flowPrava, ".option-pill");
+    clearHiddenInScope(flowPrava);
+
+    qsa(flowPrava, ".dimension-row").forEach(function (row) {
+      resetPickerRow(row);
+    });
+
+    hideAll(allPravaCads);
+    showPravaCad(cadBasePrava);
+
+    if (comboSelectWrapPrava) show(comboSelectWrapPrava, "block");
+    if (dimensionsPhaseWrapPrava) hide(dimensionsPhaseWrapPrava);
+
+    if (barWrapPrava) hide(barWrapPrava);
+    if (islandWrapPrava) hide(islandWrapPrava);
+
+    setHidden("water_prava_3", "");
+    setHidden("length_1_prava_3", "");
+    setHidden("height_prava_3", "");
+    setHidden("has_bar_prava_3", "no");
+    setHidden("bar_length_prava_3", "");
+    setHidden("bar_height_prava_3", "");
+    setHidden("has_island_prava_3", "no");
+    setHidden("island_length_prava_3", "");
+    setHidden("island_height_prava_3", "");
+    setHidden("tall_unit_prava_3", "no");
+    setHidden("fridge_prava_3", "");
+    setHidden("vision_prava_3", "");
+    setHidden("plan_prava_3", "");
+    setHidden("contact_preference_rava_3", "");
+  }
+
+  if (flowPrava) {
+    resetPravaState();
+
+    flowPrava.addEventListener("click", function (e) {
+      var pickerBtn = e.target.closest(".picker-btn");
+      if (pickerBtn && flowPrava.contains(pickerBtn)) {
+        e.preventDefault();
+        handlePickerButtonClick(pickerBtn);
+        return;
+      }
+
+      var resetBtn = e.target.closest(".reset-combo-button");
+      if (resetBtn) {
+        e.preventDefault();
+        resetPravaState();
+        return;
+      }
+
+      var comboPill = e.target.closest(".combo-select-wrap .option-pill");
+      if (comboPill) {
+        e.preventDefault();
+        setSingleActive(comboPill);
+        statePrava.combo = getTextOrDataValue(comboPill);
+        setHidden("water_prava_3", statePrava.combo);
+        setFirstHiddenInScope(comboPill.closest(".question-wrap"), statePrava.combo);
+        revealPravaDimensionsIfReady(comboPill);
+        return;
+      }
+
+      var targetIslandYes = e.target.closest(".island-yes");
+      if (targetIslandYes) {
+        e.preventDefault();
+
+        var islandOn = toggleActive(targetIslandYes);
+        statePrava.island = islandOn ? "yes" : "no";
+
+        setHidden("has_island_prava_3", islandOn ? "yes" : "no");
+        setFirstHiddenInScope(targetIslandYes.closest(".question-wrap"), islandOn ? "Да" : "Не");
+
+        if (islandOn) {
+          show(islandWrapPrava, "block");
+        } else {
+          hide(islandWrapPrava);
+          resetPickerScope(islandWrapPrava);
+        }
+        return;
+      }
+
+      var targetBarYes = e.target.closest(".bar-yes, .bar-counter-yes");
+      if (targetBarYes) {
+        e.preventDefault();
+
+        var barOn = toggleActive(targetBarYes);
+        statePrava.bar = barOn ? "yes" : "no";
+
+        setHidden("has_bar_prava_3", barOn ? "yes" : "no");
+        setFirstHiddenInScope(targetBarYes.closest(".question-wrap"), barOn ? "Да" : "Не");
+
+        if (barOn) {
+          show(barWrapPrava, "block");
+        } else {
+          hide(barWrapPrava);
+          resetPickerScope(barWrapPrava);
+        }
+        return;
+      }
+
+      var targetOvenYes = e.target.closest(".oven-column-yes");
+      if (targetOvenYes) {
+        e.preventDefault();
+
+        var ovenOn = toggleActive(targetOvenYes);
+        statePrava.oven = ovenOn ? "yes" : "no";
+
+        setHidden("tall_unit_prava_3", ovenOn ? "yes" : "no");
+        setFirstHiddenInScope(targetOvenYes.closest(".question-wrap"), ovenOn ? "Да" : "Не");
+        return;
+      }
+
+      var targetFridgeBuiltIn = e.target.closest(".fridge-built-in");
+      var targetFridgeFreeStanding = e.target.closest(".fridge-free-standing");
+
+      if (targetFridgeBuiltIn) {
+        e.preventDefault();
+        setSingleActive(targetFridgeBuiltIn);
+        statePrava.fridge = "built-in";
+        setHidden("fridge_prava_3", "Вграден");
+        setFirstHiddenInScope(targetFridgeBuiltIn.closest(".question-wrap"), "Вграден");
+        return;
+      }
+
+      if (targetFridgeFreeStanding) {
+        e.preventDefault();
+        setSingleActive(targetFridgeFreeStanding);
+        statePrava.fridge = "free-standing";
+        setHidden("fridge_prava_3", "Свободно стоящ");
+        setFirstHiddenInScope(targetFridgeFreeStanding.closest(".question-wrap"), "Свободно стоящ");
+        return;
+      }
     });
   }
 
@@ -908,7 +1138,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
-
+  <script>
   // =========================
   // STEP 3B AGLOVA
   // =========================
@@ -1986,101 +2216,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // STEP 4 LOGIC
-  // =========================
-  function getVisionLabelFromCard(card) {
-    if (!card) return "";
-    var textEl = qs(card, ".vision-text");
-    return textEl ? (textEl.textContent || "").trim() : "";
-  }
-
-  function showVisionSetForKitchenType() {
-    if (!step4) return;
-
-    hide(visionSetStraight);
-    hide(visionSetCorner);
-    hide(visionSetU);
-
-    if (activeKitchenType === "straight" && visionSetStraight) {
-      show(visionSetStraight, "block");
-    }
-
-    if (activeKitchenType === "corner" && visionSetCorner) {
-      show(visionSetCorner, "block");
-    }
-
-    if (activeKitchenType === "u" && visionSetU) {
-      show(visionSetU, "block");
-    }
-  }
-
-  function resetStep4State() {
-    if (!step4) return;
-
-    removeActiveInScope(step4, ".vision-card");
-    removeActiveInScope(step4, ".option-pill.plan");
-    removeActiveInScope(step4, ".option-pill.contact");
-
-    setHidden("vision", "");
-    setHidden("plan", "");
-    setHidden("contact_preference", "");
-
-    showVisionSetForKitchenType();
-  }
-
-  if (step4) {
-    visionCards.forEach(function (card) {
-      card.style.cursor = "pointer";
-
-      card.addEventListener("click", function (e) {
-        e.preventDefault();
-
-        var parentSet = card.parentElement;
-        if (!parentSet) return;
-
-        removeActiveFromRow(parentSet, ".vision-card");
-        card.classList.add("active");
-
-        var visionText = getVisionLabelFromCard(card);
-        setHidden("vision", visionText);
-      });
-    });
-
-    planPills.forEach(function (pill) {
-      pill.style.cursor = "pointer";
-
-      pill.addEventListener("click", function (e) {
-        e.preventDefault();
-        setSingleActive(pill, ".option-pill.plan");
-        setHidden("plan", (pill.textContent || "").trim());
-      });
-    });
-
-    contactPills.forEach(function (pill) {
-      pill.style.cursor = "pointer";
-
-      pill.addEventListener("click", function (e) {
-        e.preventDefault();
-        setSingleActive(pill, ".option-pill.contact");
-        setHidden("contact_preference", (pill.textContent || "").trim());
-      });
-    });
-
-    if (stepSubmitBtn) {
-      stepSubmitBtn.addEventListener("click", function () {
-        syncConfigurationHidden();
-        buildReadableSummary();
-        beforeRealSubmit();
-      });
-    }
-  }
-
-  // =========================
   // GLOBAL NAVIGATION BUTTONS
   // =========================
   smartFormBlock.addEventListener("click", function (e) {
     var backBtn = e.target.closest(".back-button");
-    var nextBtn = e.target.closest(".next-button");
 
     if (backBtn) {
       e.preventDefault();
@@ -2099,35 +2238,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (visibleStep === step3aP || visibleStep === step3bP || visibleStep === step3cP) {
         showStep(flowP);
-        return;
-      }
-
-      if (visibleStep === step4) {
-        if (activeBranch === "3a" && step3aAglova) return showStep(step3aAglova);
-        if (activeBranch === "3b" && step3bAglova) return showStep(step3bAglova);
-        if (activeBranch === "3a-p" && step3aP) return showStep(step3aP);
-        if (activeBranch === "3b-p" && step3bP) return showStep(step3bP);
-        if (activeBranch === "3c-p" && step3cP) return showStep(step3cP);
-        if (activeKitchenType === "straight" && flowPrava) return showStep(flowPrava);
-      }
-    }
-
-    if (nextBtn) {
-      e.preventDefault();
-
-      var currentStep = getVisibleStep();
-
-      if (
-        currentStep === step3aAglova ||
-        currentStep === step3bAglova ||
-        currentStep === step3aP ||
-        currentStep === step3bP ||
-        currentStep === step3cP ||
-        currentStep === flowPrava
-      ) {
-        resetStep4State();
-        syncConfigurationHidden();
-        if (step4) showStep(step4);
         return;
       }
     }
@@ -2157,6 +2267,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_wall_1",
+      val("length_1_prava_3") ||
       val("stena1_p_3a") ||
       val("stena1_p_3b") ||
       val("stena1_p_3c") ||
@@ -2191,6 +2302,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_room_height",
+      val("height_prava_3") ||
       val("visochina_p_3a") ||
       val("visochina_p_3b") ||
       val("visochina_p_3c") ||
@@ -2203,6 +2315,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_water_position",
+      val("water_prava_3") ||
       val("water_position_p_3a") ||
       val("water_position_p_3b") ||
       val("water_position_p_3c") ||
@@ -2237,6 +2350,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_bar_enabled",
+      val("has_bar_prava_3") ||
       val("bar_enabled_p_3a") ||
       val("bar_enabled_p_3b") ||
       val("bar_enabled_p_3c") ||
@@ -2246,6 +2360,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_bar_length",
+      val("bar_length_prava_3") ||
       val("bar_length_p_3a") ||
       val("bar_length_p_3b") ||
       val("bar_length_p_3c") ||
@@ -2255,6 +2370,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_bar_depth",
+      val("bar_height_prava_3") ||
       val("bar_depth_p_3a") ||
       val("bar_depth_p_3b") ||
       val("bar_depth_p_3c") ||
@@ -2264,6 +2380,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_island_enabled",
+      val("has_island_prava_3") ||
       val("island_enabled_p_3a") ||
       val("island_enabled_p_3b") ||
       val("island_enabled_p_3c") ||
@@ -2273,6 +2390,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_island_length",
+      val("island_length_prava_3") ||
       val("island_length_p_3a") ||
       val("island_length_p_3b") ||
       val("island_length_p_3c") ||
@@ -2282,6 +2400,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_island_depth",
+      val("island_height_prava_3") ||
       val("island_depth_p_3a") ||
       val("island_depth_p_3b") ||
       val("island_depth_p_3c") ||
@@ -2291,6 +2410,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_oven_tall_unit",
+      val("tall_unit_prava_3") ||
       val("oven_tall_unit_p_3a") ||
       val("oven_tall_unit_p_3b") ||
       val("oven_tall_unit_p_3c") ||
@@ -2300,6 +2420,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     setMail(
       "mail_fridge_type",
+      val("fridge_prava_3") ||
       val("fridge_type_p_3a") ||
       val("fridge_type_p_3b") ||
       val("fridge_type_p_3c") ||
@@ -2307,8 +2428,19 @@ document.addEventListener("DOMContentLoaded", function () {
       val("fridge_type_3b")
     );
 
-    setMail("mail_vision", val("vision"));
-    setMail("mail_plan", val("plan"));
-    setMail("mail_contact_preference", val("contact_preference"));
+    setMail(
+      "mail_vision",
+      val("vision_prava_3") || val("vision")
+    );
+
+    setMail(
+      "mail_plan",
+      val("plan_prava_3") || val("plan")
+    );
+
+    setMail(
+      "mail_contact_preference",
+      val("contact_preference_rava_3") || val("contact_preference")
+    );
   });
 });
