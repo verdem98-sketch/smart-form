@@ -1603,13 +1603,51 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  formEl.addEventListener("submit", function () {
-    syncCurrentStepDimensions();
-    syncConfigurationHidden();
-    syncGeneralQuestionsFromScope(getActiveBranchStep());
-    buildReadableSummary();
-    syncMailFields();
+  // Спира Enter в input полета да submit-ва формата преждевременно
+  formEl.addEventListener("keydown", function (e) {
+    var target = e.target;
+    if (!target) return;
+
+    var tag = (target.tagName || "").toLowerCase();
+    var type = (target.type || "").toLowerCase();
+    var isTextarea = tag === "textarea";
+    var isSubmit = type === "submit";
+
+    if (e.key === "Enter" && !isTextarea && !isSubmit) {
+      e.preventDefault();
+    }
   });
+
+  // Заковава native submit-а в POST, за да няма URL чудовища и 414
+  formEl.setAttribute("method", "post");
+  formEl.setAttribute("action", window.location.pathname);
+
+  // Предпазител срещу двойно submit-ване
+  var smartFormSubmitLock = false;
+
+  formEl.addEventListener(
+    "submit",
+    function (e) {
+      syncCurrentStepDimensions();
+      syncConfigurationHidden();
+      syncGeneralQuestionsFromScope(getActiveBranchStep());
+      buildReadableSummary();
+      syncMailFields();
+
+      if (smartFormSubmitLock) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return false;
+      }
+
+      smartFormSubmitLock = true;
+
+      setTimeout(function () {
+        smartFormSubmitLock = false;
+      }, 4000);
+    },
+    true
+  );
 
   // ==================================================
   // INITIAL STATE
@@ -1618,4 +1656,3 @@ document.addEventListener("DOMContentLoaded", function () {
   if (step1) showStep(step1);
   syncConfigurationHidden();
 });
-
