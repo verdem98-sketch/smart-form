@@ -39,1338 +39,952 @@ document.addEventListener("DOMContentLoaded", function () {
     return normalizeText(el.getAttribute("data-value") || textOf(el));
   }
 
+  function safeLower(v) {
+    return normalizeText(v).toLowerCase();
+  }
+
+  function yesNoBg(v) {
+    var x = safeLower(v);
+    if (!x) return "";
+    if (
+      x === "да" ||
+      x === "yes" ||
+      x === "true" ||
+      x === "1" ||
+      x === "вграден" ||
+      x === "свободностоящ" ||
+      x === "ляво" ||
+      x === "дясно" ||
+      x === "a" ||
+      x === "b"
+    ) {
+      return v;
+    }
+    return v;
+  }
+
   function setSingleActive(target, selector) {
     if (!target) return;
     var row =
       target.closest(".options-row") ||
-      target.closest(".question-wrap") ||
-      target.closest(".vision-set") ||
+      target.closest(".style-cards-row") ||
+      target.closest(".choice-cards-row") ||
       target.parentElement;
 
     if (!row) return;
 
-    qsa(row, selector || ".option-pill, .vision-card").forEach(function (el) {
+    qsa(row, selector).forEach(function (el) {
       el.classList.remove("active");
     });
 
     target.classList.add("active");
   }
 
-  function toggleActive(target) {
-    if (!target) return false;
-    var isActive = target.classList.contains("active");
-    if (isActive) {
-      target.classList.remove("active");
-      return false;
-    }
-    target.classList.add("active");
-    return true;
+  function toDisplayValue(v) {
+    return normalizeText(v);
   }
 
-  function setField(scope, fieldName, value) {
-    if (!scope || !fieldName) return;
-    var el = qs(scope, '[data-field="' + fieldName + '"]');
-    if (el) el.value = value == null ? "" : String(value);
-  }
-
-  function getField(scope, fieldName) {
-    if (!scope || !fieldName) return "";
-    var el = qs(scope, '[data-field="' + fieldName + '"]');
-    return el ? normalizeText(el.value) : "";
-  }
-
-  function setDim(scope, dimName, value) {
-    if (!scope || !dimName) return;
-    var el = qs(scope, '[data-dim="' + dimName + '"]');
-    if (el) el.value = value == null ? "" : String(value);
-  }
-
-  function getDim(scope, dimName) {
-    if (!scope || !dimName) return "";
-    var el = qs(scope, '[data-dim="' + dimName + '"]');
-    return el ? normalizeText(el.value) : "";
-  }
-
-  function setFinal(name, value) {
-    if (!formEl || !name) return;
-    var el = qs(formEl, '[name="' + name + '"]');
-    if (el) el.value = value == null ? "" : String(value);
-  }
-
-  function getFinal(name) {
-    if (!formEl || !name) return "";
-    var el = qs(formEl, '[name="' + name + '"]');
-    return el ? normalizeText(el.value) : "";
-  }
-
-  function clearFinalFields() {
-    [
-      "configuration",
-      "water_position",
-      "chimney_position",
-      "hob_position",
-      "chimney_a",
-      "chimney_b",
-      "wall_1",
-      "wall_2",
-      "wall_3",
-      "room_height",
-      "bar_enabled",
-      "bar_len",
-      "bar_width",
-      "island_enabled",
-      "island_len",
-      "island_width",
-      "oven_tall_unit",
-      "fridge_type",
-      "vision",
-      "plan",
-      "contact_preference",
-      "dishwasher",
-      "washing_machine",
-      "microwave",
-      "coffee_machine",
-      "summary_readable"
-    ].forEach(function (name) {
-      if (
-        name === "bar_enabled" ||
-        name === "island_enabled" ||
-        name === "oven_tall_unit" ||
-        name === "dishwasher" ||
-        name === "washing_machine" ||
-        name === "microwave" ||
-        name === "coffee_machine"
-      ) {
-        setFinal(name, "no");
-      } else {
-        setFinal(name, "");
-      }
-    });
-  }
-
-  function pushIf(lines, label, value) {
-    if (!normalizeText(value)) return;
-    lines.push(label + ": " + value);
-  }
-
-  function yesNoBg(value) {
-    var v = normalizeText(value).toLowerCase();
-    if (v === "yes" || v === "да") return "Да";
-    if (v === "no" || v === "не") return "Не";
-    return value || "";
-  }
-
-  function disableStepNativeFields() {
-    if (!stepsWrapper) return;
-
-    qsa(stepsWrapper, "input, select, textarea").forEach(function (el) {
-      if (el.type === "hidden") return;
-      if (el.type === "file") return;
-      if (el.type === "submit") return;
-      el.disabled = true;
-    });
+  function toKey(v) {
+    return safeLower(v)
+      .replace(/\s+/g, "_")
+      .replace(/[^\p{L}\p{N}_-]/gu, "");
   }
 
   // ==================================================
-  // PICKERS
+  // ROOTS
   // ==================================================
-  function getPickerValue(controlEl) {
-    if (!controlEl) return 0;
-    var valueEl = qs(controlEl, ".picker-value");
-    if (!valueEl) return 0;
-    var raw = (valueEl.textContent || "").replace(/[^\d-]/g, "");
-    var num = parseInt(raw, 10);
-    return isNaN(num) ? 0 : num;
-  }
+  var formEl =
+    qs(document, ".smart-form-wrap form") ||
+    qs(document, ".smart-form-wrap .w-form form") ||
+    qs(document, "form");
 
-  function setPickerValue(controlEl, value) {
-    if (!controlEl) return;
-    var valueEl = qs(controlEl, ".picker-value");
-    if (!valueEl) return;
-    valueEl.textContent = String(value);
-  }
-
-  function formatRowValue(row) {
-    if (!row) return "";
-
-    var metersControl = qs(row, ".meters-control");
-    var centimetersControl = qs(row, ".centimeters-control");
-
-    var hasM = !!metersControl;
-    var hasCm = !!centimetersControl;
-
-    var m = hasM ? getPickerValue(metersControl) : 0;
-    var cm = hasCm ? getPickerValue(centimetersControl) : 0;
-
-    if (!hasM && !hasCm) return "";
-    if (hasM && !hasCm) return m > 0 ? m + " м" : "";
-    if (!hasM && hasCm) return cm > 0 ? cm + " см" : "";
-    if (m === 0 && cm === 0) return "";
-    return m + " м " + cm + " см";
-  }
-
-  function syncRowHidden(row) {
-    if (!row) return;
-    var dimName = row.getAttribute("data-dim");
-    if (!dimName) return;
-    setDim(row.closest(".step-3-prava, .step-3a-aglova, .step-3b-aglova, .step-3a-p, .step-3b-p, .step-3c-p"), dimName, formatRowValue(row));
-  }
-
-  function resetPickerRow(row) {
-    if (!row) return;
-    var metersControl = qs(row, ".meters-control");
-    var centimetersControl = qs(row, ".centimeters-control");
-
-    if (metersControl) setPickerValue(metersControl, 0);
-    if (centimetersControl) setPickerValue(centimetersControl, 0);
-    syncRowHidden(row);
-  }
-
-  function resetPickerScope(scopeEl) {
-    if (!scopeEl) return;
-    qsa(scopeEl, ".dimension-row").forEach(function (row) {
-      resetPickerRow(row);
-    });
-  }
-
-  function handlePickerButtonClick(btn) {
-    if (!btn) return;
-    var row = btn.closest(".dimension-row");
-    if (!row) return;
-
-    var metersControl = qs(row, ".meters-control");
-    var centimetersControl = qs(row, ".centimeters-control");
-
-    var hasM = !!metersControl;
-    var hasCm = !!centimetersControl;
-
-    var m = hasM ? getPickerValue(metersControl) : 0;
-    var cm = hasCm ? getPickerValue(centimetersControl) : 0;
-
-    if (btn.classList.contains("meter-up")) {
-      m += 1;
-      setPickerValue(metersControl, m);
-      syncRowHidden(row);
-      return;
-    }
-
-    if (btn.classList.contains("meter-down")) {
-      m = Math.max(0, m - 1);
-      setPickerValue(metersControl, m);
-      syncRowHidden(row);
-      return;
-    }
-
-    if (btn.classList.contains("cm-up")) {
-      if (!hasCm) return;
-      if (cm >= 95) {
-        if (hasM) {
-          cm = 0;
-          m += 1;
-          setPickerValue(metersControl, m);
-        } else {
-          cm = 95;
-        }
-      } else {
-        cm += 5;
-      }
-      setPickerValue(centimetersControl, cm);
-      syncRowHidden(row);
-      return;
-    }
-
-    if (btn.classList.contains("cm-down")) {
-      if (!hasCm) return;
-      if (cm <= 0) {
-        if (hasM && m > 0) {
-          m -= 1;
-          cm = 95;
-          setPickerValue(metersControl, m);
-        } else {
-          cm = 0;
-        }
-      } else {
-        cm -= 5;
-      }
-      setPickerValue(centimetersControl, cm);
-      syncRowHidden(row);
-    }
-  }
-
-  // ==================================================
-  // ROOT
-  // ==================================================
-  var overlay = qs(document, ".section-overlay");
+  var modalOverlay = qs(document, ".section-overlay");
   var modalCard = qs(document, ".modal-card");
-  var smartFormBlock = qs(document, ".smart-form-block");
-  var formEl = smartFormBlock ? qs(smartFormBlock, "form") : null;
-  var stepsWrapper = smartFormBlock ? qs(smartFormBlock, ".steps-wrapper") : null;
-  var openButtons = qsa(document, ".open-smart-form");
 
-  if (!overlay || !modalCard || !smartFormBlock || !formEl) return;
+  var openBtns = qsa(document, ".open-smart-form");
+  var closeBtns = qsa(document, ".close-smart-form");
 
-  // ==================================================
-  // STEPS
-  // ==================================================
-  var step1 = qs(smartFormBlock, ".step-1");
+  var kitchenCards = qsa(document, ".kitchen-card");
 
-  var flowPrava = qs(smartFormBlock, ".flow-prava");
-  var flowAglova = qs(smartFormBlock, ".flow-aglova");
-  var flowP = qs(smartFormBlock, ".flow-p");
+  var flowPrava = qs(document, ".flow-prava");
+  var flowAglova = qs(document, ".flow-aglova");
+  var flowP = qs(document, ".flow-p");
 
-  var stepPrava = qs(smartFormBlock, ".step-3-prava");
-  var step3aAglova = qs(smartFormBlock, ".step-3a-aglova");
-  var step3bAglova = qs(smartFormBlock, ".step-3b-aglova");
+  var allFlows = [flowPrava, flowAglova, flowP].filter(Boolean);
 
-  var step3aP = qs(smartFormBlock, ".step-3a-p");
-  var step3bP = qs(smartFormBlock, ".step-3b-p");
-  var step3cP = qs(smartFormBlock, ".step-3c-p");
+  var summaryReadable =
+    qs(document, '[name="summary_readable"]') ||
+    qs(document, '[data-field="summary_readable"]') ||
+    qs(document, 'textarea[data-summary="readable"]') ||
+    qs(document, 'textarea[name="summary"]');
 
-  var ALL_STEPS = [
-    step1,
-    flowPrava,
-    flowAglova,
-    flowP,
-    stepPrava,
-    step3aAglova,
-    step3bAglova,
-    step3aP,
-    step3bP,
-    step3cP
-  ].filter(Boolean);
-
-  var activeBranch = "";
   var activeKitchenType = "";
-
-  var BRANCHES = {
-    prava: {
-      key: "prava",
-      title: "Права кухня",
-      step: stepPrava,
-      flow: flowPrava,
-      comboFields: ["water_position_prava"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "len_prava_3",
-        wall2: "",
-        wall3: "",
-        roomHeight: "height_prava_3",
-        barLen: "bar_len_prava_3",
-        barWidth: "bar_width_prava_3",
-        islandLen: "island_len_3a",
-        islandWidth: "island_width_3a"
-      },
-      fields: {
-        water: "water_position_prava",
-        chimney: "",
-        hob: "",
-        chimneyA: "",
-        chimneyB: "",
-        barEnabled: "bar",
-        islandEnabled: "island",
-        tallUnit: "tall_unit_prava_3",
-        fridge: "fridge_prava_3",
-        vision: "vision_prava_3",
-        plan: "plan_prava_3",
-        contact: "contact_preference_prava_3"
-      }
-    },
-    "3a": {
-      key: "3a",
-      title: "Ъглова без комин",
-      step: step3aAglova,
-      flow: flowAglova,
-      comboFields: ["water_position_3a", "chimney_position_3a"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "stena1_len_3a",
-        wall2: "stena2_len_3a",
-        wall3: "",
-        roomHeight: "visochina_3a",
-        barLen: "bar_len_3a",
-        barWidth: "bar_width_3a",
-        islandLen: "island_len_3a",
-        islandWidth: "island_width_3a"
-      },
-      fields: {
-        water: "water_position_3a",
-        chimney: "chimney_position_3a",
-        hob: "",
-        chimneyA: "",
-        chimneyB: "",
-        barEnabled: "bar_enabled_3a",
-        islandEnabled: "island_enabled_3a",
-        tallUnit: "oven_tall_unit_3a",
-        fridge: "fridge_type_3a",
-        vision: "vision_3a",
-        plan: "plan_3a",
-        contact: "contact_preference_3a"
-      }
-    },
-    "3b": {
-      key: "3b",
-      title: "Ъглова с комин",
-      step: step3bAglova,
-      flow: flowAglova,
-      comboFields: ["water_position_3b", "chimney_position_3b"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "stena1_len_3b",
-        wall2: "stena2_len_3b",
-        wall3: "",
-        roomHeight: "visochina_3b",
-        barLen: "bar_len_3b",
-        barWidth: "bar_width_3b",
-        islandLen: "island_len_3b",
-        islandWidth: "island_width_3b"
-      },
-      fields: {
-        water: "water_position_3b",
-        chimney: "chimney_position_3b",
-        hob: "",
-        chimneyA: "komin_a_3b",
-        chimneyB: "komin_b_3b",
-        barEnabled: "bar_enabled_3b",
-        islandEnabled: "island_enabled_3b",
-        tallUnit: "oven_tall_unit_3b",
-        fridge: "fridge_type_3b",
-        vision: "vision_3b",
-        plan: "plan_3b",
-        contact: "contact_preference_3b"
-      }
-    },
-    "p_3a": {
-      key: "p_3a",
-      title: "П-образна без комин",
-      step: step3aP,
-      flow: flowP,
-      comboFields: ["water_position_p_3a", "hob_position_p_3a"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "stena1_len_p_3a",
-        wall2: "stena2_len_p_3a",
-        wall3: "stena3_len_p_3a",
-        roomHeight: "visochina_p_3a",
-        barLen: "bar_len_p_3a",
-        barWidth: "bar_width_p_3a",
-        islandLen: "island_len_p_3a",
-        islandWidth: "island_width_p_3a"
-      },
-      fields: {
-        water: "water_position_p_3a",
-        chimney: "",
-        hob: "hob_position_p_3a",
-        chimneyA: "",
-        chimneyB: "",
-        barEnabled: "bar_enabled_p_3a",
-        islandEnabled: "island_enabled_p_3a",
-        tallUnit: "oven_tall_unit_p_3a",
-        fridge: "fridge_type_p_3a",
-        vision: "vision_p_3a",
-        plan: "plan_p_3a",
-        contact: "contact_preference_p_3a"
-      }
-    },
-    "p_3b": {
-      key: "p_3b",
-      title: "П-образна с комин вляво",
-      step: step3bP,
-      flow: flowP,
-      comboFields: ["water_position_p_3b", "hob_position_p_3b"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "stena1_len_p_3b",
-        wall2: "stena2_len_p_3b",
-        wall3: "stena3_len_p_3b",
-        roomHeight: "visochina_p_3b",
-        barLen: "bar_len_p_3b",
-        barWidth: "bar_width_p_3b",
-        islandLen: "island_len_p_3b",
-        islandWidth: "island_width_p_3b"
-      },
-      fields: {
-        water: "water_position_p_3b",
-        chimney: "",
-        hob: "hob_position_p_3b",
-        chimneyA: "komin_a_p_3b",
-        chimneyB: "komin_b_p_3b",
-        barEnabled: "bar_enabled_p_3b",
-        islandEnabled: "island_enabled_p_3b",
-        tallUnit: "oven_tall_unit_p_3b",
-        fridge: "fridge_type_p_3b",
-        vision: "vision_p_3b",
-        plan: "plan_p_3b",
-        contact: "contact_preference_p_3b"
-      }
-    },
-    "p_3c": {
-      key: "p_3c",
-      title: "П-образна с комин вдясно",
-      step: step3cP,
-      flow: flowP,
-      comboFields: ["water_position_p_3c", "hob_position_p_3c"],
-      comboWrapSelector: ".combo-select-wrap",
-      dimensionsWrapSelector: ".dimensions-phase-wrap",
-      dims: {
-        wall1: "stena1_len_p_3c",
-        wall2: "stena2_len_p_3c",
-        wall3: "stena3_len_p_3c",
-        roomHeight: "visochina_p_3c",
-        barLen: "bar_len_p_3c",
-        barWidth: "bar_width_p_3c",
-        islandLen: "island_len_p_3c",
-        islandWidth: "island_width_p_3c"
-      },
-      fields: {
-        water: "water_position_p_3c",
-        chimney: "",
-        hob: "hob_position_p_3c",
-        chimneyA: "komin_a_p_3c",
-        chimneyB: "komin_b_p_3c",
-        barEnabled: "bar_enabled_p_3c",
-        islandEnabled: "island_enabled_p_3c",
-        tallUnit: "oven_tall_unit_p_3c",
-        fridge: "fridge_type_p_3c",
-        vision: "vision_p_3c",
-        plan: "plan_p_3c",
-        contact: "contact_preference_p_3c"
-      }
-    }
-  };
-
-  function getBranchConfig() {
-    return BRANCHES[activeBranch] || null;
-  }
-
-  function getVisibleStep() {
-    for (var i = ALL_STEPS.length - 1; i >= 0; i--) {
-      var step = ALL_STEPS[i];
-      if (step && window.getComputedStyle(step).display !== "none") return step;
-    }
-    return null;
-  }
-
-  function hideAllSteps() {
-    ALL_STEPS.forEach(function (step) {
-      hide(step);
-    });
-  }
-
-  function showStep(stepEl) {
-    hideAllSteps();
-    show(stepEl, "block");
-  }
+  var activeFlow = null;
+  var activeBranch = null;
 
   // ==================================================
-  // CADS
+  // STATE
   // ==================================================
-  function showOnlyCad(stepEl, selectorToShow) {
-    if (!stepEl) return;
+  var state = {
+    kitchen_type: "",
 
-    var wrap = qs(stepEl, ".cad-global-wrap");
-    if (!wrap) return;
+    // prava
+    chimney_position_prava: "",
+    len_prava_3: "",
+    height_prava_3: "",
+    bar: "",
+    bar_len_prava_3: "",
+    bar_width_prava_3: "",
+    island: "",
+    island_len_3a: "",
+    island_width_3a: "",
+    vision_prava_3: "",
+    plan_prava_3: "",
+    contact_preference_prava_3: "",
 
-    qsa(wrap, "img, .w-image").forEach(function (el) {
-      hide(el);
-    });
-
-    var target = selectorToShow ? qs(stepEl, selectorToShow) : null;
-
-    if (!target) {
-      target = qs(stepEl, ".cad-prava-base, .cad-3a-base, .cad-3b-base, .cad-p-3a-base, .cad-p-3b-base, .cad-p-3c-base");
-    }
-
-    if (target) show(target, "block");
-  }
-
-  function updateCadForActiveBranch() {
-    var cfg = getBranchConfig();
-    if (!cfg || !cfg.step) return;
-
-    if (cfg.key === "prava") {
-      var wrapPrava = qs(cfg.step, ".cad-global-wrap");
-      if (!wrapPrava) return;
-
-      var basePrava = qs(cfg.step, ".cad-prava-base");
-      var pravaSketches = qsa(wrapPrava, "img, .w-image").filter(function (el) {
-        return !el.classList.contains("cad-prava-base");
-      });
-
-      var waterPrava = getField(cfg.step, "water_position_prava").toLowerCase();
-
-      qsa(wrapPrava, "img, .w-image").forEach(function (el) {
-        hide(el);
-      });
-
-      if (!waterPrava) {
-        if (basePrava) show(basePrava, "block");
-        return;
-      }
-
-      if (waterPrava.indexOf("ляво") !== -1 && pravaSketches[0]) {
-        show(pravaSketches[0], "block");
-        return;
-      }
-
-      if (waterPrava.indexOf("дясно") !== -1 && pravaSketches[1]) {
-        show(pravaSketches[1], "block");
-        return;
-      }
-
-      if (basePrava) show(basePrava, "block");
-      return;
-    }
-
-    if (cfg.key === "3a") {
-      var water3a = getField(cfg.step, "water_position_3a");
-      var chimney3a = getField(cfg.step, "chimney_position_3a");
-
-      if (!water3a || !chimney3a) {
-        showOnlyCad(cfg.step, ".cad-3a-base");
-        return;
-      }
-
-      var map3a = {
-        "Стена 2|Стена 1": ".cad-3a-sketch-1",
-        "Стена 2|Стена 4": ".cad-3a-sketch-2",
-        "Стена 3|Стена 1": ".cad-3a-sketch-3",
-        "Стена 3|Стена 4": ".cad-3a-sketch-4"
-      };
-
-      showOnlyCad(cfg.step, map3a[water3a + "|" + chimney3a] || ".cad-3a-base");
-      return;
-    }
-
-    if (cfg.key === "3b") {
-      var water3b = getField(cfg.step, "water_position_3b");
-      var chimney3b = getField(cfg.step, "chimney_position_3b");
-
-      if (!water3b || !chimney3b) {
-        showOnlyCad(cfg.step, ".cad-3b-base");
-        return;
-      }
-
-      var map3b = {
-        "Стена 2|Позиция A": ".cad-3b-sketch-5",
-        "Стена 2|Позиция B": ".cad-3b-sketch-6",
-        "Стена 3|Позиция A": ".cad-3b-sketch-7",
-        "Стена 3|Позиция B": ".cad-3b-sketch-8"
-      };
-
-      showOnlyCad(cfg.step, map3b[water3b + "|" + chimney3b] || ".cad-3b-base");
-      return;
-    }
-
-    if (cfg.key === "p_3a" || cfg.key === "p_3b" || cfg.key === "p_3c") {
-      var waterField = cfg.fields.water;
-      var hobField = cfg.fields.hob;
-      var waterVal = getField(cfg.step, waterField);
-      var hobVal = getField(cfg.step, hobField);
-
-      if (!waterVal || !hobVal) {
-        var baseSel = cfg.key === "p_3a" ? ".cad-p-3a-base" : cfg.key === "p_3b" ? ".cad-p-3b-base" : ".cad-p-3c-base";
-        showOnlyCad(cfg.step, baseSel);
-        return;
-      }
-
-      var keyMap = {
-        "Позиция 1|Позиция 1": 0,
-        "Позиция 1|Позиция 2": 1,
-        "Позиция 1|Позиция 3": 2,
-        "Позиция 2|Позиция 1": 3,
-        "Позиция 2|Позиция 2": 4,
-        "Позиция 2|Позиция 3": 5,
-        "Позиция 3|Позиция 1": 6,
-        "Позиция 3|Позиция 2": 7,
-        "Позиция 3|Позиция 3": 8
-      };
-
-      var baseNumber = cfg.key === "p_3a" ? 9 : cfg.key === "p_3b" ? 18 : 27;
-      var idx = keyMap[waterVal + "|" + hobVal];
-
-      if (idx == null) {
-        var fallbackBase = cfg.key === "p_3a" ? ".cad-p-3a-base" : cfg.key === "p_3b" ? ".cad-p-3b-base" : ".cad-p-3c-base";
-        showOnlyCad(cfg.step, fallbackBase);
-        return;
-      }
-
-      showOnlyCad(cfg.step, ".cad-p-sketch-" + (baseNumber + idx));
-    }
-  }
-
-  // ==================================================
-  // STATE RESET
-  // ==================================================
-  function resetBranchStep(branchKey) {
-    var cfg = BRANCHES[branchKey];
-    if (!cfg || !cfg.step) return;
-
-    qsa(cfg.step, ".option-pill, .vision-card, .checkbox, .appliance-checkbox").forEach(function (el) {
-      el.classList.remove("active");
-    });
-
-    // reset combo/general fields
-    Object.keys(cfg.fields).forEach(function (k) {
-      var fieldName = cfg.fields[k];
-      if (!fieldName) return;
-
-      if (k === "barEnabled" || k === "islandEnabled" || k === "tallUnit") {
-        setField(cfg.step, fieldName, "no");
-      } else {
-        setField(cfg.step, fieldName, "");
-      }
-    });
-
-    // reset global extras
-    ["dishwasher", "washing_machine", "microwave", "coffee_machine"].forEach(function (f) {
-      setField(cfg.step, f, "no");
-    });
-
-    // reset dims
-    Object.keys(cfg.dims).forEach(function (k) {
-      var dim = cfg.dims[k];
-      if (dim) setDim(cfg.step, dim, "");
-    });
-
-    resetPickerScope(cfg.step);
-
-    // UI visibility
-    var comboWrap = qs(cfg.step, cfg.comboWrapSelector);
-    var dimensionsWrap = qs(cfg.step, cfg.dimensionsWrapSelector);
-    var barWrap = qs(cfg.step, ".bar-wrap");
-    var islandWrap = qs(cfg.step, ".island-wrap");
-
-    if (comboWrap) show(comboWrap, "block");
-    if (dimensionsWrap) hide(dimensionsWrap);
-    if (barWrap) hide(barWrap);
-    if (islandWrap) hide(islandWrap);
-
-    updateCadForActiveBranch();
-  }
-
-  function openDimensionsIfComboReady(branchKey) {
-    var cfg = BRANCHES[branchKey];
-    if (!cfg || !cfg.step) return;
-
-    var ready = cfg.comboFields.every(function (fieldName) {
-      return normalizeText(getField(cfg.step, fieldName));
-    });
-
-    updateCadForActiveBranch();
-
-    if (!ready) return;
-
-    var comboWrap = qs(cfg.step, cfg.comboWrapSelector);
-    var dimensionsWrap = qs(cfg.step, cfg.dimensionsWrapSelector);
-
-    if (comboWrap) hide(comboWrap);
-    if (dimensionsWrap) show(dimensionsWrap, "block");
-  }
-
-  // ==================================================
-  // GENERAL QUESTIONS
-  // ==================================================
-  function syncGeneralQuestionsFromActiveStep() {
-    var cfg = getBranchConfig();
-    if (!cfg || !cfg.step) return;
-
-    var generalWrap = qs(cfg.step, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
-    if (!generalWrap) return;
-
-    var questionWraps = qsa(generalWrap, ":scope > .question-wrap");
-
-    // 1) tall unit
-    if (questionWraps[0] && cfg.fields.tallUnit) {
-      var activeTall = qs(questionWraps[0], ".option-pill.active");
-      if (activeTall) {
-        var tallText = getOptionValue(activeTall).toLowerCase();
-        setField(cfg.step, cfg.fields.tallUnit, tallText.indexOf("без") !== -1 ? "no" : "yes");
-      }
-    }
-
-    // 2) fridge
-    if (questionWraps[1] && cfg.fields.fridge) {
-      var activeFridge = qs(questionWraps[1], ".option-pill.active");
-      if (activeFridge) {
-        setField(cfg.step, cfg.fields.fridge, getOptionValue(activeFridge));
-      }
-    }
-
-    // vision
-    var visionSet = qs(generalWrap, ".vision-set");
-    if (visionSet && cfg.fields.vision) {
-      var activeVision = qs(visionSet, ".vision-card.active, .option-pill.active");
-      if (activeVision) setField(cfg.step, cfg.fields.vision, getOptionValue(activeVision));
-    }
-
-    // plan
-    var questionPlan = qs(generalWrap, ".question-plan");
-    if (questionPlan && cfg.fields.plan) {
-      var activePlan = qs(questionPlan, ".option-pill.active");
-      var planInput = qs(questionPlan, "input, textarea");
-      if (activePlan) {
-        setField(cfg.step, cfg.fields.plan, getOptionValue(activePlan));
-      } else if (planInput) {
-        setField(cfg.step, cfg.fields.plan, normalizeText(planInput.value));
-      }
-    }
-
-    // contact
-    var questionContact = qs(generalWrap, ".question-contact");
-    if (questionContact && cfg.fields.contact) {
-      var activeContact = qs(questionContact, ".option-pill.active");
-      var contactInput = qs(questionContact, "input, textarea");
-      if (activeContact) {
-        setField(cfg.step, cfg.fields.contact, getOptionValue(activeContact));
-      } else if (contactInput) {
-        setField(cfg.step, cfg.fields.contact, normalizeText(contactInput.value));
-      }
-    }
-  }
-
-  // ==================================================
-  // FINAL FIELDS
-  // ==================================================
-  function syncConfigurationFinal() {
-    var cfg = getBranchConfig();
-    setFinal("configuration", cfg ? cfg.title : "");
-  }
-
-  function syncCurrentBranchToFinal() {
-    var cfg = getBranchConfig();
-    if (!cfg || !cfg.step) return;
-
-    clearFinalFields();
-    syncConfigurationFinal();
-
-    // sync picker rows first
-    qsa(cfg.step, ".dimension-row").forEach(function (row) {
-      syncRowHidden(row);
-    });
-
-    syncGeneralQuestionsFromActiveStep();
-
-    // core
-    setFinal("water_position", cfg.fields.water ? getField(cfg.step, cfg.fields.water) : "");
-    setFinal("chimney_position", cfg.fields.chimney ? getField(cfg.step, cfg.fields.chimney) : "");
-    setFinal("hob_position", cfg.fields.hob ? getField(cfg.step, cfg.fields.hob) : "");
-    setFinal("chimney_a", cfg.fields.chimneyA ? getField(cfg.step, cfg.fields.chimneyA) : "");
-    setFinal("chimney_b", cfg.fields.chimneyB ? getField(cfg.step, cfg.fields.chimneyB) : "");
-
-    // dimensions
-    setFinal("wall_1", cfg.dims.wall1 ? getDim(cfg.step, cfg.dims.wall1) : "");
-    setFinal("wall_2", cfg.dims.wall2 ? getDim(cfg.step, cfg.dims.wall2) : "");
-    setFinal("wall_3", cfg.dims.wall3 ? getDim(cfg.step, cfg.dims.wall3) : "");
-    setFinal("room_height", cfg.dims.roomHeight ? getDim(cfg.step, cfg.dims.roomHeight) : "");
-
-    // bar/island
-    setFinal("bar_enabled", cfg.fields.barEnabled ? getField(cfg.step, cfg.fields.barEnabled) || "no" : "no");
-    setFinal("bar_len", cfg.dims.barLen ? getDim(cfg.step, cfg.dims.barLen) : "");
-    setFinal("bar_width", cfg.dims.barWidth ? getDim(cfg.step, cfg.dims.barWidth) : "");
-
-    setFinal("island_enabled", cfg.fields.islandEnabled ? getField(cfg.step, cfg.fields.islandEnabled) || "no" : "no");
-    setFinal("island_len", cfg.dims.islandLen ? getDim(cfg.step, cfg.dims.islandLen) : "");
-    setFinal("island_width", cfg.dims.islandWidth ? getDim(cfg.step, cfg.dims.islandWidth) : "");
-
-    // general
-    setFinal("oven_tall_unit", cfg.fields.tallUnit ? getField(cfg.step, cfg.fields.tallUnit) || "no" : "no");
-    setFinal("fridge_type", cfg.fields.fridge ? getField(cfg.step, cfg.fields.fridge) : "");
-    setFinal("vision", cfg.fields.vision ? getField(cfg.step, cfg.fields.vision) : "");
-    setFinal("plan", cfg.fields.plan ? getField(cfg.step, cfg.fields.plan) : "");
-    setFinal("contact_preference", cfg.fields.contact ? getField(cfg.step, cfg.fields.contact) : "");
+    // aglova 3a
+    water_position_3a: "",
+    chimney_position_3a: "",
+    stena1_len_3a: "",
+    stena2_len_3a: "",
+    visochina_3a: "",
+    bar_enabled_3a: "",
+    bar_len_3a: "",
+    bar_width_3a: "",
+    island_enabled_3a: "",
+    island_len_3a: "",
+    island_width_3a: "",
+    oven_tall_unit_3a: "",
+    fridge_type_3a: "",
+    vision_3a: "",
+    plan_3a: "",
+    contact_preference_3a: "",
 
     // extras global
-    setFinal("dishwasher", getField(cfg.step, "dishwasher") || "no");
-    setFinal("washing_machine", getField(cfg.step, "washing_machine") || "no");
-    setFinal("microwave", getField(cfg.step, "microwave") || "no");
-    setFinal("coffee_machine", getField(cfg.step, "coffee_machine") || "no");
+    dishwasher: "",
+    washing_machine: "",
+    microwave: "",
+    coffee_machine: ""
+  };
 
-    buildReadableSummary();
+  // ==================================================
+  // FIELD SYNC
+  // ==================================================
+  function findTargetsByNameOrData(key) {
+    var out = [];
+
+    if (!key) return out;
+
+    qsa(document, '[name="' + key + '"]').forEach(function (el) {
+      out.push(el);
+    });
+
+    qsa(document, '[data-field="' + key + '"]').forEach(function (el) {
+      if (out.indexOf(el) === -1) out.push(el);
+    });
+
+    qsa(document, '[data-dim="' + key + '"]').forEach(function (el) {
+      if (out.indexOf(el) === -1) out.push(el);
+    });
+
+    return out;
   }
 
-  function buildReadableSummary() {
-    var lines = [];
+  function setStoredValue(key, value) {
+    state[key] = normalizeText(value);
+    syncFieldValue(key, state[key]);
+    updateReadableSummary();
+  }
 
-    pushIf(lines, "Конфигурация", getFinal("configuration"));
+  function getStoredValue(key) {
+    return normalizeText(state[key] || "");
+  }
 
-    pushIf(lines, "Вода", getFinal("water_position"));
-    pushIf(lines, "Комин", getFinal("chimney_position"));
-    pushIf(lines, "Котлони", getFinal("hob_position"));
-    pushIf(lines, "Комин A", getFinal("chimney_a"));
-    pushIf(lines, "Комин B", getFinal("chimney_b"));
+  function syncFieldValue(key, value) {
+    var targets = findTargetsByNameOrData(key);
 
-    if (
-      getFinal("wall_1") ||
-      getFinal("wall_2") ||
-      getFinal("wall_3") ||
-      getFinal("room_height")
-    ) {
-      lines.push("");
-      lines.push("Основни размери:");
-      pushIf(lines, "Стена 1", getFinal("wall_1"));
-      pushIf(lines, "Стена 2", getFinal("wall_2"));
-      pushIf(lines, "Стена 3", getFinal("wall_3"));
-      pushIf(lines, "Височина", getFinal("room_height"));
-    }
+    targets.forEach(function (el) {
+      var tag = (el.tagName || "").toLowerCase();
+      var type = (el.getAttribute("type") || "").toLowerCase();
+      var val = normalizeText(value);
 
-    lines.push("");
-    pushIf(lines, "Бар", yesNoBg(getFinal("bar_enabled")));
-    if (getFinal("bar_enabled") === "yes") {
-      pushIf(lines, "Бар дължина", getFinal("bar_len"));
-      pushIf(lines, "Бар ширина", getFinal("bar_width"));
-    }
+      if (type === "checkbox") {
+        var truthy =
+          safeLower(val) === "да" ||
+          safeLower(val) === "yes" ||
+          safeLower(val) === "true" ||
+          safeLower(val) === "1";
+        el.checked = truthy;
+      } else if (tag === "input" || tag === "textarea" || tag === "select") {
+        el.value = val;
+      } else {
+        el.setAttribute("data-current-value", val);
+      }
+    });
+  }
 
-    lines.push("");
-    pushIf(lines, "Остров", yesNoBg(getFinal("island_enabled")));
-    if (getFinal("island_enabled") === "yes") {
-      pushIf(lines, "Остров дължина", getFinal("island_len"));
-      pushIf(lines, "Остров ширина", getFinal("island_width"));
-    }
+  function readInitialValuesFromDom() {
+    Object.keys(state).forEach(function (key) {
+      var targets = findTargetsByNameOrData(key);
+      if (!targets.length) return;
 
-    lines.push("");
-    pushIf(lines, "Колона за фурна", yesNoBg(getFinal("oven_tall_unit")));
-    pushIf(lines, "Хладилник", getFinal("fridge_type"));
+      var el = targets[0];
+      var tag = (el.tagName || "").toLowerCase();
+      var type = (el.getAttribute("type") || "").toLowerCase();
 
-    lines.push("");
-    pushIf(lines, "Визия", getFinal("vision"));
-    pushIf(lines, "Планиране", getFinal("plan"));
-    pushIf(lines, "Предпочитан контакт", getFinal("contact_preference"));
-
-    lines.push("");
-    pushIf(lines, "Съдомиялна", yesNoBg(getFinal("dishwasher")));
-    pushIf(lines, "Пералня", yesNoBg(getFinal("washing_machine")));
-    pushIf(lines, "Микровълнова", yesNoBg(getFinal("microwave")));
-    pushIf(lines, "Кафе машина", yesNoBg(getFinal("coffee_machine")));
-
-    setFinal("summary_readable", lines.join("\n").replace(/\n{3,}/g, "\n\n"));
+      if (type === "checkbox") {
+        state[key] = el.checked ? "Да" : "";
+      } else if (tag === "input" || tag === "textarea" || tag === "select") {
+        state[key] = normalizeText(el.value);
+      }
+    });
   }
 
   // ==================================================
   // MODAL
   // ==================================================
   function openModal() {
-    overlay.style.display = "flex";
+    if (modalOverlay) show(modalOverlay, "flex");
+    document.documentElement.classList.add("smart-form-open");
+    document.body.classList.add("smart-form-open");
     document.body.style.overflow = "hidden";
-
-    activeBranch = "";
-    activeKitchenType = "";
-
-    hideAllSteps();
-    showStep(step1);
-
-    clearFinalFields();
-    disableStepNativeFields();
   }
 
   function closeModal() {
-    overlay.style.display = "none";
+    if (modalOverlay) hide(modalOverlay);
+    document.documentElement.classList.remove("smart-form-open");
+    document.body.classList.remove("smart-form-open");
     document.body.style.overflow = "";
   }
 
-  openButtons.forEach(function (btn) {
+  openBtns.forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       openModal();
     });
   });
 
-  overlay.addEventListener("click", function (e) {
-    if (!modalCard.contains(e.target)) closeModal();
+  closeBtns.forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      closeModal();
+    });
   });
+
+  if (modalOverlay) {
+    modalOverlay.addEventListener("click", function (e) {
+      if (e.target === modalOverlay) {
+        closeModal();
+      }
+    });
+  }
 
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeModal();
+    if (e.key === "Escape") {
+      closeModal();
+    }
   });
 
   // ==================================================
-  // STEP 1
+  // FLOW / STEP CONTROL
   // ==================================================
-  if (step1) {
-    qsa(step1, ".kitchen-card").forEach(function (card, index) {
-      card.addEventListener("click", function (e) {
-        e.preventDefault();
+  function setFieldsState(scopeEl, enabled) {
+    if (!scopeEl) return;
 
-        if (index === 0 && flowPrava && stepPrava) {
-          activeKitchenType = "prava";
-          activeBranch = "prava";
-          resetBranchStep("prava");
-          showStep(stepPrava);
-          return;
-        }
+    qsa(scopeEl, "input, textarea, select, button").forEach(function (field) {
+      var type = (field.getAttribute("type") || "").toLowerCase();
 
-        if (index === 1 && flowAglova) {
-          activeKitchenType = "aglova";
-          activeBranch = "";
-          showStep(flowAglova);
-          return;
-        }
+      if (type === "submit") return;
 
-        if (index === 2 && flowP) {
-          activeKitchenType = "p";
-          activeBranch = "";
-          showStep(flowP);
-        }
-      });
+      field.disabled = !enabled;
     });
   }
 
-  // ==================================================
-  // FLOW CHOICES
-  // ==================================================
-  if (flowAglova) {
-    var noCorner = qs(flowAglova, ".choice-card-no-corner");
-    var withCorner = qs(flowAglova, ".choice-card-with-corner");
+  function deactivateAllFlows() {
+    allFlows.forEach(function (flow) {
+      hide(flow);
+      setFieldsState(flow, false);
+    });
+    activeFlow = null;
+    activeBranch = null;
+  }
 
-    if (noCorner) {
-      noCorner.addEventListener("click", function (e) {
-        e.preventDefault();
-        activeBranch = "3a";
-        resetBranchStep("3a");
-        showStep(step3aAglova);
-      });
-    }
+  function activateFlow(flowEl) {
+    deactivateAllFlows();
+    if (!flowEl) return;
 
-    if (withCorner) {
-      withCorner.addEventListener("click", function (e) {
-        e.preventDefault();
-        activeBranch = "3b";
-        resetBranchStep("3b");
-        showStep(step3bAglova);
-      });
+    activeFlow = flowEl;
+    show(flowEl);
+    setFieldsState(flowEl, true);
+
+    qsa(flowEl, ".step").forEach(function (step) {
+      hide(step);
+      setFieldsState(step, false);
+    });
+  }
+
+  function showOnlyStep(scope, stepSelector) {
+    if (!scope) return;
+
+    qsa(scope, ".step").forEach(function (step) {
+      hide(step);
+      setFieldsState(step, false);
+    });
+
+    var step = qs(scope, stepSelector);
+    if (step) {
+      show(step);
+      setFieldsState(step, true);
+      activeBranch = step;
     }
   }
 
-  if (flowP) {
-    var noChimney = qs(flowP, ".choice-card-no-chimney");
-    var leftChimney = qs(flowP, ".choice-card-left-chimney");
-    var rightChimney = qs(flowP, ".choice-card-right-chimney");
-
-    if (noChimney) {
-      noChimney.addEventListener("click", function (e) {
-        e.preventDefault();
-        activeBranch = "p_3a";
-        resetBranchStep("p_3a");
-        showStep(step3aP);
-      });
-    }
-
-    if (leftChimney) {
-      leftChimney.addEventListener("click", function (e) {
-        e.preventDefault();
-        activeBranch = "p_3b";
-        resetBranchStep("p_3b");
-        showStep(step3bP);
-      });
-    }
-
-    if (rightChimney) {
-      rightChimney.addEventListener("click", function (e) {
-        e.preventDefault();
-        activeBranch = "p_3c";
-        resetBranchStep("p_3c");
-        showStep(step3cP);
-      });
-    }
-  }
-
-  // ==================================================
-  // GENERIC STEP CLICK HANDLER
-  // ==================================================
-  function handleBranchStepClick(e, branchKey) {
-    var cfg = BRANCHES[branchKey];
-    if (!cfg || !cfg.step) return;
-
-    var stepEl = cfg.step;
-    var target = e.target;
-
-    // picker buttons
-    var pickerBtn = target.closest(".picker-btn");
-    if (pickerBtn && stepEl.contains(pickerBtn)) {
-      e.preventDefault();
-      handlePickerButtonClick(pickerBtn);
+  function showInitialStepForKitchen(type) {
+    if (type === "prava" && flowPrava) {
+      activateFlow(flowPrava);
+      showOnlyStep(flowPrava, ".step-3-prava, .step-2-prava, .step-prava");
       return;
     }
 
-    // reset combo
-    var resetBtn = target.closest(".reset-combo-button");
-    if (resetBtn) {
-      e.preventDefault();
-      resetBranchStep(branchKey);
+    if (type === "aglova" && flowAglova) {
+      activateFlow(flowAglova);
+      showOnlyStep(flowAglova, ".step-2-aglova");
       return;
     }
 
-    // combo question pills
-    var comboWrap = qs(stepEl, ".combo-select-wrap");
-    if (comboWrap) {
-      var comboQuestionWrap = target.closest(".question-wrap");
-      var comboPill = target.closest(".option-pill");
-
-      if (comboQuestionWrap && comboPill && comboWrap.contains(comboQuestionWrap)) {
-        e.preventDefault();
-
-        var comboQuestions = qsa(comboWrap, ".question-wrap");
-        var comboIndex = comboQuestions.indexOf(comboQuestionWrap);
-        if (comboIndex > -1) {
-          setSingleActive(comboPill, ".option-pill");
-          var comboField = cfg.comboFields[comboIndex];
-          if (comboField) setField(stepEl, comboField, getOptionValue(comboPill));
-          openDimensionsIfComboReady(branchKey);
-          return;
-        }
-      }
-    }
-
-    // bar / island toggles
-    var dimensionsWrap = qs(stepEl, ".dimensions-phase-wrap");
-    if (dimensionsWrap) {
-      var allQuestionWraps = qsa(dimensionsWrap, ".question-wrap");
-      var clickedQuestion = target.closest(".question-wrap");
-      var clickedPill = target.closest(".option-pill");
-
-      if (clickedQuestion && clickedPill && dimensionsWrap.contains(clickedQuestion)) {
-        var barWrap = qs(dimensionsWrap, ".bar-wrap");
-        var islandWrap = qs(dimensionsWrap, ".island-wrap");
-
-        var questionWrapsInDims = qsa(dimensionsWrap, ":scope > .question-wrap");
-        var firstBarQuestion = questionWrapsInDims[0] || null;
-        var secondIslandQuestion = questionWrapsInDims[1] || null;
-
-        if (clickedQuestion === firstBarQuestion && cfg.fields.barEnabled) {
-          e.preventDefault();
-          setSingleActive(clickedPill, ".option-pill");
-          var barOn = getOptionValue(clickedPill).toLowerCase().indexOf("да") !== -1;
-          setField(stepEl, cfg.fields.barEnabled, barOn ? "yes" : "no");
-          if (barOn) {
-            show(barWrap, "block");
-          } else {
-            hide(barWrap);
-            resetPickerScope(barWrap);
-            if (cfg.dims.barLen) setDim(stepEl, cfg.dims.barLen, "");
-            if (cfg.dims.barWidth) setDim(stepEl, cfg.dims.barWidth, "");
-          }
-          return;
-        }
-
-        if (clickedQuestion === secondIslandQuestion && cfg.fields.islandEnabled) {
-          e.preventDefault();
-          setSingleActive(clickedPill, ".option-pill");
-          var islandOn = getOptionValue(clickedPill).toLowerCase().indexOf("да") !== -1;
-          setField(stepEl, cfg.fields.islandEnabled, islandOn ? "yes" : "no");
-          if (islandOn) {
-            show(islandWrap, "block");
-          } else {
-            hide(islandWrap);
-            resetPickerScope(islandWrap);
-            if (cfg.dims.islandLen) setDim(stepEl, cfg.dims.islandLen, "");
-            if (cfg.dims.islandWidth) setDim(stepEl, cfg.dims.islandWidth, "");
-          }
-          return;
-        }
-      }
-    }
-
-    // general questions
-    var generalWrap = qs(stepEl, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
-    if (generalWrap) {
-      var generalQuestion = target.closest(".question-wrap");
-      var generalPill = target.closest(".option-pill");
-
-      if (generalQuestion && generalPill && generalWrap.contains(generalQuestion)) {
-        e.preventDefault();
-
-        var topQuestionWraps = qsa(generalWrap, ":scope > .question-wrap");
-
-        // tall unit
-        if (generalQuestion === topQuestionWraps[0] && cfg.fields.tallUnit) {
-          setSingleActive(generalPill, ".option-pill");
-          var tallText = getOptionValue(generalPill).toLowerCase();
-          setField(stepEl, cfg.fields.tallUnit, tallText.indexOf("без") !== -1 ? "no" : "yes");
-          return;
-        }
-
-        // fridge
-        if (generalQuestion === topQuestionWraps[1] && cfg.fields.fridge) {
-          setSingleActive(generalPill, ".option-pill");
-          setField(stepEl, cfg.fields.fridge, getOptionValue(generalPill));
-          return;
-        }
-      }
-
-      // vision
-      var visionCard = target.closest(".vision-card, .vision-set .option-pill");
-      if (visionCard && generalWrap.contains(visionCard) && cfg.fields.vision) {
-        e.preventDefault();
-        var visionSet = visionCard.closest(".vision-set");
-        if (visionSet) {
-          qsa(visionSet, ".vision-card, .option-pill").forEach(function (el) {
-            el.classList.remove("active");
-          });
-        }
-        visionCard.classList.add("active");
-        setField(stepEl, cfg.fields.vision, getOptionValue(visionCard));
-        return;
-      }
-
-      // plan
-      var planPill = target.closest(".question-plan .option-pill");
-      if (planPill && cfg.fields.plan) {
-        e.preventDefault();
-        setSingleActive(planPill, ".option-pill");
-        setField(stepEl, cfg.fields.plan, getOptionValue(planPill));
-        return;
-      }
-
-      // contact
-      var contactPill = target.closest(".question-contact .option-pill");
-      if (contactPill && cfg.fields.contact) {
-        e.preventDefault();
-        setSingleActive(contactPill, ".option-pill");
-        setField(stepEl, cfg.fields.contact, getOptionValue(contactPill));
-        return;
-      }
-
-      // extras checkboxes
-      var checkboxWrap = target.closest(".checkbox, .appliance-checkbox");
-      if (checkboxWrap && generalWrap.contains(checkboxWrap)) {
-        var fieldName =
-          checkboxWrap.getAttribute("data-field") ||
-          checkboxWrap.getAttribute("data-name");
-
-        if (fieldName && ["dishwasher", "washing_machine", "microwave", "coffee_machine"].indexOf(fieldName) !== -1) {
-          e.preventDefault();
-          var on = toggleActive(checkboxWrap);
-          setField(stepEl, fieldName, on ? "yes" : "no");
-          return;
-        }
-      }
+    if (type === "p" && flowP) {
+      activateFlow(flowP);
+      showOnlyStep(flowP, ".step-2-p");
+      return;
     }
   }
 
-  if (stepPrava) {
-    stepPrava.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "prava");
-    });
-  }
+  kitchenCards.forEach(function (card) {
+    card.addEventListener("click", function () {
+      setSingleActive(card, ".kitchen-card");
 
-  if (step3aAglova) {
-    step3aAglova.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "3a");
-    });
-  }
+      var type =
+        normalizeText(card.getAttribute("data-kitchen")) ||
+        normalizeText(card.getAttribute("data-value")) ||
+        toKey(textOf(card));
 
-  if (step3bAglova) {
-    step3bAglova.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "3b");
-    });
-  }
+      activeKitchenType = type;
+      setStoredValue("kitchen_type", type);
 
-  if (step3aP) {
-    step3aP.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "p_3a");
+      showInitialStepForKitchen(type);
+      openModal();
+      updateAllVisibility();
+      updateAllCad();
     });
-  }
-
-  if (step3bP) {
-    step3bP.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "p_3b");
-    });
-  }
-
-  if (step3cP) {
-    step3cP.addEventListener("click", function (e) {
-      handleBranchStepClick(e, "p_3c");
-    });
-  }
+  });
 
   // ==================================================
-  // INPUTS INSIDE GENERAL WRAPS
+  // BRANCH CHOICE CARDS
   // ==================================================
-  [stepPrava, step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (stepEl) {
-    if (!stepEl) return;
+  qsa(document, ".choice-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      setSingleActive(card, ".choice-card");
 
-    stepEl.addEventListener("input", function (e) {
-      var cfg = getBranchConfig();
-      if (!cfg || cfg.step !== stepEl) return;
+      var action = normalizeText(card.getAttribute("data-branch"));
+      var flow = card.closest(".flow-aglova, .flow-p, .flow-prava");
 
-      var target = e.target;
-      if (!target) return;
+      if (!flow || !action) return;
 
-      var generalWrap = qs(stepEl, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
-      if (!generalWrap || !generalWrap.contains(target)) return;
+      showOnlyStep(flow, "." + action);
+      updateAllVisibility();
+      updateAllCad();
+    });
+  });
 
-      if (target.closest(".question-plan") && cfg.fields.plan) {
-        setField(stepEl, cfg.fields.plan, normalizeText(target.value));
+  // ==================================================
+  // OPTION PILLS
+  // ==================================================
+  qsa(document, ".option-pill").forEach(function (pill) {
+    pill.addEventListener("click", function () {
+      setSingleActive(pill, ".option-pill");
+
+      var field =
+        normalizeText(pill.getAttribute("data-field")) ||
+        normalizeText(
+          (pill.closest("[data-field]") || {}).getAttribute &&
+          pill.closest("[data-field]").getAttribute("data-field")
+        );
+
+      if (!field) {
+        var wrap = pill.closest(".question-wrap");
+        if (wrap) field = normalizeText(wrap.getAttribute("data-field"));
       }
 
-      if (target.closest(".question-contact") && cfg.fields.contact) {
-        setField(stepEl, cfg.fields.contact, normalizeText(target.value));
+      var value = getOptionValue(pill);
+
+      if (field) {
+        setStoredValue(field, value);
+      }
+
+      updateAllVisibility();
+      updateAllCad();
+    });
+  });
+
+  // ==================================================
+  // STYLE CARDS
+  // ==================================================
+  qsa(document, ".style-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      setSingleActive(card, ".style-card");
+
+      var field =
+        normalizeText(card.getAttribute("data-field")) ||
+        normalizeText(
+          (card.closest("[data-field]") || {}).getAttribute &&
+          card.closest("[data-field]").getAttribute("data-field")
+        );
+
+      var value = getOptionValue(card);
+
+      if (field) {
+        setStoredValue(field, value);
       }
     });
   });
 
   // ==================================================
-  // BACK BUTTONS
+  // CHECKBOXES / TOGGLES
   // ==================================================
-  smartFormBlock.addEventListener("click", function (e) {
-    var backBtn = e.target.closest(".back-button");
-    if (!backBtn) return;
+  qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      var field = normalizeText(cb.getAttribute("data-field"));
+      if (!field) return;
 
-    e.preventDefault();
+      setStoredValue(field, cb.checked ? "Да" : "");
+      updateAllVisibility();
+    });
+  });
 
-    var visible = getVisibleStep();
+  qsa(document, '[data-field="dishwasher"], [data-field="washing_machine"], [data-field="microwave"], [data-field="coffee_machine"]').forEach(function (el) {
+    if ((el.tagName || "").toLowerCase() === "input" && (el.type || "").toLowerCase() === "checkbox") return;
 
-    if (visible === stepPrava) {
-      showStep(step1);
-      activeBranch = "";
-      activeKitchenType = "";
-      return;
-    }
+    el.addEventListener("click", function () {
+      var field = normalizeText(el.getAttribute("data-field"));
+      if (!field) return;
 
-    if (visible === flowAglova || visible === flowP) {
-      showStep(step1);
-      activeBranch = "";
-      activeKitchenType = "";
-      return;
-    }
-
-    if (visible === step3aAglova || visible === step3bAglova) {
-      showStep(flowAglova);
-      activeBranch = "";
-      return;
-    }
-
-    if (visible === step3aP || visible === step3bP || visible === step3cP) {
-      showStep(flowP);
-      activeBranch = "";
-    }
+      var next = getStoredValue(field) ? "" : "Да";
+      setStoredValue(field, next);
+      el.classList.toggle("active", !!next);
+    });
   });
 
   // ==================================================
-  // SUBMIT
+  // TEXT / TEXTAREA / SELECT
   // ==================================================
-  formEl.addEventListener("submit", function () {
-    syncCurrentBranchToFinal();
-    disableStepNativeFields();
+  qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (field) {
+    var type = (field.getAttribute("type") || "").toLowerCase();
+    if (type === "checkbox") return;
+
+    function handler() {
+      var key = normalizeText(field.getAttribute("data-field"));
+      if (!key) return;
+      setStoredValue(key, field.value);
+    }
+
+    field.addEventListener("input", handler);
+    field.addEventListener("change", handler);
   });
 
   // ==================================================
-  // INITIAL
+  // DIMENSION PICKERS
   // ==================================================
-  hideAllSteps();
-  if (step1) showStep(step1);
-  clearFinalFields();
-  disableStepNativeFields();
+  function clampCm(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    if (n > 95) n = 95;
+    n = Math.round(n / 5) * 5;
+    return n;
+  }
 
-  // default bases
-  if (stepPrava) showOnlyCad(stepPrava, ".cad-prava-base");
-  if (step3aAglova) showOnlyCad(step3aAglova, ".cad-3a-base");
-  if (step3bAglova) showOnlyCad(step3bAglova, ".cad-3b-base");
-  if (step3aP) showOnlyCad(step3aP, ".cad-p-3a-base");
-  if (step3bP) showOnlyCad(step3bP, ".cad-p-3b-base");
-  if (step3cP) showOnlyCad(step3cP, ".cad-p-3c-base");
+  function clampM(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    return n;
+  }
+
+  function formatDimension(m, cm) {
+    m = clampM(m);
+    cm = clampCm(cm);
+
+    if (m <= 0 && cm <= 0) return "";
+    if (cm <= 0) return m + " м";
+    if (m <= 0) return cm + " см";
+    return m + " м " + cm + " см";
+  }
+
+  function getMeterValue(row) {
+    var meterInput =
+      qs(row, '.meters-control input[type="number"]') ||
+      qs(row, '.meters-control input') ||
+      qs(row, '[data-part="meters"]');
+
+    return meterInput ? clampM(meterInput.value) : 0;
+  }
+
+  function getCmValue(row) {
+    var cmInput =
+      qs(row, '.centimeters-control input[type="number"]') ||
+      qs(row, '.centimeters-control input') ||
+      qs(row, '[data-part="centimeters"]');
+
+    return cmInput ? clampCm(cmInput.value) : 0;
+  }
+
+  function setMeterValue(row, v) {
+    var meterInput =
+      qs(row, '.meters-control input[type="number"]') ||
+      qs(row, '.meters-control input') ||
+      qs(row, '[data-part="meters"]');
+
+    if (meterInput) meterInput.value = clampM(v);
+  }
+
+  function setCmValue(row, v) {
+    var cmInput =
+      qs(row, '.centimeters-control input[type="number"]') ||
+      qs(row, '.centimeters-control input') ||
+      qs(row, '[data-part="centimeters"]');
+
+    if (cmInput) cmInput.value = clampCm(v);
+  }
+
+  function refreshDimensionRow(row) {
+    if (!row) return;
+
+    var dimKey = normalizeText(row.getAttribute("data-dim"));
+    if (!dimKey) return;
+
+    var m = getMeterValue(row);
+    var cm = getCmValue(row);
+    var formatted = formatDimension(m, cm);
+
+    var hidden =
+      qs(row, '.hidden-dimension-input') ||
+      qs(row, 'input[type="hidden"]');
+
+    if (hidden) hidden.value = formatted;
+
+    setStoredValue(dimKey, formatted);
+  }
+
+  qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
+    var meterInput =
+      qs(row, '.meters-control input[type="number"]') ||
+      qs(row, '.meters-control input') ||
+      qs(row, '[data-part="meters"]');
+
+    var cmInput =
+      qs(row, '.centimeters-control input[type="number"]') ||
+      qs(row, '.centimeters-control input') ||
+      qs(row, '[data-part="centimeters"]');
+
+    if (meterInput) {
+      meterInput.addEventListener("input", function () {
+        meterInput.value = clampM(meterInput.value);
+        refreshDimensionRow(row);
+      });
+
+      meterInput.addEventListener("change", function () {
+        meterInput.value = clampM(meterInput.value);
+        refreshDimensionRow(row);
+      });
+    }
+
+    if (cmInput) {
+      cmInput.addEventListener("input", function () {
+        cmInput.value = clampCm(cmInput.value);
+        refreshDimensionRow(row);
+      });
+
+      cmInput.addEventListener("change", function () {
+        cmInput.value = clampCm(cmInput.value);
+        refreshDimensionRow(row);
+      });
+    }
+
+    qsa(row, ".meters-control .minus, .meters-control [data-action='minus']").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        setMeterValue(row, getMeterValue(row) - 1);
+        refreshDimensionRow(row);
+      });
+    });
+
+    qsa(row, ".meters-control .plus, .meters-control [data-action='plus']").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        setMeterValue(row, getMeterValue(row) + 1);
+        refreshDimensionRow(row);
+      });
+    });
+
+    qsa(row, ".centimeters-control .minus, .centimeters-control [data-action='minus']").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        var m = getMeterValue(row);
+        var cm = getCmValue(row) - 5;
+
+        if (cm < 0 && m > 0) {
+          m -= 1;
+          cm = 95;
+        }
+
+        if (cm < 0) cm = 0;
+
+        setMeterValue(row, m);
+        setCmValue(row, cm);
+        refreshDimensionRow(row);
+      });
+    });
+
+    qsa(row, ".centimeters-control .plus, .centimeters-control [data-action='plus']").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        var m = getMeterValue(row);
+        var cm = getCmValue(row) + 5;
+
+        if (cm > 95) {
+          m += 1;
+          cm = 0;
+        }
+
+        setMeterValue(row, m);
+        setCmValue(row, cm);
+        refreshDimensionRow(row);
+      });
+    });
+
+    refreshDimensionRow(row);
+  });
+
+  // ==================================================
+  // CONDITIONAL VISIBILITY
+  // ==================================================
+  function toggleConditionalWrapByField(fieldName, truthy, selectors) {
+    selectors.forEach(function (sel) {
+      qsa(document, sel).forEach(function (el) {
+        if (truthy) {
+          show(el);
+          setFieldsState(el, true);
+        } else {
+          hide(el);
+          setFieldsState(el, false);
+        }
+      });
+    });
+  }
+
+  function isYesValue(v) {
+    var x = safeLower(v);
+    return x === "да" || x === "yes" || x === "true" || x === "1";
+  }
+
+  function updateAllVisibility() {
+    // prava bar
+    toggleConditionalWrapByField(
+      "bar",
+      isYesValue(getStoredValue("bar")),
+      [".bar-fields-prava", ".bar-dimensions-prava", '[data-conditional="bar"]']
+    );
+
+    // prava island
+    toggleConditionalWrapByField(
+      "island",
+      isYesValue(getStoredValue("island")),
+      [".island-fields-prava", ".island-dimensions-prava", '[data-conditional="island"]']
+    );
+
+    // 3a bar
+    toggleConditionalWrapByField(
+      "bar_enabled_3a",
+      isYesValue(getStoredValue("bar_enabled_3a")),
+      [".bar-fields-3a", ".bar-dimensions-3a", '[data-conditional="bar_enabled_3a"]']
+    );
+
+    // 3a island
+    toggleConditionalWrapByField(
+      "island_enabled_3a",
+      isYesValue(getStoredValue("island_enabled_3a")),
+      [".island-fields-3a", ".island-dimensions-3a", '[data-conditional="island_enabled_3a"]']
+    );
+  }
+
+  // ==================================================
+  // CAD LOGIC
+  // ==================================================
+  function hideCadInScope(scope) {
+    if (!scope) return;
+    qsa(scope, '[class*="cad-"]').forEach(function (el) {
+      if (
+        el.className.indexOf("cad-global-wrap") === -1 &&
+        el.className.indexOf("cad-static-wrap") === -1
+      ) {
+        hide(el);
+      }
+    });
+  }
+
+  function showCad(scope, selector) {
+    if (!scope || !selector) return;
+    var el = qs(scope, selector);
+    if (el) show(el);
+  }
+
+  function updatePravaCad() {
+    if (!flowPrava) return;
+
+    hideCadInScope(flowPrava);
+
+    showCad(flowPrava, ".cad-prava-base");
+
+    var chimney = safeLower(getStoredValue("chimney_position_prava"));
+
+    if (chimney === "ляво") {
+      showCad(flowPrava, ".cad-prava-sketch-36");
+    } else if (chimney === "дясно") {
+      showCad(flowPrava, ".cad-prava-sketch-37");
+    }
+  }
+
+  function updateAglova3aCad() {
+    if (!flowAglova) return;
+
+    var step3a = qs(flowAglova, ".step-3a-aglova");
+    if (!step3a) return;
+
+    hideCadInScope(step3a);
+
+    showCad(step3a, ".cad-3a-base");
+
+    var water = toKey(getStoredValue("water_position_3a"));
+    var chimney = toKey(getStoredValue("chimney_position_3a"));
+
+    var comboClass = ".cad-3a-sketch-" + water + "-" + chimney;
+    var comboEl = qs(step3a, comboClass);
+
+    if (comboEl) {
+      show(comboEl);
+      return;
+    }
+
+    // fallback по по-обща комбинация
+    var fallbackClass = ".cad-3a-sketch-" + water;
+    var fallbackEl = qs(step3a, fallbackClass);
+    if (fallbackEl) show(fallbackEl);
+  }
+
+  function updateAllCad() {
+    updatePravaCad();
+    updateAglova3aCad();
+  }
+
+  // ==================================================
+  // SUMMARY
+  // ==================================================
+  function addSummaryLine(lines, label, value) {
+    value = normalizeText(value);
+    if (!value) return;
+    lines.push(label + ": " + value);
+  }
+
+  function makePravaSummary() {
+    var lines = [];
+    lines.push("Форма: Права");
+
+    addSummaryLine(lines, "Комин", getStoredValue("chimney_position_prava"));
+    addSummaryLine(lines, "Дължина", getStoredValue("len_prava_3"));
+    addSummaryLine(lines, "Височина", getStoredValue("height_prava_3"));
+
+    if (isYesValue(getStoredValue("bar"))) {
+      lines.push("Бар: Да");
+      addSummaryLine(lines, "Бар дължина", getStoredValue("bar_len_prava_3"));
+      addSummaryLine(lines, "Бар ширина", getStoredValue("bar_width_prava_3"));
+    }
+
+    if (isYesValue(getStoredValue("island"))) {
+      lines.push("Остров: Да");
+      addSummaryLine(lines, "Остров дължина", getStoredValue("island_len_3a"));
+      addSummaryLine(lines, "Остров ширина", getStoredValue("island_width_3a"));
+    }
+
+    addSummaryLine(lines, "Стил", getStoredValue("vision_prava_3"));
+    addSummaryLine(lines, "Кога планирате", getStoredValue("plan_prava_3"));
+    addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_prava_3"));
+
+    return lines;
+  }
+
+  function makeAglova3aSummary() {
+    var lines = [];
+    lines.push("Форма: Ъглова");
+
+    addSummaryLine(lines, "Позиция на вода", getStoredValue("water_position_3a"));
+    addSummaryLine(lines, "Позиция на комин", getStoredValue("chimney_position_3a"));
+    addSummaryLine(lines, "Стена 1", getStoredValue("stena1_len_3a"));
+    addSummaryLine(lines, "Стена 2", getStoredValue("stena2_len_3a"));
+    addSummaryLine(lines, "Височина", getStoredValue("visochina_3a"));
+
+    if (isYesValue(getStoredValue("bar_enabled_3a"))) {
+      lines.push("Бар: Да");
+      addSummaryLine(lines, "Бар дължина", getStoredValue("bar_len_3a"));
+      addSummaryLine(lines, "Бар ширина", getStoredValue("bar_width_3a"));
+    }
+
+    if (isYesValue(getStoredValue("island_enabled_3a"))) {
+      lines.push("Остров: Да");
+      addSummaryLine(lines, "Остров дължина", getStoredValue("island_len_3a"));
+      addSummaryLine(lines, "Остров ширина", getStoredValue("island_width_3a"));
+    }
+
+    addSummaryLine(lines, "Колона с фурна", getStoredValue("oven_tall_unit_3a"));
+    addSummaryLine(lines, "Хладилник", getStoredValue("fridge_type_3a"));
+    addSummaryLine(lines, "Стил", getStoredValue("vision_3a"));
+    addSummaryLine(lines, "Кога планирате", getStoredValue("plan_3a"));
+    addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_3a"));
+
+    return lines;
+  }
+
+  function makeExtrasSummary() {
+    var lines = [];
+
+    if (getStoredValue("dishwasher")) lines.push("Съдомиялна: Да");
+    if (getStoredValue("washing_machine")) lines.push("Пералня: Да");
+    if (getStoredValue("microwave")) lines.push("Микровълнова: Да");
+    if (getStoredValue("coffee_machine")) lines.push("Кафе машина: Да");
+
+    return lines;
+  }
+
+  function updateReadableSummary() {
+    if (!summaryReadable) return;
+
+    var lines = [];
+    var kt = safeLower(getStoredValue("kitchen_type"));
+
+    if (kt === "prava") {
+      lines = lines.concat(makePravaSummary());
+    } else if (kt === "aglova") {
+      lines = lines.concat(makeAglova3aSummary());
+    } else if (kt === "p") {
+      lines.push("Форма: П-образна");
+    }
+
+    var extras = makeExtrasSummary();
+    if (extras.length) {
+      lines.push("");
+      lines.push("Екстри:");
+      lines = lines.concat(extras);
+    }
+
+    summaryReadable.value = lines.join("\n");
+  }
+
+  // ==================================================
+  // SUBMIT FILTERING
+  // ==================================================
+  function disableInactiveBranchesBeforeSubmit() {
+    allFlows.forEach(function (flow) {
+      if (!flow) return;
+
+      var enabled = flow === activeFlow;
+      setFieldsState(flow, enabled);
+
+      qsa(flow, ".step").forEach(function (step) {
+        var visible = step.style.display !== "none";
+        setFieldsState(step, enabled && visible);
+      });
+    });
+
+    // submit бутонът винаги остава активен
+    if (formEl) {
+      qsa(formEl, 'input[type="submit"], button[type="submit"]').forEach(function (btn) {
+        btn.disabled = false;
+      });
+    }
+  }
+
+  if (formEl) {
+    formEl.addEventListener("submit", function () {
+      updateReadableSummary();
+      disableInactiveBranchesBeforeSubmit();
+    });
+  }
+
+  // ==================================================
+  // INIT
+  // ==================================================
+  function initFromExistingActives() {
+    // kitchen active
+    var activeKitchenCard = qs(document, ".kitchen-card.active");
+    if (activeKitchenCard) {
+      var type =
+        normalizeText(activeKitchenCard.getAttribute("data-kitchen")) ||
+        normalizeText(activeKitchenCard.getAttribute("data-value")) ||
+        toKey(textOf(activeKitchenCard));
+
+      activeKitchenType = type;
+      state.kitchen_type = type;
+      showInitialStepForKitchen(type);
+    }
+
+    // option-pill active
+    qsa(document, ".option-pill.active").forEach(function (pill) {
+      var field =
+        normalizeText(pill.getAttribute("data-field")) ||
+        normalizeText(
+          (pill.closest(".question-wrap") || {}).getAttribute &&
+          pill.closest(".question-wrap").getAttribute("data-field")
+        );
+
+      if (field) {
+        state[field] = getOptionValue(pill);
+      }
+    });
+
+    // style-card active
+    qsa(document, ".style-card.active").forEach(function (card) {
+      var field =
+        normalizeText(card.getAttribute("data-field")) ||
+        normalizeText(
+          (card.closest("[data-field]") || {}).getAttribute &&
+          card.closest("[data-field]").getAttribute("data-field")
+        );
+
+      if (field) {
+        state[field] = getOptionValue(card);
+      }
+    });
+
+    // checkboxes
+    qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
+      var field = normalizeText(cb.getAttribute("data-field"));
+      if (!field) return;
+      if (cb.checked) state[field] = "Да";
+    });
+
+    // dimension rows
+    qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
+      refreshDimensionRow(row);
+    });
+  }
+
+  readInitialValuesFromDom();
+  initFromExistingActives();
+  updateAllVisibility();
+  updateAllCad();
+  updateReadableSummary();
+
+  // по подразбиране модалът е скрит
+  if (modalOverlay && !modalOverlay.classList.contains("is-open")) {
+    hide(modalOverlay);
+  }
 });
