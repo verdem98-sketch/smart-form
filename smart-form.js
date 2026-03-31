@@ -1603,6 +1603,108 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  function getAllBranchSteps() {
+    return [
+      step3Prava,
+      step3aAglova,
+      step3bAglova,
+      step3aP,
+      step3bP,
+      step3cP
+    ].filter(Boolean);
+  }
+
+  function disableFieldsInScope(scopeEl) {
+    if (!scopeEl) return;
+
+    qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
+      if (!el) return;
+      if (el.type === "submit") return;
+      el.disabled = true;
+    });
+  }
+
+  function enableFieldsInScope(scopeEl) {
+    if (!scopeEl) return;
+
+    qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
+      if (!el) return;
+      if (el.type === "submit") return;
+      el.disabled = false;
+    });
+  }
+
+  function disableInactiveBranchFields() {
+    var activeStep = getActiveBranchStep();
+
+    getAllBranchSteps().forEach(function (step) {
+      if (step === activeStep) {
+        enableFieldsInScope(step);
+      } else {
+        disableFieldsInScope(step);
+      }
+    });
+  }
+
+  function disableEmptyFields() {
+    qsa(formEl, "input, select, textarea").forEach(function (el) {
+      if (!el) return;
+      if (el.disabled) return;
+      if (!el.name) return;
+
+      var type = (el.type || "").toLowerCase();
+      var tag = (el.tagName || "").toLowerCase();
+
+      // Никога не пипаме основните полета за контакт
+      if (el.name === "name-2" || el.name === "email-2") return;
+
+      // Никога не пипаме summary/mail полета, ако имат стойност
+      if (
+        el.name === "summary_readable" ||
+        el.name.indexOf("mail_") === 0
+      ) {
+        if (!getValue(el)) el.disabled = true;
+        return;
+      }
+
+      if (type === "submit" || type === "button" || type === "file") return;
+
+      if (type === "checkbox" || type === "radio") {
+        if (!el.checked) {
+          el.disabled = true;
+        }
+        return;
+      }
+
+      if (tag === "select") {
+        if (!getValue(el)) {
+          el.disabled = true;
+        }
+        return;
+      }
+
+      if (!getValue(el)) {
+        el.disabled = true;
+      }
+    });
+  }
+
+  function disableHelperButtonsBeforeSubmit() {
+    qsa(formEl, "button, input[type='button'], a").forEach(function (el) {
+      if (!el) return;
+
+      if (el.type === "submit") return;
+
+      if (
+        el.classList.contains("next-button") ||
+        el.classList.contains("back-button") ||
+        el.classList.contains("reset-combo-button")
+      ) {
+        el.disabled = true;
+      }
+    });
+  }
+
   // Спира Enter в input полета да submit-ва формата преждевременно
   formEl.addEventListener("keydown", function (e) {
     var target = e.target;
@@ -1618,33 +1720,27 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Заковава native submit-а в POST, за да няма URL чудовища и 414
+  // Ако браузърът все пак тръгне по native submit, да не е GET
   formEl.setAttribute("method", "post");
   formEl.setAttribute("action", window.location.pathname);
 
-  // Предпазител срещу двойно submit-ване
-  var smartFormSubmitLock = false;
-
   formEl.addEventListener(
     "submit",
-    function (e) {
+    function () {
       syncCurrentStepDimensions();
       syncConfigurationHidden();
       syncGeneralQuestionsFromScope(getActiveBranchStep());
       buildReadableSummary();
       syncMailFields();
 
-      if (smartFormSubmitLock) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return false;
-      }
+      // Оставяме само активния сценарий жив
+      disableInactiveBranchFields();
 
-      smartFormSubmitLock = true;
+      // Режем празните полета, за да не пълнят URL-а
+      disableEmptyFields();
 
-      setTimeout(function () {
-        smartFormSubmitLock = false;
-      }, 4000);
+      // Режем helper бутоните
+      disableHelperButtonsBeforeSubmit();
     },
     true
   );
