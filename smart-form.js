@@ -1108,7 +1108,7 @@
   formEl.addEventListener("submit", function () {
     syncConfigurationHidden();
     buildReadableSummary();
-    beforeRealSubmit();
+ 
 
     function val(name) {
       var el = formEl.querySelector('[name="' + name + '"]');
