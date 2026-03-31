@@ -25,64 +25,18 @@ document.addEventListener("DOMContentLoaded", function () {
     (list || []).forEach(hide);
   }
 
-  function getValue(el) {
+  function textOf(el) {
     if (!el) return "";
-    return (el.value || "").trim();
+    return (el.textContent || "").trim();
   }
 
-  function setValue(el, value) {
-    if (!el) return;
-    el.value = value || "";
+  function normalizeText(v) {
+    return String(v || "").trim();
   }
 
-  function setHidden(name, value) {
-    var el = qs(formEl, '[name="' + name + '"]');
-    if (!el) return;
-    el.value = value || "";
-  }
-
-  function getHidden(name) {
-    var el = qs(formEl, '[name="' + name + '"]');
+  function getOptionValue(el) {
     if (!el) return "";
-    return (el.value || "").trim();
-  }
-
-  function setMail(id, value) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.value = value || "";
-  }
-
-  function firstExisting(scope, selectors) {
-    for (var i = 0; i < selectors.length; i++) {
-      var found = qs(scope, selectors[i]);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  function allExisting(scope, selectors) {
-    var out = [];
-    selectors.forEach(function (sel) {
-      qsa(scope, sel).forEach(function (el) {
-        if (out.indexOf(el) === -1) out.push(el);
-      });
-    });
-    return out;
-  }
-
-  function removeActiveFromRow(row, selector) {
-    if (!row) return;
-    qsa(row, selector || ".option-pill, .vision-card, [data-group]").forEach(function (el) {
-      el.classList.remove("active");
-    });
-  }
-
-  function removeActiveInScope(scope, selector) {
-    if (!scope) return;
-    qsa(scope, selector || ".option-pill, .vision-card, [data-group]").forEach(function (el) {
-      el.classList.remove("active");
-    });
+    return normalizeText(el.getAttribute("data-value") || textOf(el));
   }
 
   function setSingleActive(target, selector) {
@@ -94,14 +48,18 @@ document.addEventListener("DOMContentLoaded", function () {
       target.parentElement;
 
     if (!row) return;
-    removeActiveFromRow(row, selector || ".option-pill, .vision-card, [data-group]");
+
+    qsa(row, selector || ".option-pill, .vision-card").forEach(function (el) {
+      el.classList.remove("active");
+    });
+
     target.classList.add("active");
   }
 
   function toggleActive(target) {
     if (!target) return false;
-    var active = target.classList.contains("active");
-    if (active) {
+    var isActive = target.classList.contains("active");
+    if (isActive) {
       target.classList.remove("active");
       return false;
     }
@@ -109,31 +67,108 @@ document.addEventListener("DOMContentLoaded", function () {
     return true;
   }
 
-  function setFieldsState(scopeEl, enabled) {
-    if (!scopeEl) return;
-    qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
-      if (el.type === "hidden") return;
-      if (el.type === "submit") return;
-      el.disabled = !enabled;
+  function setField(scope, fieldName, value) {
+    if (!scope || !fieldName) return;
+    var el = qs(scope, '[data-field="' + fieldName + '"]');
+    if (el) el.value = value == null ? "" : String(value);
+  }
+
+  function getField(scope, fieldName) {
+    if (!scope || !fieldName) return "";
+    var el = qs(scope, '[data-field="' + fieldName + '"]');
+    return el ? normalizeText(el.value) : "";
+  }
+
+  function setDim(scope, dimName, value) {
+    if (!scope || !dimName) return;
+    var el = qs(scope, '[data-dim="' + dimName + '"]');
+    if (el) el.value = value == null ? "" : String(value);
+  }
+
+  function getDim(scope, dimName) {
+    if (!scope || !dimName) return "";
+    var el = qs(scope, '[data-dim="' + dimName + '"]');
+    return el ? normalizeText(el.value) : "";
+  }
+
+  function setFinal(name, value) {
+    if (!formEl || !name) return;
+    var el = qs(formEl, '[name="' + name + '"]');
+    if (el) el.value = value == null ? "" : String(value);
+  }
+
+  function getFinal(name) {
+    if (!formEl || !name) return "";
+    var el = qs(formEl, '[name="' + name + '"]');
+    return el ? normalizeText(el.value) : "";
+  }
+
+  function clearFinalFields() {
+    [
+      "configuration",
+      "water_position",
+      "chimney_position",
+      "hob_position",
+      "chimney_a",
+      "chimney_b",
+      "wall_1",
+      "wall_2",
+      "wall_3",
+      "room_height",
+      "bar_enabled",
+      "bar_len",
+      "bar_width",
+      "island_enabled",
+      "island_len",
+      "island_width",
+      "oven_tall_unit",
+      "fridge_type",
+      "vision",
+      "plan",
+      "contact_preference",
+      "dishwasher",
+      "washing_machine",
+      "microwave",
+      "coffee_machine",
+      "summary_readable"
+    ].forEach(function (name) {
+      if (
+        name === "bar_enabled" ||
+        name === "island_enabled" ||
+        name === "oven_tall_unit" ||
+        name === "dishwasher" ||
+        name === "washing_machine" ||
+        name === "microwave" ||
+        name === "coffee_machine"
+      ) {
+        setFinal(name, "no");
+      } else {
+        setFinal(name, "");
+      }
     });
   }
 
-  function yesNo(v) {
-    var raw = String(v || "").trim().toLowerCase();
-    if (!raw) return "Не";
-    if (raw === "yes" || raw === "да" || raw === "true") return "Да";
-    if (raw === "no" || raw === "не" || raw === "false") return "Не";
-    return v;
-  }
-
   function pushIf(lines, label, value) {
-    if (!value) return;
+    if (!normalizeText(value)) return;
     lines.push(label + ": " + value);
   }
 
-  function textOf(el) {
-    if (!el) return "";
-    return (el.textContent || "").trim();
+  function yesNoBg(value) {
+    var v = normalizeText(value).toLowerCase();
+    if (v === "yes" || v === "да") return "Да";
+    if (v === "no" || v === "не") return "Не";
+    return value || "";
+  }
+
+  function disableStepNativeFields() {
+    if (!stepsWrapper) return;
+
+    qsa(stepsWrapper, "input, select, textarea").forEach(function (el) {
+      if (el.type === "hidden") return;
+      if (el.type === "file") return;
+      if (el.type === "submit") return;
+      el.disabled = true;
+    });
   }
 
   // ==================================================
@@ -143,8 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!controlEl) return 0;
     var valueEl = qs(controlEl, ".picker-value");
     if (!valueEl) return 0;
-
-    var raw = textOf(valueEl).replace(/[^\d-]/g, "");
+    var raw = (valueEl.textContent || "").replace(/[^\d-]/g, "");
     var num = parseInt(raw, 10);
     return isNaN(num) ? 0 : num;
   }
@@ -156,48 +190,40 @@ document.addEventListener("DOMContentLoaded", function () {
     valueEl.textContent = String(value);
   }
 
-  function rowHasMeters(rowEl) {
-    return !!qs(rowEl, ".meters-control");
-  }
+  function formatRowValue(row) {
+    if (!row) return "";
 
-  function rowHasCentimeters(rowEl) {
-    return !!qs(rowEl, ".centimeters-control");
-  }
+    var metersControl = qs(row, ".meters-control");
+    var centimetersControl = qs(row, ".centimeters-control");
 
-  function formatRowValue(rowEl) {
-    if (!rowEl) return "";
+    var hasM = !!metersControl;
+    var hasCm = !!centimetersControl;
 
-    var hasM = rowHasMeters(rowEl);
-    var hasCm = rowHasCentimeters(rowEl);
-
-    var meters = hasM ? getPickerValue(qs(rowEl, ".meters-control")) : 0;
-    var centimeters = hasCm ? getPickerValue(qs(rowEl, ".centimeters-control")) : 0;
+    var m = hasM ? getPickerValue(metersControl) : 0;
+    var cm = hasCm ? getPickerValue(centimetersControl) : 0;
 
     if (!hasM && !hasCm) return "";
-    if (hasM && !hasCm) return meters > 0 ? meters + " м" : "";
-    if (!hasM && hasCm) return centimeters > 0 ? centimeters + " см" : "";
-    if (meters === 0 && centimeters === 0) return "";
-
-    return meters + " м " + centimeters + " см";
+    if (hasM && !hasCm) return m > 0 ? m + " м" : "";
+    if (!hasM && hasCm) return cm > 0 ? cm + " см" : "";
+    if (m === 0 && cm === 0) return "";
+    return m + " м " + cm + " см";
   }
 
-  function syncRowHidden(rowEl) {
-    if (!rowEl) return;
-    var hidden = qs(rowEl, ".hidden-dimension-input");
-    if (!hidden) return;
-    hidden.value = formatRowValue(rowEl);
+  function syncRowHidden(row) {
+    if (!row) return;
+    var dimName = row.getAttribute("data-dim");
+    if (!dimName) return;
+    setDim(row.closest(".step-3-prava, .step-3a-aglova, .step-3b-aglova, .step-3a-p, .step-3b-p, .step-3c-p"), dimName, formatRowValue(row));
   }
 
-  function resetPickerRow(rowEl) {
-    if (!rowEl) return;
-
-    var metersControl = qs(rowEl, ".meters-control");
-    var centimetersControl = qs(rowEl, ".centimeters-control");
+  function resetPickerRow(row) {
+    if (!row) return;
+    var metersControl = qs(row, ".meters-control");
+    var centimetersControl = qs(row, ".centimeters-control");
 
     if (metersControl) setPickerValue(metersControl, 0);
     if (centimetersControl) setPickerValue(centimetersControl, 0);
-
-    syncRowHidden(rowEl);
+    syncRowHidden(row);
   }
 
   function resetPickerScope(scopeEl) {
@@ -209,69 +235,64 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function handlePickerButtonClick(btn) {
     if (!btn) return;
-
     var row = btn.closest(".dimension-row");
     if (!row) return;
 
     var metersControl = qs(row, ".meters-control");
     var centimetersControl = qs(row, ".centimeters-control");
 
-    var hasMeters = !!metersControl;
+    var hasM = !!metersControl;
     var hasCm = !!centimetersControl;
 
-    var meters = hasMeters ? getPickerValue(metersControl) : 0;
-    var centimeters = hasCm ? getPickerValue(centimetersControl) : 0;
+    var m = hasM ? getPickerValue(metersControl) : 0;
+    var cm = hasCm ? getPickerValue(centimetersControl) : 0;
 
     if (btn.classList.contains("meter-up")) {
-      meters += 1;
-      setPickerValue(metersControl, meters);
+      m += 1;
+      setPickerValue(metersControl, m);
       syncRowHidden(row);
       return;
     }
 
     if (btn.classList.contains("meter-down")) {
-      meters = Math.max(0, meters - 1);
-      setPickerValue(metersControl, meters);
+      m = Math.max(0, m - 1);
+      setPickerValue(metersControl, m);
       syncRowHidden(row);
       return;
     }
 
     if (btn.classList.contains("cm-up")) {
       if (!hasCm) return;
-
-      if (centimeters >= 95) {
-        if (hasMeters) {
-          centimeters = 0;
-          meters += 1;
-          setPickerValue(metersControl, meters);
+      if (cm >= 95) {
+        if (hasM) {
+          cm = 0;
+          m += 1;
+          setPickerValue(metersControl, m);
         } else {
-          centimeters = 95;
+          cm = 95;
         }
       } else {
-        centimeters += 5;
+        cm += 5;
       }
-
-      setPickerValue(centimetersControl, centimeters);
+      setPickerValue(centimetersControl, cm);
       syncRowHidden(row);
       return;
     }
 
     if (btn.classList.contains("cm-down")) {
       if (!hasCm) return;
-
-      if (centimeters <= 0) {
-        if (hasMeters && meters > 0) {
-          meters -= 1;
-          centimeters = 95;
-          setPickerValue(metersControl, meters);
+      if (cm <= 0) {
+        if (hasM && m > 0) {
+          m -= 1;
+          cm = 95;
+          setPickerValue(metersControl, m);
         } else {
-          centimeters = 0;
+          cm = 0;
         }
       } else {
-        centimeters -= 5;
+        cm -= 5;
       }
-
-      setPickerValue(centimetersControl, centimeters);
+      setPickerValue(centimetersControl, cm);
       syncRowHidden(row);
     }
   }
@@ -283,19 +304,21 @@ document.addEventListener("DOMContentLoaded", function () {
   var modalCard = qs(document, ".modal-card");
   var smartFormBlock = qs(document, ".smart-form-block");
   var formEl = smartFormBlock ? qs(smartFormBlock, "form") : null;
+  var stepsWrapper = smartFormBlock ? qs(smartFormBlock, ".steps-wrapper") : null;
   var openButtons = qsa(document, ".open-smart-form");
 
   if (!overlay || !modalCard || !smartFormBlock || !formEl) return;
 
   // ==================================================
-  // STEPS / FLOWS
+  // STEPS
   // ==================================================
   var step1 = qs(smartFormBlock, ".step-1");
-  var flowPrava = firstExisting(smartFormBlock, [".flow-prava", ".step-2-prava", ".step-3-prava"]);
-  var flowAglova = firstExisting(smartFormBlock, [".flow-aglova", ".step-2-aglova"]);
-  var flowP = firstExisting(smartFormBlock, [".flow-p", ".step-2-p"]);
 
-  var step3Prava = firstExisting(smartFormBlock, [".step-3-prava", ".flow-prava"]);
+  var flowPrava = qs(smartFormBlock, ".flow-prava");
+  var flowAglova = qs(smartFormBlock, ".flow-aglova");
+  var flowP = qs(smartFormBlock, ".flow-p");
+
+  var stepPrava = qs(smartFormBlock, ".step-3-prava");
   var step3aAglova = qs(smartFormBlock, ".step-3a-aglova");
   var step3bAglova = qs(smartFormBlock, ".step-3b-aglova");
 
@@ -303,301 +326,628 @@ document.addEventListener("DOMContentLoaded", function () {
   var step3bP = qs(smartFormBlock, ".step-3b-p");
   var step3cP = qs(smartFormBlock, ".step-3c-p");
 
-  var allSteps = [
+  var ALL_STEPS = [
     step1,
     flowPrava,
     flowAglova,
     flowP,
-    step3Prava,
+    stepPrava,
     step3aAglova,
     step3bAglova,
     step3aP,
     step3bP,
     step3cP
-  ].filter(Boolean).filter(function (v, i, a) {
-    return a.indexOf(v) === i;
-  });
+  ].filter(Boolean);
 
-  var activeKitchenType = "";
   var activeBranch = "";
+  var activeKitchenType = "";
+
+  var BRANCHES = {
+    prava: {
+      key: "prava",
+      title: "Права кухня",
+      step: stepPrava,
+      flow: flowPrava,
+      comboFields: ["water_position_prava"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "len_prava_3",
+        wall2: "",
+        wall3: "",
+        roomHeight: "height_prava_3",
+        barLen: "bar_len_prava_3",
+        barWidth: "bar_width_prava_3",
+        islandLen: "island_len_3a",
+        islandWidth: "island_width_3a"
+      },
+      fields: {
+        water: "water_position_prava",
+        chimney: "",
+        hob: "",
+        chimneyA: "",
+        chimneyB: "",
+        barEnabled: "bar",
+        islandEnabled: "island",
+        tallUnit: "tall_unit_prava_3",
+        fridge: "fridge_prava_3",
+        vision: "vision_prava_3",
+        plan: "plan_prava_3",
+        contact: "contact_preference_prava_3"
+      }
+    },
+    "3a": {
+      key: "3a",
+      title: "Ъглова без комин",
+      step: step3aAglova,
+      flow: flowAglova,
+      comboFields: ["water_position_3a", "chimney_position_3a"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "stena1_len_3a",
+        wall2: "stena2_len_3a",
+        wall3: "",
+        roomHeight: "visochina_3a",
+        barLen: "bar_len_3a",
+        barWidth: "bar_width_3a",
+        islandLen: "island_len_3a",
+        islandWidth: "island_width_3a"
+      },
+      fields: {
+        water: "water_position_3a",
+        chimney: "chimney_position_3a",
+        hob: "",
+        chimneyA: "",
+        chimneyB: "",
+        barEnabled: "bar_enabled_3a",
+        islandEnabled: "island_enabled_3a",
+        tallUnit: "oven_tall_unit_3a",
+        fridge: "fridge_type_3a",
+        vision: "vision_3a",
+        plan: "plan_3a",
+        contact: "contact_preference_3a"
+      }
+    },
+    "3b": {
+      key: "3b",
+      title: "Ъглова с комин",
+      step: step3bAglova,
+      flow: flowAglova,
+      comboFields: ["water_position_3b", "chimney_position_3b"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "stena1_len_3b",
+        wall2: "stena2_len_3b",
+        wall3: "",
+        roomHeight: "visochina_3b",
+        barLen: "bar_len_3b",
+        barWidth: "bar_width_3b",
+        islandLen: "island_len_3b",
+        islandWidth: "island_width_3b"
+      },
+      fields: {
+        water: "water_position_3b",
+        chimney: "chimney_position_3b",
+        hob: "",
+        chimneyA: "komin_a_3b",
+        chimneyB: "komin_b_3b",
+        barEnabled: "bar_enabled_3b",
+        islandEnabled: "island_enabled_3b",
+        tallUnit: "oven_tall_unit_3b",
+        fridge: "fridge_type_3b",
+        vision: "vision_3b",
+        plan: "plan_3b",
+        contact: "contact_preference_3b"
+      }
+    },
+    "p_3a": {
+      key: "p_3a",
+      title: "П-образна без комин",
+      step: step3aP,
+      flow: flowP,
+      comboFields: ["water_position_p_3a", "hob_position_p_3a"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "stena1_len_p_3a",
+        wall2: "stena2_len_p_3a",
+        wall3: "stena3_len_p_3a",
+        roomHeight: "visochina_p_3a",
+        barLen: "bar_len_p_3a",
+        barWidth: "bar_width_p_3a",
+        islandLen: "island_len_p_3a",
+        islandWidth: "island_width_p_3a"
+      },
+      fields: {
+        water: "water_position_p_3a",
+        chimney: "",
+        hob: "hob_position_p_3a",
+        chimneyA: "",
+        chimneyB: "",
+        barEnabled: "bar_enabled_p_3a",
+        islandEnabled: "island_enabled_p_3a",
+        tallUnit: "oven_tall_unit_p_3a",
+        fridge: "fridge_type_p_3a",
+        vision: "vision_p_3a",
+        plan: "plan_p_3a",
+        contact: "contact_preference_p_3a"
+      }
+    },
+    "p_3b": {
+      key: "p_3b",
+      title: "П-образна с комин вляво",
+      step: step3bP,
+      flow: flowP,
+      comboFields: ["water_position_p_3b", "hob_position_p_3b"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "stena1_len_p_3b",
+        wall2: "stena2_len_p_3b",
+        wall3: "stena3_len_p_3b",
+        roomHeight: "visochina_p_3b",
+        barLen: "bar_len_p_3b",
+        barWidth: "bar_width_p_3b",
+        islandLen: "island_len_p_3b",
+        islandWidth: "island_width_p_3b"
+      },
+      fields: {
+        water: "water_position_p_3b",
+        chimney: "",
+        hob: "hob_position_p_3b",
+        chimneyA: "komin_a_p_3b",
+        chimneyB: "komin_b_p_3b",
+        barEnabled: "bar_enabled_p_3b",
+        islandEnabled: "island_enabled_p_3b",
+        tallUnit: "oven_tall_unit_p_3b",
+        fridge: "fridge_type_p_3b",
+        vision: "vision_p_3b",
+        plan: "plan_p_3b",
+        contact: "contact_preference_p_3b"
+      }
+    },
+    "p_3c": {
+      key: "p_3c",
+      title: "П-образна с комин вдясно",
+      step: step3cP,
+      flow: flowP,
+      comboFields: ["water_position_p_3c", "hob_position_p_3c"],
+      comboWrapSelector: ".combo-select-wrap",
+      dimensionsWrapSelector: ".dimensions-phase-wrap",
+      dims: {
+        wall1: "stena1_len_p_3c",
+        wall2: "stena2_len_p_3c",
+        wall3: "stena3_len_p_3c",
+        roomHeight: "visochina_p_3c",
+        barLen: "bar_len_p_3c",
+        barWidth: "bar_width_p_3c",
+        islandLen: "island_len_p_3c",
+        islandWidth: "island_width_p_3c"
+      },
+      fields: {
+        water: "water_position_p_3c",
+        chimney: "",
+        hob: "hob_position_p_3c",
+        chimneyA: "komin_a_p_3c",
+        chimneyB: "komin_b_p_3c",
+        barEnabled: "bar_enabled_p_3c",
+        islandEnabled: "island_enabled_p_3c",
+        tallUnit: "oven_tall_unit_p_3c",
+        fridge: "fridge_type_p_3c",
+        vision: "vision_p_3c",
+        plan: "plan_p_3c",
+        contact: "contact_preference_p_3c"
+      }
+    }
+  };
+
+  function getBranchConfig() {
+    return BRANCHES[activeBranch] || null;
+  }
 
   function getVisibleStep() {
-    var visible = null;
-    allSteps.forEach(function (step) {
-      if (step && window.getComputedStyle(step).display !== "none") {
-        visible = step;
-      }
-    });
-    return visible;
+    for (var i = ALL_STEPS.length - 1; i >= 0; i--) {
+      var step = ALL_STEPS[i];
+      if (step && window.getComputedStyle(step).display !== "none") return step;
+    }
+    return null;
   }
 
   function hideAllSteps() {
-    allSteps.forEach(function (step) {
+    ALL_STEPS.forEach(function (step) {
       hide(step);
-      setFieldsState(step, false);
     });
   }
 
   function showStep(stepEl) {
     hideAllSteps();
     show(stepEl, "block");
-    setFieldsState(stepEl, true);
-  }
-
-  function getActiveBranchStep() {
-    if (activeBranch === "prava") return step3Prava;
-    if (activeBranch === "3a") return step3aAglova;
-    if (activeBranch === "3b") return step3bAglova;
-    if (activeBranch === "3a-p") return step3aP;
-    if (activeBranch === "3b-p") return step3bP;
-    if (activeBranch === "3c-p") return step3cP;
-    return null;
-  }
-
-  function syncConfigurationHidden() {
-    var label = "";
-
-    if (activeBranch === "prava") label = "Права кухня";
-    if (activeBranch === "3a") label = "Ъглова без комин";
-    if (activeBranch === "3b") label = "Ъглова с комин";
-    if (activeBranch === "3a-p") label = "П кухня без комин";
-    if (activeBranch === "3b-p") label = "П кухня с комин отляво";
-    if (activeBranch === "3c-p") label = "П кухня с комин отдясно";
-
-    setHidden("configuration", label);
   }
 
   // ==================================================
-  // GENERAL QUESTIONS INSIDE STEP 3
+  // CADS
   // ==================================================
-  function getGeneralScope(stepEl) {
-    if (!stepEl) return null;
-    return firstExisting(stepEl, [
-      ".general-questions-wrap",
-      ".general-questions",
-      ".step-general-wrap",
-      ".final-questions-wrap"
-    ]) || stepEl;
-  }
-
-  function getVisionLabel(card) {
-    if (!card) return "";
-    return textOf(qs(card, ".vision-text")) || textOf(card);
-  }
-
-  function syncGeneralQuestionsFromScope(stepEl) {
+  function showOnlyCad(stepEl, selectorToShow) {
     if (!stepEl) return;
 
-    var scope = getGeneralScope(stepEl);
-    if (!scope) return;
+    var wrap = qs(stepEl, ".cad-global-wrap");
+    if (!wrap) return;
 
-    var activeVision = firstExisting(scope, [".vision-card.active"]);
-    var activePlan = firstExisting(scope, [".option-pill.plan.active", '[data-group="plan"].active']);
-    var activeContact = firstExisting(scope, [".option-pill.contact.active", '[data-group="contact"].active']);
+    qsa(wrap, "img, .w-image").forEach(function (el) {
+      hide(el);
+    });
 
-    var visionVal = activeVision ? getVisionLabel(activeVision) : "";
-    var planVal = activePlan ? (activePlan.getAttribute("data-value") || textOf(activePlan)) : "";
-    var contactVal = activeContact ? (activeContact.getAttribute("data-value") || textOf(activeContact)) : "";
+    var target = selectorToShow ? qs(stepEl, selectorToShow) : null;
 
-    setHidden("vision", visionVal);
-    setHidden("plan", planVal);
-    setHidden("contact_preference", contactVal);
+    if (!target) {
+      target = qs(stepEl, ".cad-prava-base, .cad-3a-base, .cad-3b-base, .cad-p-3a-base, .cad-p-3b-base, .cad-p-3c-base");
+    }
+
+    if (target) show(target, "block");
   }
 
-  function bindGeneralQuestions(stepEl) {
-    if (!stepEl) return;
+  function updateCadForActiveBranch() {
+    var cfg = getBranchConfig();
+    if (!cfg || !cfg.step) return;
 
-    stepEl.addEventListener("click", function (e) {
-      var target = e.target.closest(".vision-card, .option-pill.plan, .option-pill.contact, [data-group]");
-      if (!target || !stepEl.contains(target)) return;
+    if (cfg.key === "prava") {
+      var wrapPrava = qs(cfg.step, ".cad-global-wrap");
+      if (!wrapPrava) return;
 
-      if (target.classList.contains("vision-card")) {
-        e.preventDefault();
-        var setWrap = target.closest(".vision-set") || target.parentElement;
-        removeActiveFromRow(setWrap, ".vision-card");
-        target.classList.add("active");
-        setHidden("vision", getVisionLabel(target));
+      var basePrava = qs(cfg.step, ".cad-prava-base");
+      var pravaSketches = qsa(wrapPrava, "img, .w-image").filter(function (el) {
+        return !el.classList.contains("cad-prava-base");
+      });
+
+      var waterPrava = getField(cfg.step, "water_position_prava").toLowerCase();
+
+      qsa(wrapPrava, "img, .w-image").forEach(function (el) {
+        hide(el);
+      });
+
+      if (!waterPrava) {
+        if (basePrava) show(basePrava, "block");
         return;
       }
 
-      var group = target.getAttribute("data-group");
-
-      if (target.classList.contains("plan") || group === "plan") {
-        e.preventDefault();
-        setSingleActive(target, '.option-pill.plan, [data-group="plan"]');
-        setHidden("plan", target.getAttribute("data-value") || textOf(target));
+      if (waterPrava.indexOf("ляво") !== -1 && pravaSketches[0]) {
+        show(pravaSketches[0], "block");
         return;
       }
 
-      if (target.classList.contains("contact") || group === "contact") {
-        e.preventDefault();
-        setSingleActive(target, '.option-pill.contact, [data-group="contact"]');
-        setHidden("contact_preference", target.getAttribute("data-value") || textOf(target));
+      if (waterPrava.indexOf("дясно") !== -1 && pravaSketches[1]) {
+        show(pravaSketches[1], "block");
+        return;
+      }
+
+      if (basePrava) show(basePrava, "block");
+      return;
+    }
+
+    if (cfg.key === "3a") {
+      var water3a = getField(cfg.step, "water_position_3a");
+      var chimney3a = getField(cfg.step, "chimney_position_3a");
+
+      if (!water3a || !chimney3a) {
+        showOnlyCad(cfg.step, ".cad-3a-base");
+        return;
+      }
+
+      var map3a = {
+        "Стена 2|Стена 1": ".cad-3a-sketch-1",
+        "Стена 2|Стена 4": ".cad-3a-sketch-2",
+        "Стена 3|Стена 1": ".cad-3a-sketch-3",
+        "Стена 3|Стена 4": ".cad-3a-sketch-4"
+      };
+
+      showOnlyCad(cfg.step, map3a[water3a + "|" + chimney3a] || ".cad-3a-base");
+      return;
+    }
+
+    if (cfg.key === "3b") {
+      var water3b = getField(cfg.step, "water_position_3b");
+      var chimney3b = getField(cfg.step, "chimney_position_3b");
+
+      if (!water3b || !chimney3b) {
+        showOnlyCad(cfg.step, ".cad-3b-base");
+        return;
+      }
+
+      var map3b = {
+        "Стена 2|Позиция A": ".cad-3b-sketch-5",
+        "Стена 2|Позиция B": ".cad-3b-sketch-6",
+        "Стена 3|Позиция A": ".cad-3b-sketch-7",
+        "Стена 3|Позиция B": ".cad-3b-sketch-8"
+      };
+
+      showOnlyCad(cfg.step, map3b[water3b + "|" + chimney3b] || ".cad-3b-base");
+      return;
+    }
+
+    if (cfg.key === "p_3a" || cfg.key === "p_3b" || cfg.key === "p_3c") {
+      var waterField = cfg.fields.water;
+      var hobField = cfg.fields.hob;
+      var waterVal = getField(cfg.step, waterField);
+      var hobVal = getField(cfg.step, hobField);
+
+      if (!waterVal || !hobVal) {
+        var baseSel = cfg.key === "p_3a" ? ".cad-p-3a-base" : cfg.key === "p_3b" ? ".cad-p-3b-base" : ".cad-p-3c-base";
+        showOnlyCad(cfg.step, baseSel);
+        return;
+      }
+
+      var keyMap = {
+        "Позиция 1|Позиция 1": 0,
+        "Позиция 1|Позиция 2": 1,
+        "Позиция 1|Позиция 3": 2,
+        "Позиция 2|Позиция 1": 3,
+        "Позиция 2|Позиция 2": 4,
+        "Позиция 2|Позиция 3": 5,
+        "Позиция 3|Позиция 1": 6,
+        "Позиция 3|Позиция 2": 7,
+        "Позиция 3|Позиция 3": 8
+      };
+
+      var baseNumber = cfg.key === "p_3a" ? 9 : cfg.key === "p_3b" ? 18 : 27;
+      var idx = keyMap[waterVal + "|" + hobVal];
+
+      if (idx == null) {
+        var fallbackBase = cfg.key === "p_3a" ? ".cad-p-3a-base" : cfg.key === "p_3b" ? ".cad-p-3b-base" : ".cad-p-3c-base";
+        showOnlyCad(cfg.step, fallbackBase);
+        return;
+      }
+
+      showOnlyCad(cfg.step, ".cad-p-sketch-" + (baseNumber + idx));
+    }
+  }
+
+  // ==================================================
+  // STATE RESET
+  // ==================================================
+  function resetBranchStep(branchKey) {
+    var cfg = BRANCHES[branchKey];
+    if (!cfg || !cfg.step) return;
+
+    qsa(cfg.step, ".option-pill, .vision-card, .checkbox, .appliance-checkbox").forEach(function (el) {
+      el.classList.remove("active");
+    });
+
+    // reset combo/general fields
+    Object.keys(cfg.fields).forEach(function (k) {
+      var fieldName = cfg.fields[k];
+      if (!fieldName) return;
+
+      if (k === "barEnabled" || k === "islandEnabled" || k === "tallUnit") {
+        setField(cfg.step, fieldName, "no");
+      } else {
+        setField(cfg.step, fieldName, "");
       }
     });
+
+    // reset global extras
+    ["dishwasher", "washing_machine", "microwave", "coffee_machine"].forEach(function (f) {
+      setField(cfg.step, f, "no");
+    });
+
+    // reset dims
+    Object.keys(cfg.dims).forEach(function (k) {
+      var dim = cfg.dims[k];
+      if (dim) setDim(cfg.step, dim, "");
+    });
+
+    resetPickerScope(cfg.step);
+
+    // UI visibility
+    var comboWrap = qs(cfg.step, cfg.comboWrapSelector);
+    var dimensionsWrap = qs(cfg.step, cfg.dimensionsWrapSelector);
+    var barWrap = qs(cfg.step, ".bar-wrap");
+    var islandWrap = qs(cfg.step, ".island-wrap");
+
+    if (comboWrap) show(comboWrap, "block");
+    if (dimensionsWrap) hide(dimensionsWrap);
+    if (barWrap) hide(barWrap);
+    if (islandWrap) hide(islandWrap);
+
+    updateCadForActiveBranch();
   }
 
-  [
-    step3Prava,
-    step3aAglova,
-    step3bAglova,
-    step3aP,
-    step3bP,
-    step3cP
-  ].forEach(bindGeneralQuestions);
+  function openDimensionsIfComboReady(branchKey) {
+    var cfg = BRANCHES[branchKey];
+    if (!cfg || !cfg.step) return;
+
+    var ready = cfg.comboFields.every(function (fieldName) {
+      return normalizeText(getField(cfg.step, fieldName));
+    });
+
+    updateCadForActiveBranch();
+
+    if (!ready) return;
+
+    var comboWrap = qs(cfg.step, cfg.comboWrapSelector);
+    var dimensionsWrap = qs(cfg.step, cfg.dimensionsWrapSelector);
+
+    if (comboWrap) hide(comboWrap);
+    if (dimensionsWrap) show(dimensionsWrap, "block");
+  }
 
   // ==================================================
-  // SUMMARY
+  // GENERAL QUESTIONS
   // ==================================================
-  function buildReadableSummary() {
-    syncConfigurationHidden();
-    syncGeneralQuestionsFromScope(getActiveBranchStep());
+  function syncGeneralQuestionsFromActiveStep() {
+    var cfg = getBranchConfig();
+    if (!cfg || !cfg.step) return;
 
-    var lines = [];
-    var summaryField = qs(formEl, '[name="summary_readable"]');
-    if (!summaryField) return;
+    var generalWrap = qs(cfg.step, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
+    if (!generalWrap) return;
 
-    pushIf(lines, "Конфигурация", getHidden("configuration"));
+    var questionWraps = qsa(generalWrap, ":scope > .question-wrap");
 
-    if (activeBranch === "prava") {
-      pushIf(lines, "Комин", getHidden("chimney_position_prava"));
-      pushIf(lines, "Дължина", getHidden("stena1_prava") || getHidden("wall_1_prava"));
-      pushIf(lines, "Височина", getHidden("visochina_prava") || getHidden("room_height_prava"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_prava")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_prava"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_prava"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_prava")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_prava"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_prava"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_prava")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_prava"));
-    }
-
-    if (activeBranch === "3a") {
-      pushIf(lines, "Вода", getHidden("water_position_3a"));
-      pushIf(lines, "Комин", getHidden("chimney_position_3a"));
-      pushIf(lines, "Стена 1", getHidden("stena1_3a"));
-      pushIf(lines, "Стена 2", getHidden("stena2_3a"));
-      pushIf(lines, "Височина", getHidden("visochina_3a"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_3a")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_3a"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_3a"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_3a")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_3a"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_3a"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_3a")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_3a"));
-    }
-
-    if (activeBranch === "3b") {
-      pushIf(lines, "Вода", getHidden("water_position_3b"));
-      pushIf(lines, "Комин", getHidden("chimney_position_3b"));
-      pushIf(lines, "Стена 1", getHidden("stena1_3b"));
-      pushIf(lines, "Стена 2", getHidden("stena2_3b"));
-      pushIf(lines, "Височина", getHidden("visochina_3b"));
-      pushIf(lines, "Комин A", getHidden("komin_a_3b"));
-      pushIf(lines, "Комин B", getHidden("komin_b_3b"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_3b")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_3b"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_3b"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_3b")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_3b"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_3b"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_3b")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_3b"));
-    }
-
-    if (activeBranch === "3a-p") {
-      pushIf(lines, "Вода", getHidden("water_position_p_3a"));
-      pushIf(lines, "Котлони", getHidden("hob_position_p_3a"));
-      pushIf(lines, "Стена 1", getHidden("stena1_p_3a"));
-      pushIf(lines, "Стена 2", getHidden("stena2_p_3a"));
-      pushIf(lines, "Стена 3", getHidden("stena3_p_3a"));
-      pushIf(lines, "Височина", getHidden("visochina_p_3a"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_p_3a")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_p_3a"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_p_3a"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_p_3a")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_p_3a"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_p_3a"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_p_3a")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_p_3a"));
-    }
-
-    if (activeBranch === "3b-p") {
-      pushIf(lines, "Вода", getHidden("water_position_p_3b"));
-      pushIf(lines, "Котлони", getHidden("hob_position_p_3b"));
-      pushIf(lines, "Стена 1", getHidden("stena1_p_3b"));
-      pushIf(lines, "Стена 2", getHidden("stena2_p_3b"));
-      pushIf(lines, "Стена 3", getHidden("stena3_p_3b"));
-      pushIf(lines, "Височина", getHidden("visochina_p_3b"));
-      pushIf(lines, "Комин A", getHidden("komin_a_p_3b"));
-      pushIf(lines, "Комин B", getHidden("komin_b_p_3b"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_p_3b")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_p_3b"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_p_3b"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_p_3b")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_p_3b"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_p_3b"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_p_3b")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_p_3b"));
-    }
-
-    if (activeBranch === "3c-p") {
-      pushIf(lines, "Вода", getHidden("water_position_p_3c"));
-      pushIf(lines, "Котлони", getHidden("hob_position_p_3c"));
-      pushIf(lines, "Стена 1", getHidden("stena1_p_3c"));
-      pushIf(lines, "Стена 2", getHidden("stena2_p_3c"));
-      pushIf(lines, "Стена 3", getHidden("stena3_p_3c"));
-      pushIf(lines, "Височина", getHidden("visochina_p_3c"));
-      pushIf(lines, "Комин A", getHidden("komin_a_p_3c"));
-      pushIf(lines, "Комин B", getHidden("komin_b_p_3c"));
-      pushIf(lines, "Бар", yesNo(getHidden("bar_enabled_p_3c")));
-      pushIf(lines, "Бар дължина", getHidden("bar_length_p_3c"));
-      pushIf(lines, "Бар дълбочина", getHidden("bar_depth_p_3c"));
-      pushIf(lines, "Остров", yesNo(getHidden("island_enabled_p_3c")));
-      pushIf(lines, "Остров дължина", getHidden("island_length_p_3c"));
-      pushIf(lines, "Остров дълбочина", getHidden("island_depth_p_3c"));
-      pushIf(lines, "Колона за фурна", yesNo(getHidden("oven_tall_unit_p_3c")));
-      pushIf(lines, "Хладилник", getHidden("fridge_type_p_3c"));
-    }
-
-    pushIf(lines, "Визия", getHidden("vision"));
-    pushIf(lines, "Кога планирате", getHidden("plan"));
-    pushIf(lines, "Предпочитан контакт", getHidden("contact_preference"));
-
-    var activeStep = getActiveBranchStep();
-    if (activeStep) {
-      var checkedLabels = [];
-      qsa(activeStep, 'input[type="checkbox"]:checked').forEach(function (checkbox) {
-        var label =
-          checkbox.getAttribute("data-summary-label") ||
-          checkbox.getAttribute("data-label") ||
-          checkbox.name ||
-          checkbox.value ||
-          "";
-        if (label) checkedLabels.push(label);
-      });
-
-      if (checkedLabels.length) {
-        lines.push("Допълнителни предпочитания: " + checkedLabels.join(", "));
+    // 1) tall unit
+    if (questionWraps[0] && cfg.fields.tallUnit) {
+      var activeTall = qs(questionWraps[0], ".option-pill.active");
+      if (activeTall) {
+        var tallText = getOptionValue(activeTall).toLowerCase();
+        setField(cfg.step, cfg.fields.tallUnit, tallText.indexOf("без") !== -1 ? "no" : "yes");
       }
-
-      qsa(activeStep, "textarea").forEach(function (ta) {
-        var v = getValue(ta);
-        if (!v) return;
-
-        var label =
-          ta.getAttribute("data-summary-label") ||
-          ta.getAttribute("data-label") ||
-          ta.name ||
-          "Коментар";
-
-        lines.push(label + ": " + v);
-      });
     }
 
-    summaryField.value = lines.join("\n");
+    // 2) fridge
+    if (questionWraps[1] && cfg.fields.fridge) {
+      var activeFridge = qs(questionWraps[1], ".option-pill.active");
+      if (activeFridge) {
+        setField(cfg.step, cfg.fields.fridge, getOptionValue(activeFridge));
+      }
+    }
+
+    // vision
+    var visionSet = qs(generalWrap, ".vision-set");
+    if (visionSet && cfg.fields.vision) {
+      var activeVision = qs(visionSet, ".vision-card.active, .option-pill.active");
+      if (activeVision) setField(cfg.step, cfg.fields.vision, getOptionValue(activeVision));
+    }
+
+    // plan
+    var questionPlan = qs(generalWrap, ".question-plan");
+    if (questionPlan && cfg.fields.plan) {
+      var activePlan = qs(questionPlan, ".option-pill.active");
+      var planInput = qs(questionPlan, "input, textarea");
+      if (activePlan) {
+        setField(cfg.step, cfg.fields.plan, getOptionValue(activePlan));
+      } else if (planInput) {
+        setField(cfg.step, cfg.fields.plan, normalizeText(planInput.value));
+      }
+    }
+
+    // contact
+    var questionContact = qs(generalWrap, ".question-contact");
+    if (questionContact && cfg.fields.contact) {
+      var activeContact = qs(questionContact, ".option-pill.active");
+      var contactInput = qs(questionContact, "input, textarea");
+      if (activeContact) {
+        setField(cfg.step, cfg.fields.contact, getOptionValue(activeContact));
+      } else if (contactInput) {
+        setField(cfg.step, cfg.fields.contact, normalizeText(contactInput.value));
+      }
+    }
+  }
+
+  // ==================================================
+  // FINAL FIELDS
+  // ==================================================
+  function syncConfigurationFinal() {
+    var cfg = getBranchConfig();
+    setFinal("configuration", cfg ? cfg.title : "");
+  }
+
+  function syncCurrentBranchToFinal() {
+    var cfg = getBranchConfig();
+    if (!cfg || !cfg.step) return;
+
+    clearFinalFields();
+    syncConfigurationFinal();
+
+    // sync picker rows first
+    qsa(cfg.step, ".dimension-row").forEach(function (row) {
+      syncRowHidden(row);
+    });
+
+    syncGeneralQuestionsFromActiveStep();
+
+    // core
+    setFinal("water_position", cfg.fields.water ? getField(cfg.step, cfg.fields.water) : "");
+    setFinal("chimney_position", cfg.fields.chimney ? getField(cfg.step, cfg.fields.chimney) : "");
+    setFinal("hob_position", cfg.fields.hob ? getField(cfg.step, cfg.fields.hob) : "");
+    setFinal("chimney_a", cfg.fields.chimneyA ? getField(cfg.step, cfg.fields.chimneyA) : "");
+    setFinal("chimney_b", cfg.fields.chimneyB ? getField(cfg.step, cfg.fields.chimneyB) : "");
+
+    // dimensions
+    setFinal("wall_1", cfg.dims.wall1 ? getDim(cfg.step, cfg.dims.wall1) : "");
+    setFinal("wall_2", cfg.dims.wall2 ? getDim(cfg.step, cfg.dims.wall2) : "");
+    setFinal("wall_3", cfg.dims.wall3 ? getDim(cfg.step, cfg.dims.wall3) : "");
+    setFinal("room_height", cfg.dims.roomHeight ? getDim(cfg.step, cfg.dims.roomHeight) : "");
+
+    // bar/island
+    setFinal("bar_enabled", cfg.fields.barEnabled ? getField(cfg.step, cfg.fields.barEnabled) || "no" : "no");
+    setFinal("bar_len", cfg.dims.barLen ? getDim(cfg.step, cfg.dims.barLen) : "");
+    setFinal("bar_width", cfg.dims.barWidth ? getDim(cfg.step, cfg.dims.barWidth) : "");
+
+    setFinal("island_enabled", cfg.fields.islandEnabled ? getField(cfg.step, cfg.fields.islandEnabled) || "no" : "no");
+    setFinal("island_len", cfg.dims.islandLen ? getDim(cfg.step, cfg.dims.islandLen) : "");
+    setFinal("island_width", cfg.dims.islandWidth ? getDim(cfg.step, cfg.dims.islandWidth) : "");
+
+    // general
+    setFinal("oven_tall_unit", cfg.fields.tallUnit ? getField(cfg.step, cfg.fields.tallUnit) || "no" : "no");
+    setFinal("fridge_type", cfg.fields.fridge ? getField(cfg.step, cfg.fields.fridge) : "");
+    setFinal("vision", cfg.fields.vision ? getField(cfg.step, cfg.fields.vision) : "");
+    setFinal("plan", cfg.fields.plan ? getField(cfg.step, cfg.fields.plan) : "");
+    setFinal("contact_preference", cfg.fields.contact ? getField(cfg.step, cfg.fields.contact) : "");
+
+    // extras global
+    setFinal("dishwasher", getField(cfg.step, "dishwasher") || "no");
+    setFinal("washing_machine", getField(cfg.step, "washing_machine") || "no");
+    setFinal("microwave", getField(cfg.step, "microwave") || "no");
+    setFinal("coffee_machine", getField(cfg.step, "coffee_machine") || "no");
+
+    buildReadableSummary();
+  }
+
+  function buildReadableSummary() {
+    var lines = [];
+
+    pushIf(lines, "Конфигурация", getFinal("configuration"));
+
+    pushIf(lines, "Вода", getFinal("water_position"));
+    pushIf(lines, "Комин", getFinal("chimney_position"));
+    pushIf(lines, "Котлони", getFinal("hob_position"));
+    pushIf(lines, "Комин A", getFinal("chimney_a"));
+    pushIf(lines, "Комин B", getFinal("chimney_b"));
+
+    if (
+      getFinal("wall_1") ||
+      getFinal("wall_2") ||
+      getFinal("wall_3") ||
+      getFinal("room_height")
+    ) {
+      lines.push("");
+      lines.push("Основни размери:");
+      pushIf(lines, "Стена 1", getFinal("wall_1"));
+      pushIf(lines, "Стена 2", getFinal("wall_2"));
+      pushIf(lines, "Стена 3", getFinal("wall_3"));
+      pushIf(lines, "Височина", getFinal("room_height"));
+    }
+
+    lines.push("");
+    pushIf(lines, "Бар", yesNoBg(getFinal("bar_enabled")));
+    if (getFinal("bar_enabled") === "yes") {
+      pushIf(lines, "Бар дължина", getFinal("bar_len"));
+      pushIf(lines, "Бар ширина", getFinal("bar_width"));
+    }
+
+    lines.push("");
+    pushIf(lines, "Остров", yesNoBg(getFinal("island_enabled")));
+    if (getFinal("island_enabled") === "yes") {
+      pushIf(lines, "Остров дължина", getFinal("island_len"));
+      pushIf(lines, "Остров ширина", getFinal("island_width"));
+    }
+
+    lines.push("");
+    pushIf(lines, "Колона за фурна", yesNoBg(getFinal("oven_tall_unit")));
+    pushIf(lines, "Хладилник", getFinal("fridge_type"));
+
+    lines.push("");
+    pushIf(lines, "Визия", getFinal("vision"));
+    pushIf(lines, "Планиране", getFinal("plan"));
+    pushIf(lines, "Предпочитан контакт", getFinal("contact_preference"));
+
+    lines.push("");
+    pushIf(lines, "Съдомиялна", yesNoBg(getFinal("dishwasher")));
+    pushIf(lines, "Пералня", yesNoBg(getFinal("washing_machine")));
+    pushIf(lines, "Микровълнова", yesNoBg(getFinal("microwave")));
+    pushIf(lines, "Кафе машина", yesNoBg(getFinal("coffee_machine")));
+
+    setFinal("summary_readable", lines.join("\n").replace(/\n{3,}/g, "\n\n"));
   }
 
   // ==================================================
@@ -607,13 +957,14 @@ document.addEventListener("DOMContentLoaded", function () {
     overlay.style.display = "flex";
     document.body.style.overflow = "hidden";
 
-    activeKitchenType = "";
     activeBranch = "";
+    activeKitchenType = "";
 
     hideAllSteps();
-    if (step1) showStep(step1);
+    showStep(step1);
 
-    syncConfigurationHidden();
+    clearFinalFields();
+    disableStepNativeFields();
   }
 
   function closeModal() {
@@ -629,9 +980,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   overlay.addEventListener("click", function (e) {
-    if (!modalCard.contains(e.target)) {
-      closeModal();
-    }
+    if (!modalCard.contains(e.target)) closeModal();
   });
 
   document.addEventListener("keydown", function (e) {
@@ -643,32 +992,27 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   if (step1) {
     qsa(step1, ".kitchen-card").forEach(function (card, index) {
-      card.style.cursor = "pointer";
-
       card.addEventListener("click", function (e) {
         e.preventDefault();
 
-        if (index === 0 && step3Prava) {
-          activeKitchenType = "straight";
+        if (index === 0 && flowPrava && stepPrava) {
+          activeKitchenType = "prava";
           activeBranch = "prava";
-          syncConfigurationHidden();
-          resetPravaState();
-          showStep(step3Prava);
+          resetBranchStep("prava");
+          showStep(stepPrava);
           return;
         }
 
         if (index === 1 && flowAglova) {
-          activeKitchenType = "corner";
+          activeKitchenType = "aglova";
           activeBranch = "";
-          syncConfigurationHidden();
           showStep(flowAglova);
           return;
         }
 
         if (index === 2 && flowP) {
-          activeKitchenType = "u";
+          activeKitchenType = "p";
           activeBranch = "";
-          syncConfigurationHidden();
           showStep(flowP);
         }
       });
@@ -676,860 +1020,298 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================================================
-  // FLOW AGLOVA
+  // FLOW CHOICES
   // ==================================================
   if (flowAglova) {
-    var aglovaChoiceNoCorner = qs(flowAglova, ".choice-card-no-corner");
-    var aglovaChoiceWithCorner = qs(flowAglova, ".choice-card-with-corner");
+    var noCorner = qs(flowAglova, ".choice-card-no-corner");
+    var withCorner = qs(flowAglova, ".choice-card-with-corner");
 
-    if (aglovaChoiceNoCorner) {
-      aglovaChoiceNoCorner.addEventListener("click", function (e) {
+    if (noCorner) {
+      noCorner.addEventListener("click", function (e) {
         e.preventDefault();
-        activeKitchenType = "corner";
         activeBranch = "3a";
-        syncConfigurationHidden();
-        setHidden("aglova_has_corner", "no");
-        resetStep3aState();
+        resetBranchStep("3a");
         showStep(step3aAglova);
       });
     }
 
-    if (aglovaChoiceWithCorner) {
-      aglovaChoiceWithCorner.addEventListener("click", function (e) {
+    if (withCorner) {
+      withCorner.addEventListener("click", function (e) {
         e.preventDefault();
-        activeKitchenType = "corner";
         activeBranch = "3b";
-        syncConfigurationHidden();
-        setHidden("aglova_has_corner", "yes");
-        resetStep3bState();
+        resetBranchStep("3b");
         showStep(step3bAglova);
       });
     }
   }
 
-  // ==================================================
-  // FLOW P
-  // ==================================================
   if (flowP) {
-    var pChoiceNoChimney = qs(flowP, ".choice-card-no-chimney");
-    var pChoiceLeftChimney = qs(flowP, ".choice-card-left-chimney");
-    var pChoiceRightChimney = qs(flowP, ".choice-card-right-chimney");
+    var noChimney = qs(flowP, ".choice-card-no-chimney");
+    var leftChimney = qs(flowP, ".choice-card-left-chimney");
+    var rightChimney = qs(flowP, ".choice-card-right-chimney");
 
-    if (pChoiceNoChimney) {
-      pChoiceNoChimney.addEventListener("click", function (e) {
+    if (noChimney) {
+      noChimney.addEventListener("click", function (e) {
         e.preventDefault();
-        activeKitchenType = "u";
-        activeBranch = "3a-p";
-        syncConfigurationHidden();
-        resetStep3aPState();
+        activeBranch = "p_3a";
+        resetBranchStep("p_3a");
         showStep(step3aP);
       });
     }
 
-    if (pChoiceLeftChimney) {
-      pChoiceLeftChimney.addEventListener("click", function (e) {
+    if (leftChimney) {
+      leftChimney.addEventListener("click", function (e) {
         e.preventDefault();
-        activeKitchenType = "u";
-        activeBranch = "3b-p";
-        syncConfigurationHidden();
-        resetStep3bPState();
+        activeBranch = "p_3b";
+        resetBranchStep("p_3b");
         showStep(step3bP);
       });
     }
 
-    if (pChoiceRightChimney) {
-      pChoiceRightChimney.addEventListener("click", function (e) {
+    if (rightChimney) {
+      rightChimney.addEventListener("click", function (e) {
         e.preventDefault();
-        activeKitchenType = "u";
-        activeBranch = "3c-p";
-        syncConfigurationHidden();
-        resetStep3cPState();
+        activeBranch = "p_3c";
+        resetBranchStep("p_3c");
         showStep(step3cP);
       });
     }
   }
 
   // ==================================================
-  // STRAIGHT / PRAVA
+  // GENERIC STEP CLICK HANDLER
   // ==================================================
-  var pravaState = {
-    chimney: "",
-    island: "no",
-    bar: "no",
-    oven: "no",
-    fridge: ""
-  };
+  function handleBranchStepClick(e, branchKey) {
+    var cfg = BRANCHES[branchKey];
+    if (!cfg || !cfg.step) return;
 
-  function getPravaRefs() {
-    if (!step3Prava) return null;
+    var stepEl = cfg.step;
+    var target = e.target;
 
-    return {
-      comboSelectWrap: qs(step3Prava, ".combo-select-wrap"),
-      dimensionsPhaseWrap: qs(step3Prava, ".dimensions-phase-wrap"),
-      barWrap: qs(step3Prava, ".bar-wrap"),
-      islandWrap: qs(step3Prava, ".island-wrap"),
-      cadBase: qs(step3Prava, ".cad-prava-base"),
-      cadLeft: qs(step3Prava, ".cad-prava-sketch-36"),
-      cadRight: qs(step3Prava, ".cad-prava-sketch-37")
-    };
-  }
+    // picker buttons
+    var pickerBtn = target.closest(".picker-btn");
+    if (pickerBtn && stepEl.contains(pickerBtn)) {
+      e.preventDefault();
+      handlePickerButtonClick(pickerBtn);
+      return;
+    }
 
-  function showPravaCad(target) {
-    var refs = getPravaRefs();
-    if (!refs) return;
-    hideAll([refs.cadBase, refs.cadLeft, refs.cadRight]);
-    show(target || refs.cadBase);
-  }
+    // reset combo
+    var resetBtn = target.closest(".reset-combo-button");
+    if (resetBtn) {
+      e.preventDefault();
+      resetBranchStep(branchKey);
+      return;
+    }
 
-  function resetPravaState() {
-    if (!step3Prava) return;
+    // combo question pills
+    var comboWrap = qs(stepEl, ".combo-select-wrap");
+    if (comboWrap) {
+      var comboQuestionWrap = target.closest(".question-wrap");
+      var comboPill = target.closest(".option-pill");
 
-    pravaState = {
-      chimney: "",
-      island: "no",
-      bar: "no",
-      oven: "no",
-      fridge: ""
-    };
-
-    var refs = getPravaRefs();
-
-    removeActiveInScope(step3Prava, ".option-pill, .vision-card");
-    resetPickerScope(step3Prava);
-
-    if (refs.comboSelectWrap) show(refs.comboSelectWrap, "block");
-    if (refs.dimensionsPhaseWrap) hide(refs.dimensionsPhaseWrap);
-    if (refs.barWrap) hide(refs.barWrap);
-    if (refs.islandWrap) hide(refs.islandWrap);
-
-    showPravaCad(refs.cadBase);
-
-    setHidden("chimney_position_prava", "");
-    setHidden("stena1_prava", "");
-    setHidden("visochina_prava", "");
-    setHidden("bar_enabled_prava", "no");
-    setHidden("bar_length_prava", "");
-    setHidden("bar_depth_prava", "");
-    setHidden("island_enabled_prava", "no");
-    setHidden("island_length_prava", "");
-    setHidden("island_depth_prava", "");
-    setHidden("oven_tall_unit_prava", "no");
-    setHidden("fridge_type_prava", "");
-  }
-
-  if (step3Prava) {
-    step3Prava.addEventListener("click", function (e) {
-      var pickerBtn = e.target.closest(".picker-btn");
-      if (pickerBtn) {
+      if (comboQuestionWrap && comboPill && comboWrap.contains(comboQuestionWrap)) {
         e.preventDefault();
-        handlePickerButtonClick(pickerBtn);
-        return;
-      }
 
-      var resetBtn = e.target.closest(".reset-combo-button");
-      if (resetBtn) {
-        e.preventDefault();
-        resetPravaState();
-        return;
-      }
-
-      var refs = getPravaRefs();
-      var chimneyLeft = e.target.closest(".chimney-left");
-      var chimneyRight = e.target.closest(".chimney-right");
-
-      if (chimneyLeft) {
-        e.preventDefault();
-        setSingleActive(chimneyLeft);
-        pravaState.chimney = "left";
-        setHidden("chimney_position_prava", "Ляво");
-        showPravaCad(refs.cadLeft);
-        if (refs.comboSelectWrap) hide(refs.comboSelectWrap);
-        if (refs.dimensionsPhaseWrap) show(refs.dimensionsPhaseWrap, "block");
-        return;
-      }
-
-      if (chimneyRight) {
-        e.preventDefault();
-        setSingleActive(chimneyRight);
-        pravaState.chimney = "right";
-        setHidden("chimney_position_prava", "Дясно");
-        showPravaCad(refs.cadRight);
-        if (refs.comboSelectWrap) hide(refs.comboSelectWrap);
-        if (refs.dimensionsPhaseWrap) show(refs.dimensionsPhaseWrap, "block");
-        return;
-      }
-
-      var islandYes = e.target.closest(".island-yes");
-      if (islandYes) {
-        e.preventDefault();
-        var islandOn = toggleActive(islandYes);
-        pravaState.island = islandOn ? "yes" : "no";
-        setHidden("island_enabled_prava", islandOn ? "yes" : "no");
-
-        if (islandOn) show(refs.islandWrap, "block");
-        else {
-          hide(refs.islandWrap);
-          resetPickerScope(refs.islandWrap);
+        var comboQuestions = qsa(comboWrap, ".question-wrap");
+        var comboIndex = comboQuestions.indexOf(comboQuestionWrap);
+        if (comboIndex > -1) {
+          setSingleActive(comboPill, ".option-pill");
+          var comboField = cfg.comboFields[comboIndex];
+          if (comboField) setField(stepEl, comboField, getOptionValue(comboPill));
+          openDimensionsIfComboReady(branchKey);
+          return;
         }
-        return;
       }
+    }
 
-      var barYes = e.target.closest(".bar-yes, .bar-counter-yes");
-      if (barYes) {
-        e.preventDefault();
-        var barOn = toggleActive(barYes);
-        pravaState.bar = barOn ? "yes" : "no";
-        setHidden("bar_enabled_prava", barOn ? "yes" : "no");
+    // bar / island toggles
+    var dimensionsWrap = qs(stepEl, ".dimensions-phase-wrap");
+    if (dimensionsWrap) {
+      var allQuestionWraps = qsa(dimensionsWrap, ".question-wrap");
+      var clickedQuestion = target.closest(".question-wrap");
+      var clickedPill = target.closest(".option-pill");
 
-        if (barOn) show(refs.barWrap, "block");
-        else {
-          hide(refs.barWrap);
-          resetPickerScope(refs.barWrap);
+      if (clickedQuestion && clickedPill && dimensionsWrap.contains(clickedQuestion)) {
+        var barWrap = qs(dimensionsWrap, ".bar-wrap");
+        var islandWrap = qs(dimensionsWrap, ".island-wrap");
+
+        var questionWrapsInDims = qsa(dimensionsWrap, ":scope > .question-wrap");
+        var firstBarQuestion = questionWrapsInDims[0] || null;
+        var secondIslandQuestion = questionWrapsInDims[1] || null;
+
+        if (clickedQuestion === firstBarQuestion && cfg.fields.barEnabled) {
+          e.preventDefault();
+          setSingleActive(clickedPill, ".option-pill");
+          var barOn = getOptionValue(clickedPill).toLowerCase().indexOf("да") !== -1;
+          setField(stepEl, cfg.fields.barEnabled, barOn ? "yes" : "no");
+          if (barOn) {
+            show(barWrap, "block");
+          } else {
+            hide(barWrap);
+            resetPickerScope(barWrap);
+            if (cfg.dims.barLen) setDim(stepEl, cfg.dims.barLen, "");
+            if (cfg.dims.barWidth) setDim(stepEl, cfg.dims.barWidth, "");
+          }
+          return;
         }
+
+        if (clickedQuestion === secondIslandQuestion && cfg.fields.islandEnabled) {
+          e.preventDefault();
+          setSingleActive(clickedPill, ".option-pill");
+          var islandOn = getOptionValue(clickedPill).toLowerCase().indexOf("да") !== -1;
+          setField(stepEl, cfg.fields.islandEnabled, islandOn ? "yes" : "no");
+          if (islandOn) {
+            show(islandWrap, "block");
+          } else {
+            hide(islandWrap);
+            resetPickerScope(islandWrap);
+            if (cfg.dims.islandLen) setDim(stepEl, cfg.dims.islandLen, "");
+            if (cfg.dims.islandWidth) setDim(stepEl, cfg.dims.islandWidth, "");
+          }
+          return;
+        }
+      }
+    }
+
+    // general questions
+    var generalWrap = qs(stepEl, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
+    if (generalWrap) {
+      var generalQuestion = target.closest(".question-wrap");
+      var generalPill = target.closest(".option-pill");
+
+      if (generalQuestion && generalPill && generalWrap.contains(generalQuestion)) {
+        e.preventDefault();
+
+        var topQuestionWraps = qsa(generalWrap, ":scope > .question-wrap");
+
+        // tall unit
+        if (generalQuestion === topQuestionWraps[0] && cfg.fields.tallUnit) {
+          setSingleActive(generalPill, ".option-pill");
+          var tallText = getOptionValue(generalPill).toLowerCase();
+          setField(stepEl, cfg.fields.tallUnit, tallText.indexOf("без") !== -1 ? "no" : "yes");
+          return;
+        }
+
+        // fridge
+        if (generalQuestion === topQuestionWraps[1] && cfg.fields.fridge) {
+          setSingleActive(generalPill, ".option-pill");
+          setField(stepEl, cfg.fields.fridge, getOptionValue(generalPill));
+          return;
+        }
+      }
+
+      // vision
+      var visionCard = target.closest(".vision-card, .vision-set .option-pill");
+      if (visionCard && generalWrap.contains(visionCard) && cfg.fields.vision) {
+        e.preventDefault();
+        var visionSet = visionCard.closest(".vision-set");
+        if (visionSet) {
+          qsa(visionSet, ".vision-card, .option-pill").forEach(function (el) {
+            el.classList.remove("active");
+          });
+        }
+        visionCard.classList.add("active");
+        setField(stepEl, cfg.fields.vision, getOptionValue(visionCard));
         return;
       }
 
-      var ovenYes = e.target.closest(".oven-column-yes");
-      if (ovenYes) {
+      // plan
+      var planPill = target.closest(".question-plan .option-pill");
+      if (planPill && cfg.fields.plan) {
         e.preventDefault();
-        var ovenOn = toggleActive(ovenYes);
-        pravaState.oven = ovenOn ? "yes" : "no";
-        setHidden("oven_tall_unit_prava", ovenOn ? "yes" : "no");
+        setSingleActive(planPill, ".option-pill");
+        setField(stepEl, cfg.fields.plan, getOptionValue(planPill));
         return;
       }
 
-      var fridgeBuiltIn = e.target.closest(".fridge-built-in");
-      var fridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-      if (fridgeBuiltIn) {
+      // contact
+      var contactPill = target.closest(".question-contact .option-pill");
+      if (contactPill && cfg.fields.contact) {
         e.preventDefault();
-        setSingleActive(fridgeBuiltIn);
-        pravaState.fridge = "built-in";
-        setHidden("fridge_type_prava", "Вграден");
+        setSingleActive(contactPill, ".option-pill");
+        setField(stepEl, cfg.fields.contact, getOptionValue(contactPill));
         return;
       }
 
-      if (fridgeFreeStanding) {
-        e.preventDefault();
-        setSingleActive(fridgeFreeStanding);
-        pravaState.fridge = "free-standing";
-        setHidden("fridge_type_prava", "Свободно стоящ");
+      // extras checkboxes
+      var checkboxWrap = target.closest(".checkbox, .appliance-checkbox");
+      if (checkboxWrap && generalWrap.contains(checkboxWrap)) {
+        var fieldName =
+          checkboxWrap.getAttribute("data-field") ||
+          checkboxWrap.getAttribute("data-name");
+
+        if (fieldName && ["dishwasher", "washing_machine", "microwave", "coffee_machine"].indexOf(fieldName) !== -1) {
+          e.preventDefault();
+          var on = toggleActive(checkboxWrap);
+          setField(stepEl, fieldName, on ? "yes" : "no");
+          return;
+        }
       }
+    }
+  }
+
+  if (stepPrava) {
+    stepPrava.addEventListener("click", function (e) {
+      handleBranchStepClick(e, "prava");
     });
-  }
-
-  // ==================================================
-  // AGLOVA 3A
-  // ==================================================
-  var state3a = {
-    water: "",
-    chimney: "",
-    island: "no",
-    bar: "no",
-    oven: "no",
-    fridge: ""
-  };
-
-  function refs3a() {
-    return {
-      combo: qs(step3aAglova, ".combo-select-wrap"),
-      dim: qs(step3aAglova, ".dimensions-phase-wrap"),
-      bar: qs(step3aAglova, ".bar-wrap"),
-      island: qs(step3aAglova, ".island-wrap"),
-      base: qs(step3aAglova, ".cad-3a-base"),
-      s1: qs(step3aAglova, ".cad-3a-sketch-1"),
-      s2: qs(step3aAglova, ".cad-3a-sketch-2"),
-      s3: qs(step3aAglova, ".cad-3a-sketch-3"),
-      s4: qs(step3aAglova, ".cad-3a-sketch-4")
-    };
-  }
-
-  function show3aCad(el) {
-    var r = refs3a();
-    hideAll([r.base, r.s1, r.s2, r.s3, r.s4]);
-    show(el || r.base);
-  }
-
-  function update3aCad() {
-    var r = refs3a();
-    if (!state3a.water || !state3a.chimney) return show3aCad(r.base);
-    if (state3a.water === "2" && state3a.chimney === "1") return show3aCad(r.s1);
-    if (state3a.water === "2" && state3a.chimney === "4") return show3aCad(r.s2);
-    if (state3a.water === "3" && state3a.chimney === "1") return show3aCad(r.s3);
-    if (state3a.water === "3" && state3a.chimney === "4") return show3aCad(r.s4);
-    show3aCad(r.base);
-  }
-
-  function resetStep3aState() {
-    if (!step3aAglova) return;
-    state3a = { water: "", chimney: "", island: "no", bar: "no", oven: "no", fridge: "" };
-
-    var r = refs3a();
-    removeActiveInScope(step3aAglova, ".option-pill, .vision-card");
-    resetPickerScope(step3aAglova);
-
-    if (r.combo) show(r.combo, "block");
-    if (r.dim) hide(r.dim);
-    if (r.bar) hide(r.bar);
-    if (r.island) hide(r.island);
-
-    show3aCad(r.base);
-
-    setHidden("water_position_3a", "");
-    setHidden("chimney_position_3a", "");
-    setHidden("bar_enabled_3a", "no");
-    setHidden("island_enabled_3a", "no");
-    setHidden("oven_tall_unit_3a", "no");
-    setHidden("fridge_type_3a", "");
   }
 
   if (step3aAglova) {
     step3aAglova.addEventListener("click", function (e) {
-      var pickerBtn = e.target.closest(".picker-btn");
-      if (pickerBtn) {
-        e.preventDefault();
-        handlePickerButtonClick(pickerBtn);
-        return;
-      }
-
-      var resetBtn = e.target.closest(".reset-combo-button");
-      if (resetBtn) {
-        e.preventDefault();
-        resetStep3aState();
-        return;
-      }
-
-      var r = refs3a();
-
-      var water2 = e.target.closest(".water-pos-2");
-      var water3 = e.target.closest(".water-pos-3");
-      var chimney1 = e.target.closest(".chimney-pos-1");
-      var chimney4 = e.target.closest(".chimney-pos-4");
-
-      if (water2) {
-        e.preventDefault();
-        setSingleActive(water2);
-        state3a.water = "2";
-        setHidden("water_position_3a", "Стена 2");
-      }
-
-      if (water3) {
-        e.preventDefault();
-        setSingleActive(water3);
-        state3a.water = "3";
-        setHidden("water_position_3a", "Стена 3");
-      }
-
-      if (chimney1) {
-        e.preventDefault();
-        setSingleActive(chimney1);
-        state3a.chimney = "1";
-        setHidden("chimney_position_3a", "Стена 1");
-      }
-
-      if (chimney4) {
-        e.preventDefault();
-        setSingleActive(chimney4);
-        state3a.chimney = "4";
-        setHidden("chimney_position_3a", "Стена 4");
-      }
-
-      if ((water2 || water3 || chimney1 || chimney4) && state3a.water && state3a.chimney) {
-        update3aCad();
-        if (r.combo) hide(r.combo);
-        if (r.dim) show(r.dim, "block");
-        return;
-      }
-
-      var islandYes = e.target.closest(".island-yes");
-      if (islandYes) {
-        e.preventDefault();
-        var islandOn = toggleActive(islandYes);
-        state3a.island = islandOn ? "yes" : "no";
-        setHidden("island_enabled_3a", islandOn ? "yes" : "no");
-
-        if (islandOn) show(r.island, "block");
-        else {
-          hide(r.island);
-          resetPickerScope(r.island);
-        }
-        return;
-      }
-
-      var barYes = e.target.closest(".bar-yes, .bar-counter-yes");
-      if (barYes) {
-        e.preventDefault();
-        var barOn = toggleActive(barYes);
-        state3a.bar = barOn ? "yes" : "no";
-        setHidden("bar_enabled_3a", barOn ? "yes" : "no");
-
-        if (barOn) show(r.bar, "block");
-        else {
-          hide(r.bar);
-          resetPickerScope(r.bar);
-        }
-        return;
-      }
-
-      var ovenYes = e.target.closest(".oven-column-yes");
-      if (ovenYes) {
-        e.preventDefault();
-        var ovenOn = toggleActive(ovenYes);
-        state3a.oven = ovenOn ? "yes" : "no";
-        setHidden("oven_tall_unit_3a", ovenOn ? "yes" : "no");
-        return;
-      }
-
-      var fridgeBuiltIn = e.target.closest(".fridge-built-in");
-      var fridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-      if (fridgeBuiltIn) {
-        e.preventDefault();
-        setSingleActive(fridgeBuiltIn);
-        state3a.fridge = "built-in";
-        setHidden("fridge_type_3a", "Вграден");
-        return;
-      }
-
-      if (fridgeFreeStanding) {
-        e.preventDefault();
-        setSingleActive(fridgeFreeStanding);
-        state3a.fridge = "free-standing";
-        setHidden("fridge_type_3a", "Свободно стоящ");
-      }
+      handleBranchStepClick(e, "3a");
     });
-  }
-
-  // ==================================================
-  // AGLOVA 3B
-  // ==================================================
-  var state3b = {
-    water: "",
-    chimney: "",
-    island: "no",
-    bar: "no",
-    oven: "no",
-    fridge: ""
-  };
-
-  function refs3b() {
-    return {
-      combo: qs(step3bAglova, ".combo-select-wrap"),
-      dim: qs(step3bAglova, ".dimensions-phase-wrap"),
-      bar: qs(step3bAglova, ".bar-wrap"),
-      island: qs(step3bAglova, ".island-wrap"),
-      base: qs(step3bAglova, ".cad-3b-base"),
-      s5: qs(step3bAglova, ".cad-3b-sketch-5"),
-      s6: qs(step3bAglova, ".cad-3b-sketch-6"),
-      s7: qs(step3bAglova, ".cad-3b-sketch-7"),
-      s8: qs(step3bAglova, ".cad-3b-sketch-8")
-    };
-  }
-
-  function show3bCad(el) {
-    var r = refs3b();
-    hideAll([r.base, r.s5, r.s6, r.s7, r.s8]);
-    show(el || r.base);
-  }
-
-  function update3bCad() {
-    var r = refs3b();
-    if (!state3b.water || !state3b.chimney) return show3bCad(r.base);
-    if (state3b.water === "2" && state3b.chimney === "a") return show3bCad(r.s5);
-    if (state3b.water === "2" && state3b.chimney === "b") return show3bCad(r.s6);
-    if (state3b.water === "3" && state3b.chimney === "a") return show3bCad(r.s7);
-    if (state3b.water === "3" && state3b.chimney === "b") return show3bCad(r.s8);
-    show3bCad(r.base);
-  }
-
-  function resetStep3bState() {
-    if (!step3bAglova) return;
-    state3b = { water: "", chimney: "", island: "no", bar: "no", oven: "no", fridge: "" };
-
-    var r = refs3b();
-    removeActiveInScope(step3bAglova, ".option-pill, .vision-card");
-    resetPickerScope(step3bAglova);
-
-    if (r.combo) show(r.combo, "block");
-    if (r.dim) hide(r.dim);
-    if (r.bar) hide(r.bar);
-    if (r.island) hide(r.island);
-
-    show3bCad(r.base);
-
-    setHidden("water_position_3b", "");
-    setHidden("chimney_position_3b", "");
-    setHidden("bar_enabled_3b", "no");
-    setHidden("island_enabled_3b", "no");
-    setHidden("oven_tall_unit_3b", "no");
-    setHidden("fridge_type_3b", "");
   }
 
   if (step3bAglova) {
     step3bAglova.addEventListener("click", function (e) {
-      var pickerBtn = e.target.closest(".picker-btn");
-      if (pickerBtn) {
-        e.preventDefault();
-        handlePickerButtonClick(pickerBtn);
-        return;
-      }
+      handleBranchStepClick(e, "3b");
+    });
+  }
 
-      var resetBtn = e.target.closest(".reset-combo-button");
-      if (resetBtn) {
-        e.preventDefault();
-        resetStep3bState();
-        return;
-      }
+  if (step3aP) {
+    step3aP.addEventListener("click", function (e) {
+      handleBranchStepClick(e, "p_3a");
+    });
+  }
 
-      var r = refs3b();
+  if (step3bP) {
+    step3bP.addEventListener("click", function (e) {
+      handleBranchStepClick(e, "p_3b");
+    });
+  }
 
-      var water2 = e.target.closest(".water-pos-2");
-      var water3 = e.target.closest(".water-pos-3");
-      var chimneyA = e.target.closest(".chimney-pos-a");
-      var chimneyB = e.target.closest(".chimney-pos-b");
-
-      if (water2) {
-        e.preventDefault();
-        setSingleActive(water2);
-        state3b.water = "2";
-        setHidden("water_position_3b", "Стена 2");
-      }
-
-      if (water3) {
-        e.preventDefault();
-        setSingleActive(water3);
-        state3b.water = "3";
-        setHidden("water_position_3b", "Стена 3");
-      }
-
-      if (chimneyA) {
-        e.preventDefault();
-        setSingleActive(chimneyA);
-        state3b.chimney = "a";
-        setHidden("chimney_position_3b", "Позиция A");
-      }
-
-      if (chimneyB) {
-        e.preventDefault();
-        setSingleActive(chimneyB);
-        state3b.chimney = "b";
-        setHidden("chimney_position_3b", "Позиция B");
-      }
-
-      if ((water2 || water3 || chimneyA || chimneyB) && state3b.water && state3b.chimney) {
-        update3bCad();
-        if (r.combo) hide(r.combo);
-        if (r.dim) show(r.dim, "block");
-        return;
-      }
-
-      var islandYes = e.target.closest(".island-yes");
-      if (islandYes) {
-        e.preventDefault();
-        var islandOn = toggleActive(islandYes);
-        state3b.island = islandOn ? "yes" : "no";
-        setHidden("island_enabled_3b", islandOn ? "yes" : "no");
-
-        if (islandOn) show(r.island, "block");
-        else {
-          hide(r.island);
-          resetPickerScope(r.island);
-        }
-        return;
-      }
-
-      var barYes = e.target.closest(".bar-yes, .bar-counter-yes");
-      if (barYes) {
-        e.preventDefault();
-        var barOn = toggleActive(barYes);
-        state3b.bar = barOn ? "yes" : "no";
-        setHidden("bar_enabled_3b", barOn ? "yes" : "no");
-
-        if (barOn) show(r.bar, "block");
-        else {
-          hide(r.bar);
-          resetPickerScope(r.bar);
-        }
-        return;
-      }
-
-      var ovenYes = e.target.closest(".oven-column-yes");
-      if (ovenYes) {
-        e.preventDefault();
-        var ovenOn = toggleActive(ovenYes);
-        state3b.oven = ovenOn ? "yes" : "no";
-        setHidden("oven_tall_unit_3b", ovenOn ? "yes" : "no");
-        return;
-      }
-
-      var fridgeBuiltIn = e.target.closest(".fridge-built-in");
-      var fridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-      if (fridgeBuiltIn) {
-        e.preventDefault();
-        setSingleActive(fridgeBuiltIn);
-        state3b.fridge = "built-in";
-        setHidden("fridge_type_3b", "Вграден");
-        return;
-      }
-
-      if (fridgeFreeStanding) {
-        e.preventDefault();
-        setSingleActive(fridgeFreeStanding);
-        state3b.fridge = "free-standing";
-        setHidden("fridge_type_3b", "Свободно стоящ");
-      }
+  if (step3cP) {
+    step3cP.addEventListener("click", function (e) {
+      handleBranchStepClick(e, "p_3c");
     });
   }
 
   // ==================================================
-  // P BRANCH FACTORY
+  // INPUTS INSIDE GENERAL WRAPS
   // ==================================================
-  function makePBranch(stepEl, suffix, baseClass, sketchMap) {
-    var state = {
-      water: "",
-      hob: "",
-      island: "no",
-      bar: "no",
-      oven: "no",
-      fridge: ""
-    };
+  [stepPrava, step3aAglova, step3bAglova, step3aP, step3bP, step3cP].forEach(function (stepEl) {
+    if (!stepEl) return;
 
-    function refs() {
-      return {
-        combo: qs(stepEl, ".combo-select-wrap"),
-        dim: qs(stepEl, ".dimensions-phase-wrap"),
-        bar: qs(stepEl, ".bar-wrap"),
-        island: qs(stepEl, ".island-wrap"),
-        base: qs(stepEl, baseClass),
-        all: qsa(stepEl, ".cad-global-wrap img")
-      };
-    }
+    stepEl.addEventListener("input", function (e) {
+      var cfg = getBranchConfig();
+      if (!cfg || cfg.step !== stepEl) return;
 
-    function showCad(el) {
-      var r = refs();
-      hideAll(r.all);
-      show(el || r.base);
-    }
+      var target = e.target;
+      if (!target) return;
 
-    function updateCad() {
-      var r = refs();
-      if (!state.water || !state.hob) return showCad(r.base);
+      var generalWrap = qs(stepEl, ".General\\ questions\\ wrap, .General-questions-wrap, .general-questions-wrap, .general-questions");
+      if (!generalWrap || !generalWrap.contains(target)) return;
 
-      var key = state.water + "-" + state.hob;
-      var selector = sketchMap[key];
-      var target = selector ? qs(stepEl, selector) : null;
+      if (target.closest(".question-plan") && cfg.fields.plan) {
+        setField(stepEl, cfg.fields.plan, normalizeText(target.value));
+      }
 
-      showCad(target || r.base);
-    }
-
-    function resetState() {
-      if (!stepEl) return;
-
-      state = {
-        water: "",
-        hob: "",
-        island: "no",
-        bar: "no",
-        oven: "no",
-        fridge: ""
-      };
-
-      var r = refs();
-
-      removeActiveInScope(stepEl, ".option-pill, .vision-card");
-      resetPickerScope(stepEl);
-
-      if (r.combo) show(r.combo, "block");
-      if (r.dim) hide(r.dim);
-      if (r.bar) hide(r.bar);
-      if (r.island) hide(r.island);
-
-      showCad(r.base);
-
-      setHidden("water_position_" + suffix, "");
-      setHidden("hob_position_" + suffix, "");
-      setHidden("bar_enabled_" + suffix, "no");
-      setHidden("island_enabled_" + suffix, "no");
-      setHidden("oven_tall_unit_" + suffix, "no");
-      setHidden("fridge_type_" + suffix, "");
-    }
-
-    if (stepEl) {
-      stepEl.addEventListener("click", function (e) {
-        var pickerBtn = e.target.closest(".picker-btn");
-        if (pickerBtn) {
-          e.preventDefault();
-          handlePickerButtonClick(pickerBtn);
-          return;
-        }
-
-        var resetBtn = e.target.closest(".reset-combo-button");
-        if (resetBtn) {
-          e.preventDefault();
-          resetState();
-          return;
-        }
-
-        var r = refs();
-
-        var water1 = e.target.closest(".water-pos-1");
-        var water2 = e.target.closest(".water-pos-2");
-        var water3 = e.target.closest(".water-pos-3");
-        var hob1 = e.target.closest(".hob-pos-1");
-        var hob2 = e.target.closest(".hob-pos-2");
-        var hob3 = e.target.closest(".hob-pos-3");
-
-        if (water1) {
-          e.preventDefault();
-          setSingleActive(water1);
-          state.water = "1";
-          setHidden("water_position_" + suffix, "Позиция 1");
-        }
-
-        if (water2) {
-          e.preventDefault();
-          setSingleActive(water2);
-          state.water = "2";
-          setHidden("water_position_" + suffix, "Позиция 2");
-        }
-
-        if (water3) {
-          e.preventDefault();
-          setSingleActive(water3);
-          state.water = "3";
-          setHidden("water_position_" + suffix, "Позиция 3");
-        }
-
-        if (hob1) {
-          e.preventDefault();
-          setSingleActive(hob1);
-          state.hob = "1";
-          setHidden("hob_position_" + suffix, "Позиция 1");
-        }
-
-        if (hob2) {
-          e.preventDefault();
-          setSingleActive(hob2);
-          state.hob = "2";
-          setHidden("hob_position_" + suffix, "Позиция 2");
-        }
-
-        if (hob3) {
-          e.preventDefault();
-          setSingleActive(hob3);
-          state.hob = "3";
-          setHidden("hob_position_" + suffix, "Позиция 3");
-        }
-
-        if ((water1 || water2 || water3 || hob1 || hob2 || hob3) && state.water && state.hob) {
-          updateCad();
-          if (r.combo) hide(r.combo);
-          if (r.dim) show(r.dim, "block");
-          return;
-        }
-
-        var islandYes = e.target.closest(".island-yes");
-        if (islandYes) {
-          e.preventDefault();
-          var islandOn = toggleActive(islandYes);
-          state.island = islandOn ? "yes" : "no";
-          setHidden("island_enabled_" + suffix, islandOn ? "yes" : "no");
-
-          if (islandOn) show(r.island, "block");
-          else {
-            hide(r.island);
-            resetPickerScope(r.island);
-          }
-          return;
-        }
-
-        var barYes = e.target.closest(".bar-yes, .bar-counter-yes");
-        if (barYes) {
-          e.preventDefault();
-          var barOn = toggleActive(barYes);
-          state.bar = barOn ? "yes" : "no";
-          setHidden("bar_enabled_" + suffix, barOn ? "yes" : "no");
-
-          if (barOn) show(r.bar, "block");
-          else {
-            hide(r.bar);
-            resetPickerScope(r.bar);
-          }
-          return;
-        }
-
-        var ovenYes = e.target.closest(".oven-column-yes");
-        if (ovenYes) {
-          e.preventDefault();
-          var ovenOn = toggleActive(ovenYes);
-          state.oven = ovenOn ? "yes" : "no";
-          setHidden("oven_tall_unit_" + suffix, ovenOn ? "yes" : "no");
-          return;
-        }
-
-        var fridgeBuiltIn = e.target.closest(".fridge-built-in");
-        var fridgeFreeStanding = e.target.closest(".fridge-free-standing");
-
-        if (fridgeBuiltIn) {
-          e.preventDefault();
-          setSingleActive(fridgeBuiltIn);
-          state.fridge = "built-in";
-          setHidden("fridge_type_" + suffix, "Вграден");
-          return;
-        }
-
-        if (fridgeFreeStanding) {
-          e.preventDefault();
-          setSingleActive(fridgeFreeStanding);
-          state.fridge = "free-standing";
-          setHidden("fridge_type_" + suffix, "Свободно стоящ");
-        }
-      });
-    }
-
-    return { reset: resetState };
-  }
-
-  var p3a = makePBranch(step3aP, "p_3a", ".cad-p-3a-base", {
-    "1-1": ".cad-p-sketch-9",
-    "1-2": ".cad-p-sketch-10",
-    "1-3": ".cad-p-sketch-11",
-    "2-1": ".cad-p-sketch-12",
-    "2-2": ".cad-p-sketch-13",
-    "2-3": ".cad-p-sketch-14",
-    "3-1": ".cad-p-sketch-15",
-    "3-2": ".cad-p-sketch-16",
-    "3-3": ".cad-p-sketch-17"
+      if (target.closest(".question-contact") && cfg.fields.contact) {
+        setField(stepEl, cfg.fields.contact, normalizeText(target.value));
+      }
+    });
   });
-
-  var p3b = makePBranch(step3bP, "p_3b", ".cad-p-3b-base", {
-    "1-1": ".cad-p-sketch-18",
-    "1-2": ".cad-p-sketch-19",
-    "1-3": ".cad-p-sketch-20",
-    "2-1": ".cad-p-sketch-21",
-    "2-2": ".cad-p-sketch-22",
-    "2-3": ".cad-p-sketch-23",
-    "3-1": ".cad-p-sketch-24",
-    "3-2": ".cad-p-sketch-25",
-    "3-3": ".cad-p-sketch-26"
-  });
-
-  var p3c = makePBranch(step3cP, "p_3c", ".cad-p-3c-base", {
-    "1-1": ".cad-p-sketch-27",
-    "1-2": ".cad-p-sketch-28",
-    "1-3": ".cad-p-sketch-29",
-    "2-1": ".cad-p-sketch-30",
-    "2-2": ".cad-p-sketch-31",
-    "2-3": ".cad-p-sketch-32",
-    "3-1": ".cad-p-sketch-33",
-    "3-2": ".cad-p-sketch-34",
-    "3-3": ".cad-p-sketch-35"
-  });
-
-  function resetStep3aPState() { if (p3a) p3a.reset(); }
-  function resetStep3bPState() { if (p3b) p3b.reset(); }
-  function resetStep3cPState() { if (p3c) p3c.reset(); }
 
   // ==================================================
   // BACK BUTTONS
@@ -1542,213 +1324,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var visible = getVisibleStep();
 
-    if (visible === flowAglova || visible === flowP || visible === step3Prava) {
+    if (visible === stepPrava) {
       showStep(step1);
+      activeBranch = "";
+      activeKitchenType = "";
+      return;
+    }
+
+    if (visible === flowAglova || visible === flowP) {
+      showStep(step1);
+      activeBranch = "";
+      activeKitchenType = "";
       return;
     }
 
     if (visible === step3aAglova || visible === step3bAglova) {
       showStep(flowAglova);
+      activeBranch = "";
       return;
     }
 
     if (visible === step3aP || visible === step3bP || visible === step3cP) {
       showStep(flowP);
+      activeBranch = "";
     }
   });
 
   // ==================================================
-  // BEFORE SUBMIT
+  // SUBMIT
   // ==================================================
-  function syncMailFields() {
-    function val(name) {
-      return getHidden(name);
-    }
-
-    setMail("mail_configuration", val("configuration"));
-    setMail("mail_water_position", val("water_position_3a") || val("water_position_3b") || val("water_position_p_3a") || val("water_position_p_3b") || val("water_position_p_3c"));
-    setMail("mail_hob_position", val("hob_position_p_3a") || val("hob_position_p_3b") || val("hob_position_p_3c"));
-    setMail("mail_chimney_position", val("chimney_position_prava") || val("chimney_position_3a") || val("chimney_position_3b"));
-    setMail("mail_chimney_a", val("komin_a_3b") || val("komin_a_p_3b") || val("komin_a_p_3c"));
-    setMail("mail_chimney_b", val("komin_b_3b") || val("komin_b_p_3b") || val("komin_b_p_3c"));
-
-    setMail("mail_wall_1", val("stena1_prava") || val("stena1_3a") || val("stena1_3b") || val("stena1_p_3a") || val("stena1_p_3b") || val("stena1_p_3c"));
-    setMail("mail_wall_2", val("stena2_3a") || val("stena2_3b") || val("stena2_p_3a") || val("stena2_p_3b") || val("stena2_p_3c"));
-    setMail("mail_wall_3", val("stena3_p_3a") || val("stena3_p_3b") || val("stena3_p_3c"));
-    setMail("mail_room_height", val("visochina_prava") || val("visochina_3a") || val("visochina_3b") || val("visochina_p_3a") || val("visochina_p_3b") || val("visochina_p_3c"));
-
-    setMail("mail_bar_enabled", val("bar_enabled_prava") || val("bar_enabled_3a") || val("bar_enabled_3b") || val("bar_enabled_p_3a") || val("bar_enabled_p_3b") || val("bar_enabled_p_3c"));
-    setMail("mail_bar_length", val("bar_length_prava") || val("bar_length_3a") || val("bar_length_3b") || val("bar_length_p_3a") || val("bar_length_p_3b") || val("bar_length_p_3c"));
-    setMail("mail_bar_depth", val("bar_depth_prava") || val("bar_depth_3a") || val("bar_depth_3b") || val("bar_depth_p_3a") || val("bar_depth_p_3b") || val("bar_depth_p_3c"));
-
-    setMail("mail_island_enabled", val("island_enabled_prava") || val("island_enabled_3a") || val("island_enabled_3b") || val("island_enabled_p_3a") || val("island_enabled_p_3b") || val("island_enabled_p_3c"));
-    setMail("mail_island_length", val("island_length_prava") || val("island_length_3a") || val("island_length_3b") || val("island_length_p_3a") || val("island_length_p_3b") || val("island_length_p_3c"));
-    setMail("mail_island_depth", val("island_depth_prava") || val("island_depth_3a") || val("island_depth_3b") || val("island_depth_p_3a") || val("island_depth_p_3b") || val("island_depth_p_3c"));
-
-    setMail("mail_oven_tall_unit", val("oven_tall_unit_prava") || val("oven_tall_unit_3a") || val("oven_tall_unit_3b") || val("oven_tall_unit_p_3a") || val("oven_tall_unit_p_3b") || val("oven_tall_unit_p_3c"));
-    setMail("mail_fridge_type", val("fridge_type_prava") || val("fridge_type_3a") || val("fridge_type_3b") || val("fridge_type_p_3a") || val("fridge_type_p_3b") || val("fridge_type_p_3c"));
-
-    setMail("mail_vision", val("vision"));
-    setMail("mail_plan", val("plan"));
-    setMail("mail_contact_preference", val("contact_preference"));
-    setMail("mail_summary_readable", val("summary_readable"));
-  }
-
-  function syncCurrentStepDimensions() {
-    var activeStep = getActiveBranchStep();
-    if (!activeStep) return;
-
-    qsa(activeStep, ".dimension-row").forEach(function (row) {
-      syncRowHidden(row);
-    });
-  }
-
-  function getAllBranchSteps() {
-    return [
-      step3Prava,
-      step3aAglova,
-      step3bAglova,
-      step3aP,
-      step3bP,
-      step3cP
-    ].filter(Boolean);
-  }
-
-  function disableFieldsInScope(scopeEl) {
-    if (!scopeEl) return;
-
-    qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
-      if (!el) return;
-      if (el.type === "submit") return;
-      el.disabled = true;
-    });
-  }
-
-  function enableFieldsInScope(scopeEl) {
-    if (!scopeEl) return;
-
-    qsa(scopeEl, "input, select, textarea, button").forEach(function (el) {
-      if (!el) return;
-      if (el.type === "submit") return;
-      el.disabled = false;
-    });
-  }
-
-  function disableInactiveBranchFields() {
-    var activeStep = getActiveBranchStep();
-
-    getAllBranchSteps().forEach(function (step) {
-      if (step === activeStep) {
-        enableFieldsInScope(step);
-      } else {
-        disableFieldsInScope(step);
-      }
-    });
-  }
-
-  function disableEmptyFields() {
-    qsa(formEl, "input, select, textarea").forEach(function (el) {
-      if (!el) return;
-      if (el.disabled) return;
-      if (!el.name) return;
-
-      var type = (el.type || "").toLowerCase();
-      var tag = (el.tagName || "").toLowerCase();
-
-      // Никога не пипаме основните полета за контакт
-      if (el.name === "name-2" || el.name === "email-2") return;
-
-      // Никога не пипаме summary/mail полета, ако имат стойност
-      if (
-        el.name === "summary_readable" ||
-        el.name.indexOf("mail_") === 0
-      ) {
-        if (!getValue(el)) el.disabled = true;
-        return;
-      }
-
-      if (type === "submit" || type === "button" || type === "file") return;
-
-      if (type === "checkbox" || type === "radio") {
-        if (!el.checked) {
-          el.disabled = true;
-        }
-        return;
-      }
-
-      if (tag === "select") {
-        if (!getValue(el)) {
-          el.disabled = true;
-        }
-        return;
-      }
-
-      if (!getValue(el)) {
-        el.disabled = true;
-      }
-    });
-  }
-
-  function disableHelperButtonsBeforeSubmit() {
-    qsa(formEl, "button, input[type='button'], a").forEach(function (el) {
-      if (!el) return;
-
-      if (el.type === "submit") return;
-
-      if (
-        el.classList.contains("next-button") ||
-        el.classList.contains("back-button") ||
-        el.classList.contains("reset-combo-button")
-      ) {
-        el.disabled = true;
-      }
-    });
-  }
-
-  // Спира Enter в input полета да submit-ва формата преждевременно
-  formEl.addEventListener("keydown", function (e) {
-    var target = e.target;
-    if (!target) return;
-
-    var tag = (target.tagName || "").toLowerCase();
-    var type = (target.type || "").toLowerCase();
-    var isTextarea = tag === "textarea";
-    var isSubmit = type === "submit";
-
-    if (e.key === "Enter" && !isTextarea && !isSubmit) {
-      e.preventDefault();
-    }
+  formEl.addEventListener("submit", function () {
+    syncCurrentBranchToFinal();
+    disableStepNativeFields();
   });
 
-  // Ако браузърът все пак тръгне по native submit, да не е GET
-  formEl.setAttribute("method", "post");
-  formEl.setAttribute("action", window.location.pathname);
-
-  formEl.addEventListener(
-    "submit",
-    function () {
-      syncCurrentStepDimensions();
-      syncConfigurationHidden();
-      syncGeneralQuestionsFromScope(getActiveBranchStep());
-      buildReadableSummary();
-      syncMailFields();
-
-      // Оставяме само активния сценарий жив
-      disableInactiveBranchFields();
-
-      // Режем празните полета, за да не пълнят URL-а
-      disableEmptyFields();
-
-      // Режем helper бутоните
-      disableHelperButtonsBeforeSubmit();
-    },
-    true
-  );
-
   // ==================================================
-  // INITIAL STATE
+  // INITIAL
   // ==================================================
   hideAllSteps();
   if (step1) showStep(step1);
-  syncConfigurationHidden();
+  clearFinalFields();
+  disableStepNativeFields();
+
+  // default bases
+  if (stepPrava) showOnlyCad(stepPrava, ".cad-prava-base");
+  if (step3aAglova) showOnlyCad(step3aAglova, ".cad-3a-base");
+  if (step3bAglova) showOnlyCad(step3bAglova, ".cad-3b-base");
+  if (step3aP) showOnlyCad(step3aP, ".cad-p-3a-base");
+  if (step3bP) showOnlyCad(step3bP, ".cad-p-3b-base");
+  if (step3cP) showOnlyCad(step3cP, ".cad-p-3c-base");
 });
