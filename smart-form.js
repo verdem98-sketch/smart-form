@@ -1,4 +1,4 @@
-
+<script>
 document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   // CONFIG
@@ -24,20 +24,15 @@ document.addEventListener("DOMContentLoaded", function () {
     return norm(v).toLowerCase();
   }
 
-  function isVisible(el) {
+  function isElementVisible(el) {
     if (!el) return false;
-
     var style = window.getComputedStyle(el);
-    if (style.display === "none" || style.visibility === "hidden") return false;
-    if (el.offsetParent === null && style.position !== "fixed") return false;
-
-    return true;
+    return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
   }
 
   function firstFilled(obj, keys) {
     for (var i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      var val = norm(obj[key]);
+      var val = norm(obj[keys[i]]);
       if (val) return val;
     }
     return "";
@@ -124,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (!formEl) return;
 
   // ==================================================
-  // FINAL WEBFLOW HIDDEN FIELDS (BY NAME)
+  // FINAL WEBFLOW HIDDEN FIELDS
   // ==================================================
   function finalHidden(name) {
     return qs(formEl, '[name="' + name + '"]');
@@ -167,8 +162,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   // ACTIVE SCENARIO
   // ==================================================
-  function getVisibleScenario() {
-    var scenarios = [
+  function getScenarioCandidates() {
+    return [
       { key: "prava_3", label: "Права кухня", selector: ".step-3-prava" },
       { key: "aglova_3a", label: "Ъглова кухня без комин", selector: ".step-3a-aglova" },
       { key: "aglova_3b", label: "Ъглова кухня с комин", selector: ".step-3b-aglova" },
@@ -176,17 +171,44 @@ document.addEventListener("DOMContentLoaded", function () {
       { key: "p_3b", label: "П-образна кухня с комин вляво", selector: ".step-3b-p" },
       { key: "p_3c", label: "П-образна кухня с комин вдясно", selector: ".step-3c-p" }
     ];
+  }
+
+  function scoreScenario(el) {
+    if (!el || !isElementVisible(el)) return -1;
+
+    var score = 0;
+
+    if (qsa(el, ".option-pill.active").length) score += 20;
+    if (qsa(el, ".vision-card.active, .style-card.active, .choice-card.active, [data-value].active").length) score += 20;
+    if (qsa(el, ".dimension-row").length) score += 10;
+    if (qsa(el, "[data-field]").length) score += 10;
+    if (qsa(el, 'input[type="hidden"][data-dim], .hidden-dimension-input').length) score += 10;
+    if (qsa(el, 'input, textarea, select').length) score += 5;
+
+    return score;
+  }
+
+  function getVisibleScenario() {
+    var scenarios = getScenarioCandidates();
+    var best = null;
+    var bestScore = -1;
 
     for (var i = 0; i < scenarios.length; i++) {
       var el = qs(document, scenarios[i].selector);
-      if (el && isVisible(el)) {
-        return {
+      if (!el) continue;
+
+      var score = scoreScenario(el);
+      if (score > bestScore) {
+        bestScore = score;
+        best = {
           key: scenarios[i].key,
           label: scenarios[i].label,
           el: el
         };
       }
     }
+
+    if (best && best.el && bestScore >= 0) return best;
 
     return { key: "", label: "", el: null };
   }
@@ -197,14 +219,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function getOwnerValue(owner) {
     if (!owner) return "";
 
-    // 1) owner itself is hidden/text/select/textarea with data-field
-    if (
-      owner.matches("input, textarea, select")
-    ) {
+    if (owner.matches("input, textarea, select")) {
       return norm(owner.value);
     }
 
-    // 2) active selectable inside owner
     var active =
       qs(owner, ".option-pill.active") ||
       qs(owner, ".vision-card.active") ||
@@ -216,7 +234,6 @@ document.addEventListener("DOMContentLoaded", function () {
       return norm(active.getAttribute("data-value") || active.textContent);
     }
 
-    // 3) checked inputs
     var checked =
       qs(owner, 'input[type="radio"]:checked') ||
       qs(owner, 'input[type="checkbox"]:checked');
@@ -225,11 +242,15 @@ document.addEventListener("DOMContentLoaded", function () {
       return norm(
         checked.getAttribute("data-value") ||
         checked.value ||
-        checked.nextElementSibling && checked.nextElementSibling.textContent
+        (checked.nextElementSibling ? checked.nextElementSibling.textContent : "")
       );
     }
 
-    // 4) nested form field
+    var nestedHidden = qs(owner, 'input[type="hidden"]');
+    if (nestedHidden && nestedHidden.value) {
+      return norm(nestedHidden.value);
+    }
+
     var field = qs(owner, "input, textarea, select");
     if (field) {
       return norm(field.value);
@@ -255,9 +276,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // ==================================================
   // READ DIMENSIONS
-  // Supports:
-  // A) .dimension-row[data-dim="..."]
-  // B) hidden input inside row with [data-dim]
   // ==================================================
   function getMeterInput(row) {
     return (
@@ -301,17 +319,21 @@ document.addEventListener("DOMContentLoaded", function () {
       var key = getRowDimKey(row);
       if (!key) return;
 
-      var mInput = getMeterInput(row);
-      var cmInput = getCmInput(row);
+      var value = "";
+      var hiddenInput = getRowHiddenDimInput(row);
 
-      var value = formatDimension(
-        mInput ? mInput.value : 0,
-        cmInput ? cmInput.value : 0
-      );
+      if (hiddenInput && hiddenInput.value) {
+        value = norm(hiddenInput.value);
+      }
 
       if (!value) {
-        var hiddenInput = getRowHiddenDimInput(row);
-        if (hiddenInput) value = norm(hiddenInput.value);
+        var mInput = getMeterInput(row);
+        var cmInput = getCmInput(row);
+
+        value = formatDimension(
+          mInput ? mInput.value : 0,
+          cmInput ? cmInput.value : 0
+        );
       }
 
       if (value) out[key] = value;
@@ -372,9 +394,6 @@ document.addEventListener("DOMContentLoaded", function () {
       summary_readable: ""
     };
 
-    // ------------------------------
-    // fields -> canonical
-    // ------------------------------
     data.water_position = firstFilled(fields, [
       "water_position_3a",
       "water_position_3b",
@@ -470,9 +489,6 @@ document.addEventListener("DOMContentLoaded", function () {
     data.microwave = yesNo(firstFilled(fields, ["microwave"]));
     data.coffee_machine = yesNo(firstFilled(fields, ["coffee_machine"]));
 
-    // ------------------------------
-    // dims -> canonical
-    // ------------------------------
     data.wall_1 = firstFilled(dims, [
       "stena1_len_3a",
       "stena1_len_3b",
@@ -541,7 +557,6 @@ document.addEventListener("DOMContentLoaded", function () {
     data.island_len = firstFilled(dims, [
       "island_len_3a",
       "island_len_3b",
-      "island_len_3a",
       "island_len_prava_3",
       "island_len_p_3a",
       "island_len_p_3b",
@@ -557,9 +572,6 @@ document.addEventListener("DOMContentLoaded", function () {
       "island_width_p_3c"
     ]);
 
-    // ------------------------------
-    // clean dependent fields
-    // ------------------------------
     if (data.bar_enabled !== "yes") {
       data.bar_len = "";
       data.bar_width = "";
@@ -570,9 +582,6 @@ document.addEventListener("DOMContentLoaded", function () {
       data.island_width = "";
     }
 
-    // ------------------------------
-    // summary
-    // ------------------------------
     if (DEBUG) {
       data.summary_readable = buildDebugSummary(current, fields, dims);
       return data;
@@ -618,7 +627,13 @@ document.addEventListener("DOMContentLoaded", function () {
     clearFinalHiddenInputs();
 
     var current = getVisibleScenario();
-    if (!current.el) return;
+    if (!current.el) {
+      if (DEBUG) {
+        setFinalHidden("configuration", "NO_SCENARIO");
+        setFinalHidden("summary_readable", "NO_SCENARIO");
+      }
+      return;
+    }
 
     var fields = collectFieldValues(current.el);
     var dims = collectDimValues(current.el);
@@ -686,13 +701,19 @@ document.addEventListener("DOMContentLoaded", function () {
     if (kitchen) {
       setTimeout(syncNow, 50);
     }
+
+    var submitBtn = e.target.closest('input[type="submit"], button[type="submit"]');
+    if (submitBtn) {
+      setTimeout(syncNow, 0);
+    }
   });
 
   document.addEventListener("input", function (e) {
     if (
       e.target.closest(".dimension-row") ||
       e.target.matches("[data-field]") ||
-      e.target.matches("[data-field] input, [data-field] textarea, [data-field] select")
+      e.target.matches("[data-field] input, [data-field] textarea, [data-field] select") ||
+      e.target.matches(".meters-control input, .centimeters-control input")
     ) {
       setTimeout(syncNow, 0);
     }
@@ -702,7 +723,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (
       e.target.closest(".dimension-row") ||
       e.target.matches("[data-field]") ||
-      e.target.matches("[data-field] input, [data-field] textarea, [data-field] select")
+      e.target.matches("[data-field] input, [data-field] textarea, [data-field] select") ||
+      e.target.matches(".meters-control input, .centimeters-control input")
     ) {
       setTimeout(syncNow, 0);
     }
@@ -712,6 +734,6 @@ document.addEventListener("DOMContentLoaded", function () {
     syncNow();
   });
 
-  // initial
   syncNow();
 });
+</script>
