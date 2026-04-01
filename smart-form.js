@@ -1,4 +1,4 @@
-
+<script>
 document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   // HELPERS
@@ -34,37 +34,29 @@ document.addEventListener("DOMContentLoaded", function () {
     return String(v || "").trim();
   }
 
+  function safeLower(v) {
+    return normalizeText(v).toLowerCase();
+  }
+
   function getOptionValue(el) {
     if (!el) return "";
     return normalizeText(el.getAttribute("data-value") || textOf(el));
   }
 
-  function safeLower(v) {
-    return normalizeText(v).toLowerCase();
+  function toKey(v) {
+    return safeLower(v)
+      .replace(/\s+/g, "_")
+      .replace(/[^\p{L}\p{N}_-]/gu, "");
   }
 
-  function yesNoBg(v) {
+  function isYesValue(v) {
     var x = safeLower(v);
-    if (!x) return "";
-    if (
-      x === "да" ||
-      x === "yes" ||
-      x === "true" ||
-      x === "1" ||
-      x === "вграден" ||
-      x === "свободностоящ" ||
-      x === "ляво" ||
-      x === "дясно" ||
-      x === "a" ||
-      x === "b"
-    ) {
-      return v;
-    }
-    return v;
+    return x === "да" || x === "yes" || x === "true" || x === "1";
   }
 
   function setSingleActive(target, selector) {
     if (!target) return;
+
     var row =
       target.closest(".options-row") ||
       target.closest(".style-cards-row") ||
@@ -80,16 +72,6 @@ document.addEventListener("DOMContentLoaded", function () {
     target.classList.add("active");
   }
 
-  function toDisplayValue(v) {
-    return normalizeText(v);
-  }
-
-  function toKey(v) {
-    return safeLower(v)
-      .replace(/\s+/g, "_")
-      .replace(/[^\p{L}\p{N}_-]/gu, "");
-  }
-
   // ==================================================
   // ROOTS
   // ==================================================
@@ -99,8 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
     qs(document, "form");
 
   var modalOverlay = qs(document, ".section-overlay");
-  var modalCard = qs(document, ".modal-card");
-
   var openBtns = qsa(document, ".open-smart-form");
   var closeBtns = qsa(document, ".close-smart-form");
 
@@ -160,7 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
     plan_3a: "",
     contact_preference_3a: "",
 
-    // extras global
+    // global extras
     dishwasher: "",
     washing_machine: "",
     microwave: "",
@@ -168,15 +148,14 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // ==================================================
-  // FIELD SYNC
+  // FIELD LOOKUP / SYNC
   // ==================================================
-  function findTargetsByNameOrData(key) {
+  function findTargetsByKey(key) {
     var out = [];
-
     if (!key) return out;
 
     qsa(document, '[name="' + key + '"]').forEach(function (el) {
-      out.push(el);
+      if (out.indexOf(el) === -1) out.push(el);
     });
 
     qsa(document, '[data-field="' + key + '"]').forEach(function (el) {
@@ -190,6 +169,28 @@ document.addEventListener("DOMContentLoaded", function () {
     return out;
   }
 
+  function syncFieldValue(key, value) {
+    var targets = findTargetsByKey(key);
+    var val = normalizeText(value);
+
+    targets.forEach(function (el) {
+      var tag = (el.tagName || "").toLowerCase();
+      var type = (el.getAttribute("type") || "").toLowerCase();
+
+      if (type === "checkbox") {
+        el.checked = isYesValue(val);
+        return;
+      }
+
+      if (tag === "input" || tag === "textarea" || tag === "select") {
+        el.value = val;
+        return;
+      }
+
+      el.setAttribute("data-current-value", val);
+    });
+  }
+
   function setStoredValue(key, value) {
     state[key] = normalizeText(value);
     syncFieldValue(key, state[key]);
@@ -200,32 +201,15 @@ document.addEventListener("DOMContentLoaded", function () {
     return normalizeText(state[key] || "");
   }
 
-  function syncFieldValue(key, value) {
-    var targets = findTargetsByNameOrData(key);
-
-    targets.forEach(function (el) {
-      var tag = (el.tagName || "").toLowerCase();
-      var type = (el.getAttribute("type") || "").toLowerCase();
-      var val = normalizeText(value);
-
-      if (type === "checkbox") {
-        var truthy =
-          safeLower(val) === "да" ||
-          safeLower(val) === "yes" ||
-          safeLower(val) === "true" ||
-          safeLower(val) === "1";
-        el.checked = truthy;
-      } else if (tag === "input" || tag === "textarea" || tag === "select") {
-        el.value = val;
-      } else {
-        el.setAttribute("data-current-value", val);
-      }
+  function clearKeys(keys) {
+    (keys || []).forEach(function (key) {
+      setStoredValue(key, "");
     });
   }
 
   function readInitialValuesFromDom() {
     Object.keys(state).forEach(function (key) {
-      var targets = findTargetsByNameOrData(key);
+      var targets = findTargetsByKey(key);
       if (!targets.length) return;
 
       var el = targets[0];
@@ -238,6 +222,68 @@ document.addEventListener("DOMContentLoaded", function () {
         state[key] = normalizeText(el.value);
       }
     });
+  }
+
+  // ==================================================
+  // BRANCH CLEANUP
+  // ==================================================
+  var pravaKeys = [
+    "chimney_position_prava",
+    "len_prava_3",
+    "height_prava_3",
+    "bar",
+    "bar_len_prava_3",
+    "bar_width_prava_3",
+    "island",
+    "island_len_3a",
+    "island_width_3a",
+    "vision_prava_3",
+    "plan_prava_3",
+    "contact_preference_prava_3"
+  ];
+
+  var aglova3aKeys = [
+    "water_position_3a",
+    "chimney_position_3a",
+    "stena1_len_3a",
+    "stena2_len_3a",
+    "visochina_3a",
+    "bar_enabled_3a",
+    "bar_len_3a",
+    "bar_width_3a",
+    "island_enabled_3a",
+    "island_len_3a",
+    "island_width_3a",
+    "oven_tall_unit_3a",
+    "fridge_type_3a",
+    "vision_3a",
+    "plan_3a",
+    "contact_preference_3a"
+  ];
+
+  function clearPravaState() {
+    clearKeys(pravaKeys);
+  }
+
+  function clearAglova3aState() {
+    clearKeys(aglova3aKeys);
+  }
+
+  function clearOtherKitchenBranches(type) {
+    if (type === "prava") {
+      clearAglova3aState();
+      return;
+    }
+
+    if (type === "aglova") {
+      clearPravaState();
+      return;
+    }
+
+    if (type === "p") {
+      clearPravaState();
+      clearAglova3aState();
+    }
   }
 
   // ==================================================
@@ -280,30 +326,15 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      closeModal();
-    }
+    if (e.key === "Escape") closeModal();
   });
 
   // ==================================================
-  // FLOW / STEP CONTROL
+  // FLOW CONTROL
   // ==================================================
-  function setFieldsState(scopeEl, enabled) {
-    if (!scopeEl) return;
-
-    qsa(scopeEl, "input, textarea, select, button").forEach(function (field) {
-      var type = (field.getAttribute("type") || "").toLowerCase();
-
-      if (type === "submit") return;
-
-      field.disabled = !enabled;
-    });
-  }
-
   function deactivateAllFlows() {
     allFlows.forEach(function (flow) {
       hide(flow);
-      setFieldsState(flow, false);
     });
     activeFlow = null;
     activeBranch = null;
@@ -315,50 +346,60 @@ document.addEventListener("DOMContentLoaded", function () {
 
     activeFlow = flowEl;
     show(flowEl);
-    setFieldsState(flowEl, true);
 
     qsa(flowEl, ".step").forEach(function (step) {
       hide(step);
-      setFieldsState(step, false);
     });
   }
 
-  function showOnlyStep(scope, stepSelector) {
+  function firstExistingStep(scope, selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var el = qs(scope, selectors[i]);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function showOnlyStep(scope, selectors) {
     if (!scope) return;
 
     qsa(scope, ".step").forEach(function (step) {
       hide(step);
-      setFieldsState(step, false);
     });
 
-    var step = qs(scope, stepSelector);
-    if (step) {
-      show(step);
-      setFieldsState(step, true);
-      activeBranch = step;
+    var stepEl = firstExistingStep(
+      scope,
+      Array.isArray(selectors) ? selectors : [selectors]
+    );
+
+    if (stepEl) {
+      show(stepEl);
+      activeBranch = stepEl;
     }
   }
 
   function showInitialStepForKitchen(type) {
     if (type === "prava" && flowPrava) {
       activateFlow(flowPrava);
-      showOnlyStep(flowPrava, ".step-3-prava, .step-2-prava, .step-prava");
+      showOnlyStep(flowPrava, [".step-3-prava", ".step-2-prava", ".step-prava"]);
       return;
     }
 
     if (type === "aglova" && flowAglova) {
       activateFlow(flowAglova);
-      showOnlyStep(flowAglova, ".step-2-aglova");
+      showOnlyStep(flowAglova, [".step-2-aglova"]);
       return;
     }
 
     if (type === "p" && flowP) {
       activateFlow(flowP);
-      showOnlyStep(flowP, ".step-2-p");
-      return;
+      showOnlyStep(flowP, [".step-2-p"]);
     }
   }
 
+  // ==================================================
+  // KITCHEN TYPE
+  // ==================================================
   kitchenCards.forEach(function (card) {
     card.addEventListener("click", function () {
       setSingleActive(card, ".kitchen-card");
@@ -371,15 +412,16 @@ document.addEventListener("DOMContentLoaded", function () {
       activeKitchenType = type;
       setStoredValue("kitchen_type", type);
 
+      clearOtherKitchenBranches(type);
       showInitialStepForKitchen(type);
-      openModal();
       updateAllVisibility();
       updateAllCad();
+      openModal();
     });
   });
 
   // ==================================================
-  // BRANCH CHOICE CARDS
+  // CHOICE CARDS
   // ==================================================
   qsa(document, ".choice-card").forEach(function (card) {
     card.addEventListener("click", function () {
@@ -390,7 +432,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (!flow || !action) return;
 
-      showOnlyStep(flow, "." + action);
+      showOnlyStep(flow, ["." + action]);
       updateAllVisibility();
       updateAllCad();
     });
@@ -403,17 +445,10 @@ document.addEventListener("DOMContentLoaded", function () {
     pill.addEventListener("click", function () {
       setSingleActive(pill, ".option-pill");
 
+      var wrap = pill.closest(".question-wrap");
       var field =
         normalizeText(pill.getAttribute("data-field")) ||
-        normalizeText(
-          (pill.closest("[data-field]") || {}).getAttribute &&
-          pill.closest("[data-field]").getAttribute("data-field")
-        );
-
-      if (!field) {
-        var wrap = pill.closest(".question-wrap");
-        if (wrap) field = normalizeText(wrap.getAttribute("data-field"));
-      }
+        normalizeText(wrap && wrap.getAttribute("data-field"));
 
       var value = getOptionValue(pill);
 
@@ -433,12 +468,10 @@ document.addEventListener("DOMContentLoaded", function () {
     card.addEventListener("click", function () {
       setSingleActive(card, ".style-card");
 
+      var wrap = card.closest("[data-field]");
       var field =
         normalizeText(card.getAttribute("data-field")) ||
-        normalizeText(
-          (card.closest("[data-field]") || {}).getAttribute &&
-          card.closest("[data-field]").getAttribute("data-field")
-        );
+        normalizeText(wrap && wrap.getAttribute("data-field"));
 
       var value = getOptionValue(card);
 
@@ -449,7 +482,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // ==================================================
-  // CHECKBOXES / TOGGLES
+  // CHECKBOXES
   // ==================================================
   qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
     cb.addEventListener("change", function () {
@@ -461,8 +494,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  qsa(document, '[data-field="dishwasher"], [data-field="washing_machine"], [data-field="microwave"], [data-field="coffee_machine"]').forEach(function (el) {
-    if ((el.tagName || "").toLowerCase() === "input" && (el.type || "").toLowerCase() === "checkbox") return;
+  qsa(
+    document,
+    '[data-field="dishwasher"], [data-field="washing_machine"], [data-field="microwave"], [data-field="coffee_machine"]'
+  ).forEach(function (el) {
+    var tag = (el.tagName || "").toLowerCase();
+    var type = (el.getAttribute("type") || "").toLowerCase();
+    if (tag === "input" && type === "checkbox") return;
 
     el.addEventListener("click", function () {
       var field = normalizeText(el.getAttribute("data-field"));
@@ -477,34 +515,34 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   // TEXT / TEXTAREA / SELECT
   // ==================================================
-  qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (field) {
-    var type = (field.getAttribute("type") || "").toLowerCase();
+  qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (fieldEl) {
+    var type = (fieldEl.getAttribute("type") || "").toLowerCase();
     if (type === "checkbox") return;
 
     function handler() {
-      var key = normalizeText(field.getAttribute("data-field"));
+      var key = normalizeText(fieldEl.getAttribute("data-field"));
       if (!key) return;
-      setStoredValue(key, field.value);
+      setStoredValue(key, fieldEl.value);
     }
 
-    field.addEventListener("input", handler);
-    field.addEventListener("change", handler);
+    fieldEl.addEventListener("input", handler);
+    fieldEl.addEventListener("change", handler);
   });
 
   // ==================================================
-  // DIMENSION PICKERS
+  // DIMENSIONS
   // ==================================================
+  function clampM(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    return n;
+  }
+
   function clampCm(v) {
     var n = parseInt(v, 10);
     if (isNaN(n) || n < 0) n = 0;
     if (n > 95) n = 95;
     n = Math.round(n / 5) * 5;
-    return n;
-  }
-
-  function clampM(v) {
-    var n = parseInt(v, 10);
-    if (isNaN(n) || n < 0) n = 0;
     return n;
   }
 
@@ -518,40 +556,40 @@ document.addEventListener("DOMContentLoaded", function () {
     return m + " м " + cm + " см";
   }
 
-  function getMeterValue(row) {
-    var meterInput =
+  function getMeterInput(row) {
+    return (
       qs(row, '.meters-control input[type="number"]') ||
-      qs(row, '.meters-control input') ||
-      qs(row, '[data-part="meters"]');
+      qs(row, ".meters-control input") ||
+      qs(row, '[data-part="meters"]')
+    );
+  }
 
-    return meterInput ? clampM(meterInput.value) : 0;
+  function getCmInput(row) {
+    return (
+      qs(row, '.centimeters-control input[type="number"]') ||
+      qs(row, ".centimeters-control input") ||
+      qs(row, '[data-part="centimeters"]')
+    );
+  }
+
+  function getMeterValue(row) {
+    var input = getMeterInput(row);
+    return input ? clampM(input.value) : 0;
   }
 
   function getCmValue(row) {
-    var cmInput =
-      qs(row, '.centimeters-control input[type="number"]') ||
-      qs(row, '.centimeters-control input') ||
-      qs(row, '[data-part="centimeters"]');
-
-    return cmInput ? clampCm(cmInput.value) : 0;
+    var input = getCmInput(row);
+    return input ? clampCm(input.value) : 0;
   }
 
   function setMeterValue(row, v) {
-    var meterInput =
-      qs(row, '.meters-control input[type="number"]') ||
-      qs(row, '.meters-control input') ||
-      qs(row, '[data-part="meters"]');
-
-    if (meterInput) meterInput.value = clampM(v);
+    var input = getMeterInput(row);
+    if (input) input.value = clampM(v);
   }
 
   function setCmValue(row, v) {
-    var cmInput =
-      qs(row, '.centimeters-control input[type="number"]') ||
-      qs(row, '.centimeters-control input') ||
-      qs(row, '[data-part="centimeters"]');
-
-    if (cmInput) cmInput.value = clampCm(v);
+    var input = getCmInput(row);
+    if (input) input.value = clampCm(v);
   }
 
   function refreshDimensionRow(row) {
@@ -565,7 +603,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var formatted = formatDimension(m, cm);
 
     var hidden =
-      qs(row, '.hidden-dimension-input') ||
+      qs(row, ".hidden-dimension-input") ||
       qs(row, 'input[type="hidden"]');
 
     if (hidden) hidden.value = formatted;
@@ -574,15 +612,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
-    var meterInput =
-      qs(row, '.meters-control input[type="number"]') ||
-      qs(row, '.meters-control input') ||
-      qs(row, '[data-part="meters"]');
-
-    var cmInput =
-      qs(row, '.centimeters-control input[type="number"]') ||
-      qs(row, '.centimeters-control input') ||
-      qs(row, '[data-part="centimeters"]');
+    var meterInput = getMeterInput(row);
+    var cmInput = getCmInput(row);
 
     if (meterInput) {
       meterInput.addEventListener("input", function () {
@@ -608,7 +639,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    qsa(row, ".meters-control .minus, .meters-control [data-action='minus']").forEach(function (btn) {
+    qsa(row, '.meters-control .minus, .meters-control [data-action="minus"]').forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         setMeterValue(row, getMeterValue(row) - 1);
@@ -616,7 +647,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    qsa(row, ".meters-control .plus, .meters-control [data-action='plus']").forEach(function (btn) {
+    qsa(row, '.meters-control .plus, .meters-control [data-action="plus"]').forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         setMeterValue(row, getMeterValue(row) + 1);
@@ -624,7 +655,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    qsa(row, ".centimeters-control .minus, .centimeters-control [data-action='minus']").forEach(function (btn) {
+    qsa(row, '.centimeters-control .minus, .centimeters-control [data-action="minus"]').forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
 
@@ -644,7 +675,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    qsa(row, ".centimeters-control .plus, .centimeters-control [data-action='plus']").forEach(function (btn) {
+    qsa(row, '.centimeters-control .plus, .centimeters-control [data-action="plus"]').forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
 
@@ -666,62 +697,45 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // ==================================================
-  // CONDITIONAL VISIBILITY
+  // CONDITIONAL WRAPS
   // ==================================================
-  function toggleConditionalWrapByField(fieldName, truthy, selectors) {
-    selectors.forEach(function (sel) {
+  function toggleWraps(selectors, shouldShow) {
+    (selectors || []).forEach(function (sel) {
       qsa(document, sel).forEach(function (el) {
-        if (truthy) {
-          show(el);
-          setFieldsState(el, true);
-        } else {
-          hide(el);
-          setFieldsState(el, false);
-        }
+        if (shouldShow) show(el);
+        else hide(el);
       });
     });
   }
 
-  function isYesValue(v) {
-    var x = safeLower(v);
-    return x === "да" || x === "yes" || x === "true" || x === "1";
-  }
-
   function updateAllVisibility() {
-    // prava bar
-    toggleConditionalWrapByField(
-      "bar",
-      isYesValue(getStoredValue("bar")),
-      [".bar-fields-prava", ".bar-dimensions-prava", '[data-conditional="bar"]']
+    toggleWraps(
+      [".bar-fields-prava", ".bar-dimensions-prava", '[data-conditional="bar"]'],
+      isYesValue(getStoredValue("bar"))
     );
 
-    // prava island
-    toggleConditionalWrapByField(
-      "island",
-      isYesValue(getStoredValue("island")),
-      [".island-fields-prava", ".island-dimensions-prava", '[data-conditional="island"]']
+    toggleWraps(
+      [".island-fields-prava", ".island-dimensions-prava", '[data-conditional="island"]'],
+      isYesValue(getStoredValue("island"))
     );
 
-    // 3a bar
-    toggleConditionalWrapByField(
-      "bar_enabled_3a",
-      isYesValue(getStoredValue("bar_enabled_3a")),
-      [".bar-fields-3a", ".bar-dimensions-3a", '[data-conditional="bar_enabled_3a"]']
+    toggleWraps(
+      [".bar-fields-3a", ".bar-dimensions-3a", '[data-conditional="bar_enabled_3a"]'],
+      isYesValue(getStoredValue("bar_enabled_3a"))
     );
 
-    // 3a island
-    toggleConditionalWrapByField(
-      "island_enabled_3a",
-      isYesValue(getStoredValue("island_enabled_3a")),
-      [".island-fields-3a", ".island-dimensions-3a", '[data-conditional="island_enabled_3a"]']
+    toggleWraps(
+      [".island-fields-3a", ".island-dimensions-3a", '[data-conditional="island_enabled_3a"]'],
+      isYesValue(getStoredValue("island_enabled_3a"))
     );
   }
 
   // ==================================================
-  // CAD LOGIC
+  // CAD
   // ==================================================
   function hideCadInScope(scope) {
     if (!scope) return;
+
     qsa(scope, '[class*="cad-"]').forEach(function (el) {
       if (
         el.className.indexOf("cad-global-wrap") === -1 &&
@@ -742,7 +756,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!flowPrava) return;
 
     hideCadInScope(flowPrava);
-
     showCad(flowPrava, ".cad-prava-base");
 
     var chimney = safeLower(getStoredValue("chimney_position_prava"));
@@ -761,7 +774,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!step3a) return;
 
     hideCadInScope(step3a);
-
     showCad(step3a, ".cad-3a-base");
 
     var water = toKey(getStoredValue("water_position_3a"));
@@ -775,7 +787,6 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // fallback по по-обща комбинация
     var fallbackClass = ".cad-3a-sketch-" + water;
     var fallbackEl = qs(step3a, fallbackClass);
     if (fallbackEl) show(fallbackEl);
@@ -798,7 +809,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function makePravaSummary() {
     var lines = [];
     lines.push("Форма: Права");
-
     addSummaryLine(lines, "Комин", getStoredValue("chimney_position_prava"));
     addSummaryLine(lines, "Дължина", getStoredValue("len_prava_3"));
     addSummaryLine(lines, "Височина", getStoredValue("height_prava_3"));
@@ -815,7 +825,7 @@ document.addEventListener("DOMContentLoaded", function () {
       addSummaryLine(lines, "Остров ширина", getStoredValue("island_width_3a"));
     }
 
-    addSummaryLine(lines, "Стил", getStoredValue("vision_prava_3"));
+    addSummaryLine(lines, "Визия", getStoredValue("vision_prava_3"));
     addSummaryLine(lines, "Кога планирате", getStoredValue("plan_prava_3"));
     addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_prava_3"));
 
@@ -825,9 +835,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function makeAglova3aSummary() {
     var lines = [];
     lines.push("Форма: Ъглова");
-
-    addSummaryLine(lines, "Позиция на вода", getStoredValue("water_position_3a"));
-    addSummaryLine(lines, "Позиция на комин", getStoredValue("chimney_position_3a"));
+    addSummaryLine(lines, "Вода", getStoredValue("water_position_3a"));
+    addSummaryLine(lines, "Комин", getStoredValue("chimney_position_3a"));
     addSummaryLine(lines, "Стена 1", getStoredValue("stena1_len_3a"));
     addSummaryLine(lines, "Стена 2", getStoredValue("stena2_len_3a"));
     addSummaryLine(lines, "Височина", getStoredValue("visochina_3a"));
@@ -846,7 +855,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addSummaryLine(lines, "Колона с фурна", getStoredValue("oven_tall_unit_3a"));
     addSummaryLine(lines, "Хладилник", getStoredValue("fridge_type_3a"));
-    addSummaryLine(lines, "Стил", getStoredValue("vision_3a"));
+    addSummaryLine(lines, "Визия", getStoredValue("vision_3a"));
     addSummaryLine(lines, "Кога планирате", getStoredValue("plan_3a"));
     addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_3a"));
 
@@ -855,12 +864,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function makeExtrasSummary() {
     var lines = [];
-
     if (getStoredValue("dishwasher")) lines.push("Съдомиялна: Да");
     if (getStoredValue("washing_machine")) lines.push("Пералня: Да");
     if (getStoredValue("microwave")) lines.push("Микровълнова: Да");
     if (getStoredValue("coffee_machine")) lines.push("Кафе машина: Да");
-
     return lines;
   }
 
@@ -889,33 +896,28 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================================================
-  // SUBMIT FILTERING
+  // EMAIL SAFE SUBMIT
   // ==================================================
-  function disableInactiveBranchesBeforeSubmit() {
-    allFlows.forEach(function (flow) {
-      if (!flow) return;
+  function prepareSubmitValues() {
+    updateReadableSummary();
 
-      var enabled = flow === activeFlow;
-      setFieldsState(flow, enabled);
-
-      qsa(flow, ".step").forEach(function (step) {
-        var visible = step.style.display !== "none";
-        setFieldsState(step, enabled && visible);
-      });
-    });
-
-    // submit бутонът винаги остава активен
-    if (formEl) {
-      qsa(formEl, 'input[type="submit"], button[type="submit"]').forEach(function (btn) {
-        btn.disabled = false;
-      });
+    if (summaryReadable) {
+      summaryReadable.value = normalizeText(summaryReadable.value);
     }
+
+    // Абсолютно важно:
+    // не disable-ваме input/textarea/select,
+    // за да не отпаднат от Webflow submission-а.
+    qsa(document, "input, textarea, select").forEach(function (el) {
+      if (el.disabled) {
+        el.disabled = false;
+      }
+    });
   }
 
   if (formEl) {
     formEl.addEventListener("submit", function () {
-      updateReadableSummary();
-      disableInactiveBranchesBeforeSubmit();
+      prepareSubmitValues();
     });
   }
 
@@ -923,7 +925,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // INIT
   // ==================================================
   function initFromExistingActives() {
-    // kitchen active
     var activeKitchenCard = qs(document, ".kitchen-card.active");
     if (activeKitchenCard) {
       var type =
@@ -936,42 +937,34 @@ document.addEventListener("DOMContentLoaded", function () {
       showInitialStepForKitchen(type);
     }
 
-    // option-pill active
     qsa(document, ".option-pill.active").forEach(function (pill) {
+      var wrap = pill.closest(".question-wrap");
       var field =
         normalizeText(pill.getAttribute("data-field")) ||
-        normalizeText(
-          (pill.closest(".question-wrap") || {}).getAttribute &&
-          pill.closest(".question-wrap").getAttribute("data-field")
-        );
+        normalizeText(wrap && wrap.getAttribute("data-field"));
 
       if (field) {
         state[field] = getOptionValue(pill);
       }
     });
 
-    // style-card active
     qsa(document, ".style-card.active").forEach(function (card) {
+      var wrap = card.closest("[data-field]");
       var field =
         normalizeText(card.getAttribute("data-field")) ||
-        normalizeText(
-          (card.closest("[data-field]") || {}).getAttribute &&
-          card.closest("[data-field]").getAttribute("data-field")
-        );
+        normalizeText(wrap && wrap.getAttribute("data-field"));
 
       if (field) {
         state[field] = getOptionValue(card);
       }
     });
 
-    // checkboxes
     qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
       var field = normalizeText(cb.getAttribute("data-field"));
       if (!field) return;
       if (cb.checked) state[field] = "Да";
     });
 
-    // dimension rows
     qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
       refreshDimensionRow(row);
     });
@@ -983,7 +976,6 @@ document.addEventListener("DOMContentLoaded", function () {
   updateAllCad();
   updateReadableSummary();
 
-  // по подразбиране модалът е скрит
   if (modalOverlay && !modalOverlay.classList.contains("is-open")) {
     hide(modalOverlay);
   }
