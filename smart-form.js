@@ -21,37 +21,36 @@ document.addEventListener("DOMContentLoaded", function () {
     el.style.display = "none";
   }
 
-  function hideAll(list) {
-    (list || []).forEach(hide);
-  }
-
   function textOf(el) {
     if (!el) return "";
     return (el.textContent || "").trim();
   }
 
-  function normalizeText(v) {
+  function norm(v) {
     return String(v || "").trim();
   }
 
-  function safeLower(v) {
-    return normalizeText(v).toLowerCase();
-  }
-
-  function getOptionValue(el) {
-    if (!el) return "";
-    return normalizeText(el.getAttribute("data-value") || textOf(el));
+  function low(v) {
+    return norm(v).toLowerCase();
   }
 
   function toKey(v) {
-    return safeLower(v)
+    return low(v)
       .replace(/\s+/g, "_")
       .replace(/[^\p{L}\p{N}_-]/gu, "");
   }
 
-  function isYesValue(v) {
-    var x = safeLower(v);
+  function isYes(v) {
+    var x = low(v);
     return x === "да" || x === "yes" || x === "true" || x === "1";
+  }
+
+  function yesNo(v) {
+    return isYes(v) ? "yes" : "no";
+  }
+
+  function getOptionValue(el) {
+    return norm(el && (el.getAttribute("data-value") || textOf(el)));
   }
 
   function setSingleActive(target, selector) {
@@ -77,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   var formEl =
     qs(document, ".smart-form-wrap form") ||
-    qs(document, ".smart-form-wrap .w-form form") ||
+    qs(document, ".w-form form") ||
     qs(document, "form");
 
   var modalOverlay = qs(document, ".section-overlay");
@@ -85,25 +84,16 @@ document.addEventListener("DOMContentLoaded", function () {
   var closeBtns = qsa(document, ".close-smart-form");
 
   var kitchenCards = qsa(document, ".kitchen-card");
-
   var flowPrava = qs(document, ".flow-prava");
   var flowAglova = qs(document, ".flow-aglova");
   var flowP = qs(document, ".flow-p");
-
   var allFlows = [flowPrava, flowAglova, flowP].filter(Boolean);
-
-  var summaryReadable =
-    qs(document, '[name="summary_readable"]') ||
-    qs(document, '[data-field="summary_readable"]') ||
-    qs(document, 'textarea[data-summary="readable"]') ||
-    qs(document, 'textarea[name="summary"]');
 
   var activeKitchenType = "";
   var activeFlow = null;
-  var activeBranch = null;
 
   // ==================================================
-  // STATE
+  // INTERNAL STATE
   // ==================================================
   var state = {
     kitchen_type: "",
@@ -148,85 +138,42 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // ==================================================
-  // FIELD LOOKUP / SYNC
+  // HIDDEN INPUT ACCESS
   // ==================================================
-  function findTargetsByKey(key) {
-    var out = [];
-    if (!key) return out;
-
-    qsa(document, '[name="' + key + '"]').forEach(function (el) {
-      if (out.indexOf(el) === -1) out.push(el);
-    });
-
-    qsa(document, '[data-field="' + key + '"]').forEach(function (el) {
-      if (out.indexOf(el) === -1) out.push(el);
-    });
-
-    qsa(document, '[data-dim="' + key + '"]').forEach(function (el) {
-      if (out.indexOf(el) === -1) out.push(el);
-    });
-
-    return out;
+  function hiddenByName(name) {
+    return qs(formEl, '[name="' + name + '"]');
   }
 
-  function syncFieldValue(key, value) {
-    var targets = findTargetsByKey(key);
-    var val = normalizeText(value);
-
-    targets.forEach(function (el) {
-      var tag = (el.tagName || "").toLowerCase();
-      var type = (el.getAttribute("type") || "").toLowerCase();
-
-      if (type === "checkbox") {
-        el.checked = isYesValue(val);
-        return;
-      }
-
-      if (tag === "input" || tag === "textarea" || tag === "select") {
-        el.value = val;
-        return;
-      }
-
-      el.setAttribute("data-current-value", val);
-    });
+  function setHidden(name, value) {
+    var el = hiddenByName(name);
+    if (!el) return;
+    el.value = norm(value);
   }
 
-  function setStoredValue(key, value) {
-    state[key] = normalizeText(value);
-    syncFieldValue(key, state[key]);
-    updateReadableSummary();
+  function getHidden(name) {
+    var el = hiddenByName(name);
+    return el ? norm(el.value) : "";
   }
 
-  function getStoredValue(key) {
-    return normalizeText(state[key] || "");
+  // ==================================================
+  // UI SYNC HELPERS
+  // ==================================================
+  function setState(key, value) {
+    state[key] = norm(value);
+    updateAllVisibility();
+    updateAllCad();
+  }
+
+  function getState(key) {
+    return norm(state[key] || "");
   }
 
   function clearKeys(keys) {
     (keys || []).forEach(function (key) {
-      setStoredValue(key, "");
+      state[key] = "";
     });
   }
 
-  function readInitialValuesFromDom() {
-    Object.keys(state).forEach(function (key) {
-      var targets = findTargetsByKey(key);
-      if (!targets.length) return;
-
-      var el = targets[0];
-      var tag = (el.tagName || "").toLowerCase();
-      var type = (el.getAttribute("type") || "").toLowerCase();
-
-      if (type === "checkbox") {
-        state[key] = el.checked ? "Да" : "";
-      } else if (tag === "input" || tag === "textarea" || tag === "select") {
-        state[key] = normalizeText(el.value);
-      }
-    });
-  }
-
-  // ==================================================
-  // BRANCH CLEANUP
-  // ==================================================
   var pravaKeys = [
     "chimney_position_prava",
     "len_prava_3",
@@ -261,28 +208,14 @@ document.addEventListener("DOMContentLoaded", function () {
     "contact_preference_3a"
   ];
 
-  function clearPravaState() {
-    clearKeys(pravaKeys);
-  }
-
-  function clearAglova3aState() {
-    clearKeys(aglova3aKeys);
-  }
-
-  function clearOtherKitchenBranches(type) {
+  function clearOtherBranches(type) {
     if (type === "prava") {
-      clearAglova3aState();
-      return;
-    }
-
-    if (type === "aglova") {
-      clearPravaState();
-      return;
-    }
-
-    if (type === "p") {
-      clearPravaState();
-      clearAglova3aState();
+      clearKeys(aglova3aKeys);
+    } else if (type === "aglova") {
+      clearKeys(pravaKeys);
+    } else if (type === "p") {
+      clearKeys(pravaKeys);
+      clearKeys(aglova3aKeys);
     }
   }
 
@@ -319,9 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (modalOverlay) {
     modalOverlay.addEventListener("click", function (e) {
-      if (e.target === modalOverlay) {
-        closeModal();
-      }
+      if (e.target === modalOverlay) closeModal();
     });
   }
 
@@ -337,13 +268,11 @@ document.addEventListener("DOMContentLoaded", function () {
       hide(flow);
     });
     activeFlow = null;
-    activeBranch = null;
   }
 
   function activateFlow(flowEl) {
     deactivateAllFlows();
     if (!flowEl) return;
-
     activeFlow = flowEl;
     show(flowEl);
 
@@ -367,15 +296,8 @@ document.addEventListener("DOMContentLoaded", function () {
       hide(step);
     });
 
-    var stepEl = firstExistingStep(
-      scope,
-      Array.isArray(selectors) ? selectors : [selectors]
-    );
-
-    if (stepEl) {
-      show(stepEl);
-      activeBranch = stepEl;
-    }
+    var step = firstExistingStep(scope, Array.isArray(selectors) ? selectors : [selectors]);
+    if (step) show(step);
   }
 
   function showInitialStepForKitchen(type) {
@@ -405,17 +327,14 @@ document.addEventListener("DOMContentLoaded", function () {
       setSingleActive(card, ".kitchen-card");
 
       var type =
-        normalizeText(card.getAttribute("data-kitchen")) ||
-        normalizeText(card.getAttribute("data-value")) ||
+        norm(card.getAttribute("data-kitchen")) ||
+        norm(card.getAttribute("data-value")) ||
         toKey(textOf(card));
 
       activeKitchenType = type;
-      setStoredValue("kitchen_type", type);
-
-      clearOtherKitchenBranches(type);
+      setState("kitchen_type", type);
+      clearOtherBranches(type);
       showInitialStepForKitchen(type);
-      updateAllVisibility();
-      updateAllCad();
       openModal();
     });
   });
@@ -427,13 +346,11 @@ document.addEventListener("DOMContentLoaded", function () {
     card.addEventListener("click", function () {
       setSingleActive(card, ".choice-card");
 
-      var action = normalizeText(card.getAttribute("data-branch"));
+      var action = norm(card.getAttribute("data-branch"));
       var flow = card.closest(".flow-aglova, .flow-p, .flow-prava");
-
       if (!flow || !action) return;
 
       showOnlyStep(flow, ["." + action]);
-      updateAllVisibility();
       updateAllCad();
     });
   });
@@ -447,17 +364,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var wrap = pill.closest(".question-wrap");
       var field =
-        normalizeText(pill.getAttribute("data-field")) ||
-        normalizeText(wrap && wrap.getAttribute("data-field"));
+        norm(pill.getAttribute("data-field")) ||
+        norm(wrap && wrap.getAttribute("data-field"));
 
       var value = getOptionValue(pill);
-
-      if (field) {
-        setStoredValue(field, value);
-      }
-
-      updateAllVisibility();
-      updateAllCad();
+      if (field) setState(field, value);
     });
   });
 
@@ -470,67 +381,59 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var wrap = card.closest("[data-field]");
       var field =
-        normalizeText(card.getAttribute("data-field")) ||
-        normalizeText(wrap && wrap.getAttribute("data-field"));
+        norm(card.getAttribute("data-field")) ||
+        norm(wrap && wrap.getAttribute("data-field"));
 
       var value = getOptionValue(card);
-
-      if (field) {
-        setStoredValue(field, value);
-      }
+      if (field) setState(field, value);
     });
   });
 
   // ==================================================
-  // CHECKBOXES
+  // TEXTAREA / INPUT / SELECT WITH data-field
+  // ==================================================
+  qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (el) {
+    var type = low(el.getAttribute("type"));
+    if (type === "checkbox") return;
+
+    function sync() {
+      var field = norm(el.getAttribute("data-field"));
+      if (!field) return;
+      setState(field, el.value);
+    }
+
+    el.addEventListener("input", sync);
+    el.addEventListener("change", sync);
+  });
+
+  // ==================================================
+  // CHECKBOXES WITH data-field
   // ==================================================
   qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
     cb.addEventListener("change", function () {
-      var field = normalizeText(cb.getAttribute("data-field"));
+      var field = norm(cb.getAttribute("data-field"));
       if (!field) return;
-
-      setStoredValue(field, cb.checked ? "Да" : "");
-      updateAllVisibility();
+      setState(field, cb.checked ? "Да" : "");
     });
   });
 
-  qsa(
-    document,
-    '[data-field="dishwasher"], [data-field="washing_machine"], [data-field="microwave"], [data-field="coffee_machine"]'
-  ).forEach(function (el) {
-    var tag = (el.tagName || "").toLowerCase();
-    var type = (el.getAttribute("type") || "").toLowerCase();
+  qsa(document, '[data-field="dishwasher"], [data-field="washing_machine"], [data-field="microwave"], [data-field="coffee_machine"]').forEach(function (el) {
+    var tag = low(el.tagName);
+    var type = low(el.getAttribute("type"));
     if (tag === "input" && type === "checkbox") return;
 
     el.addEventListener("click", function () {
-      var field = normalizeText(el.getAttribute("data-field"));
+      var field = norm(el.getAttribute("data-field"));
       if (!field) return;
 
-      var next = getStoredValue(field) ? "" : "Да";
-      setStoredValue(field, next);
+      var next = getState(field) ? "" : "Да";
+      setState(field, next);
       el.classList.toggle("active", !!next);
     });
   });
 
   // ==================================================
-  // TEXT / TEXTAREA / SELECT
-  // ==================================================
-  qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (fieldEl) {
-    var type = (fieldEl.getAttribute("type") || "").toLowerCase();
-    if (type === "checkbox") return;
-
-    function handler() {
-      var key = normalizeText(fieldEl.getAttribute("data-field"));
-      if (!key) return;
-      setStoredValue(key, fieldEl.value);
-    }
-
-    fieldEl.addEventListener("input", handler);
-    fieldEl.addEventListener("change", handler);
-  });
-
-  // ==================================================
-  // DIMENSIONS
+  // DIMENSION PICKERS
   // ==================================================
   function clampM(v) {
     var n = parseInt(v, 10);
@@ -595,20 +498,20 @@ document.addEventListener("DOMContentLoaded", function () {
   function refreshDimensionRow(row) {
     if (!row) return;
 
-    var dimKey = normalizeText(row.getAttribute("data-dim"));
+    var dimKey = norm(row.getAttribute("data-dim"));
     if (!dimKey) return;
 
     var m = getMeterValue(row);
     var cm = getCmValue(row);
     var formatted = formatDimension(m, cm);
 
-    var hidden =
+    var hiddenUi =
       qs(row, ".hidden-dimension-input") ||
       qs(row, 'input[type="hidden"]');
 
-    if (hidden) hidden.value = formatted;
+    if (hiddenUi) hiddenUi.value = formatted;
 
-    setStoredValue(dimKey, formatted);
+    setState(dimKey, formatted);
   }
 
   qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
@@ -620,7 +523,6 @@ document.addEventListener("DOMContentLoaded", function () {
         meterInput.value = clampM(meterInput.value);
         refreshDimensionRow(row);
       });
-
       meterInput.addEventListener("change", function () {
         meterInput.value = clampM(meterInput.value);
         refreshDimensionRow(row);
@@ -632,7 +534,6 @@ document.addEventListener("DOMContentLoaded", function () {
         cmInput.value = clampCm(cmInput.value);
         refreshDimensionRow(row);
       });
-
       cmInput.addEventListener("change", function () {
         cmInput.value = clampCm(cmInput.value);
         refreshDimensionRow(row);
@@ -697,7 +598,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // ==================================================
-  // CONDITIONAL WRAPS
+  // CONDITIONAL UI
   // ==================================================
   function toggleWraps(selectors, shouldShow) {
     (selectors || []).forEach(function (sel) {
@@ -711,22 +612,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateAllVisibility() {
     toggleWraps(
       [".bar-fields-prava", ".bar-dimensions-prava", '[data-conditional="bar"]'],
-      isYesValue(getStoredValue("bar"))
+      isYes(getState("bar"))
     );
 
     toggleWraps(
       [".island-fields-prava", ".island-dimensions-prava", '[data-conditional="island"]'],
-      isYesValue(getStoredValue("island"))
+      isYes(getState("island"))
     );
 
     toggleWraps(
       [".bar-fields-3a", ".bar-dimensions-3a", '[data-conditional="bar_enabled_3a"]'],
-      isYesValue(getStoredValue("bar_enabled_3a"))
+      isYes(getState("bar_enabled_3a"))
     );
 
     toggleWraps(
       [".island-fields-3a", ".island-dimensions-3a", '[data-conditional="island_enabled_3a"]'],
-      isYesValue(getStoredValue("island_enabled_3a"))
+      isYes(getState("island_enabled_3a"))
     );
   }
 
@@ -747,24 +648,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function showCad(scope, selector) {
-    if (!scope || !selector) return;
     var el = qs(scope, selector);
     if (el) show(el);
   }
 
   function updatePravaCad() {
     if (!flowPrava) return;
-
     hideCadInScope(flowPrava);
     showCad(flowPrava, ".cad-prava-base");
 
-    var chimney = safeLower(getStoredValue("chimney_position_prava"));
-
-    if (chimney === "ляво") {
-      showCad(flowPrava, ".cad-prava-sketch-36");
-    } else if (chimney === "дясно") {
-      showCad(flowPrava, ".cad-prava-sketch-37");
-    }
+    var chimney = low(getState("chimney_position_prava"));
+    if (chimney === "ляво") showCad(flowPrava, ".cad-prava-sketch-36");
+    if (chimney === "дясно") showCad(flowPrava, ".cad-prava-sketch-37");
   }
 
   function updateAglova3aCad() {
@@ -776,20 +671,17 @@ document.addEventListener("DOMContentLoaded", function () {
     hideCadInScope(step3a);
     showCad(step3a, ".cad-3a-base");
 
-    var water = toKey(getStoredValue("water_position_3a"));
-    var chimney = toKey(getStoredValue("chimney_position_3a"));
+    var water = toKey(getState("water_position_3a"));
+    var chimney = toKey(getState("chimney_position_3a"));
 
-    var comboClass = ".cad-3a-sketch-" + water + "-" + chimney;
-    var comboEl = qs(step3a, comboClass);
-
-    if (comboEl) {
-      show(comboEl);
+    var combo = qs(step3a, ".cad-3a-sketch-" + water + "-" + chimney);
+    if (combo) {
+      show(combo);
       return;
     }
 
-    var fallbackClass = ".cad-3a-sketch-" + water;
-    var fallbackEl = qs(step3a, fallbackClass);
-    if (fallbackEl) show(fallbackEl);
+    var fallback = qs(step3a, ".cad-3a-sketch-" + water);
+    if (fallback) show(fallback);
   }
 
   function updateAllCad() {
@@ -800,136 +692,191 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================================================
   // SUMMARY
   // ==================================================
-  function addSummaryLine(lines, label, value) {
-    value = normalizeText(value);
+  function addLine(lines, label, value) {
+    value = norm(value);
     if (!value) return;
     lines.push(label + ": " + value);
   }
 
-  function makePravaSummary() {
+  function buildSummary() {
     var lines = [];
-    lines.push("Форма: Права");
-    addSummaryLine(lines, "Комин", getStoredValue("chimney_position_prava"));
-    addSummaryLine(lines, "Дължина", getStoredValue("len_prava_3"));
-    addSummaryLine(lines, "Височина", getStoredValue("height_prava_3"));
-
-    if (isYesValue(getStoredValue("bar"))) {
-      lines.push("Бар: Да");
-      addSummaryLine(lines, "Бар дължина", getStoredValue("bar_len_prava_3"));
-      addSummaryLine(lines, "Бар ширина", getStoredValue("bar_width_prava_3"));
-    }
-
-    if (isYesValue(getStoredValue("island"))) {
-      lines.push("Остров: Да");
-      addSummaryLine(lines, "Остров дължина", getStoredValue("island_len_3a"));
-      addSummaryLine(lines, "Остров ширина", getStoredValue("island_width_3a"));
-    }
-
-    addSummaryLine(lines, "Визия", getStoredValue("vision_prava_3"));
-    addSummaryLine(lines, "Кога планирате", getStoredValue("plan_prava_3"));
-    addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_prava_3"));
-
-    return lines;
-  }
-
-  function makeAglova3aSummary() {
-    var lines = [];
-    lines.push("Форма: Ъглова");
-    addSummaryLine(lines, "Вода", getStoredValue("water_position_3a"));
-    addSummaryLine(lines, "Комин", getStoredValue("chimney_position_3a"));
-    addSummaryLine(lines, "Стена 1", getStoredValue("stena1_len_3a"));
-    addSummaryLine(lines, "Стена 2", getStoredValue("stena2_len_3a"));
-    addSummaryLine(lines, "Височина", getStoredValue("visochina_3a"));
-
-    if (isYesValue(getStoredValue("bar_enabled_3a"))) {
-      lines.push("Бар: Да");
-      addSummaryLine(lines, "Бар дължина", getStoredValue("bar_len_3a"));
-      addSummaryLine(lines, "Бар ширина", getStoredValue("bar_width_3a"));
-    }
-
-    if (isYesValue(getStoredValue("island_enabled_3a"))) {
-      lines.push("Остров: Да");
-      addSummaryLine(lines, "Остров дължина", getStoredValue("island_len_3a"));
-      addSummaryLine(lines, "Остров ширина", getStoredValue("island_width_3a"));
-    }
-
-    addSummaryLine(lines, "Колона с фурна", getStoredValue("oven_tall_unit_3a"));
-    addSummaryLine(lines, "Хладилник", getStoredValue("fridge_type_3a"));
-    addSummaryLine(lines, "Визия", getStoredValue("vision_3a"));
-    addSummaryLine(lines, "Кога планирате", getStoredValue("plan_3a"));
-    addSummaryLine(lines, "Предпочитан контакт", getStoredValue("contact_preference_3a"));
-
-    return lines;
-  }
-
-  function makeExtrasSummary() {
-    var lines = [];
-    if (getStoredValue("dishwasher")) lines.push("Съдомиялна: Да");
-    if (getStoredValue("washing_machine")) lines.push("Пералня: Да");
-    if (getStoredValue("microwave")) lines.push("Микровълнова: Да");
-    if (getStoredValue("coffee_machine")) lines.push("Кафе машина: Да");
-    return lines;
-  }
-
-  function updateReadableSummary() {
-    if (!summaryReadable) return;
-
-    var lines = [];
-    var kt = safeLower(getStoredValue("kitchen_type"));
+    var kt = low(getState("kitchen_type"));
 
     if (kt === "prava") {
-      lines = lines.concat(makePravaSummary());
-    } else if (kt === "aglova") {
-      lines = lines.concat(makeAglova3aSummary());
-    } else if (kt === "p") {
+      lines.push("Форма: Права");
+      addLine(lines, "Комин", getState("chimney_position_prava"));
+      addLine(lines, "Дължина", getState("len_prava_3"));
+      addLine(lines, "Височина", getState("height_prava_3"));
+
+      if (isYes(getState("bar"))) {
+        lines.push("Бар: Да");
+        addLine(lines, "Бар дължина", getState("bar_len_prava_3"));
+        addLine(lines, "Бар ширина", getState("bar_width_prava_3"));
+      }
+
+      if (isYes(getState("island"))) {
+        lines.push("Остров: Да");
+        addLine(lines, "Остров дължина", getState("island_len_3a"));
+        addLine(lines, "Остров ширина", getState("island_width_3a"));
+      }
+
+      addLine(lines, "Визия", getState("vision_prava_3"));
+      addLine(lines, "Кога планирате", getState("plan_prava_3"));
+      addLine(lines, "Предпочитан контакт", getState("contact_preference_prava_3"));
+    }
+
+    else if (kt === "aglova") {
+      lines.push("Форма: Ъглова");
+      addLine(lines, "Вода", getState("water_position_3a"));
+      addLine(lines, "Комин", getState("chimney_position_3a"));
+      addLine(lines, "Стена 1", getState("stena1_len_3a"));
+      addLine(lines, "Стена 2", getState("stena2_len_3a"));
+      addLine(lines, "Височина", getState("visochina_3a"));
+
+      if (isYes(getState("bar_enabled_3a"))) {
+        lines.push("Бар: Да");
+        addLine(lines, "Бар дължина", getState("bar_len_3a"));
+        addLine(lines, "Бар ширина", getState("bar_width_3a"));
+      }
+
+      if (isYes(getState("island_enabled_3a"))) {
+        lines.push("Остров: Да");
+        addLine(lines, "Остров дължина", getState("island_len_3a"));
+        addLine(lines, "Остров ширина", getState("island_width_3a"));
+      }
+
+      addLine(lines, "Колона с фурна", getState("oven_tall_unit_3a"));
+      addLine(lines, "Хладилник", getState("fridge_type_3a"));
+      addLine(lines, "Визия", getState("vision_3a"));
+      addLine(lines, "Кога планирате", getState("plan_3a"));
+      addLine(lines, "Предпочитан контакт", getState("contact_preference_3a"));
+    }
+
+    else if (kt === "p") {
       lines.push("Форма: П-образна");
     }
 
-    var extras = makeExtrasSummary();
+    var extras = [];
+    if (getState("dishwasher")) extras.push("Съдомиялна: Да");
+    if (getState("washing_machine")) extras.push("Пералня: Да");
+    if (getState("microwave")) extras.push("Микровълнова: Да");
+    if (getState("coffee_machine")) extras.push("Кафе машина: Да");
+
     if (extras.length) {
       lines.push("");
       lines.push("Екстри:");
       lines = lines.concat(extras);
     }
 
-    summaryReadable.value = lines.join("\n");
+    return lines.join("\n");
   }
 
   // ==================================================
-  // EMAIL SAFE SUBMIT
+  // SUBMIT MAPPER
   // ==================================================
-  function prepareSubmitValues() {
-    updateReadableSummary();
-
-    if (summaryReadable) {
-      summaryReadable.value = normalizeText(summaryReadable.value);
-    }
-
-    // Абсолютно важно:
-    // не disable-ваме input/textarea/select,
-    // за да не отпаднат от Webflow submission-а.
-    qsa(document, "input, textarea, select").forEach(function (el) {
-      if (el.disabled) {
-        el.disabled = false;
-      }
-    });
+  function clearCanonicalHiddenInputs() {
+    setHidden("configuration", "");
+    setHidden("water_position", "");
+    setHidden("chimney_position", "");
+    setHidden("hob_position", "");
+    setHidden("chimney_a", "");
+    setHidden("chimney_b", "");
+    setHidden("wall_1", "");
+    setHidden("wall_2", "");
+    setHidden("wall_3", "");
+    setHidden("room_height", "");
+    setHidden("bar_enabled", "no");
+    setHidden("bar_len", "");
+    setHidden("bar_width", "");
+    setHidden("island_enabled", "no");
+    setHidden("island_len", "");
+    setHidden("island_width", "");
+    setHidden("oven_tall_unit", "no");
+    setHidden("fridge_type", "");
+    setHidden("vision", "");
+    setHidden("plan", "");
+    setHidden("contact_preference", "");
+    setHidden("dishwasher", "no");
+    setHidden("washing_machine", "no");
+    setHidden("microwave", "no");
+    setHidden("coffee_machine", "no");
+    setHidden("summary_readable", "");
   }
 
-  if (formEl) {
-    formEl.addEventListener("submit", function () {
-      prepareSubmitValues();
-    });
+  function mapPravaToCanonical() {
+    setHidden("configuration", "prava");
+    setHidden("chimney_position", getState("chimney_position_prava"));
+    setHidden("wall_1", getState("len_prava_3"));
+    setHidden("room_height", getState("height_prava_3"));
+
+    setHidden("bar_enabled", yesNo(getState("bar")));
+    setHidden("bar_len", getState("bar_len_prava_3"));
+    setHidden("bar_width", getState("bar_width_prava_3"));
+
+    setHidden("island_enabled", yesNo(getState("island")));
+    setHidden("island_len", getState("island_len_3a"));
+    setHidden("island_width", getState("island_width_3a"));
+
+    setHidden("vision", getState("vision_prava_3"));
+    setHidden("plan", getState("plan_prava_3"));
+    setHidden("contact_preference", getState("contact_preference_prava_3"));
+  }
+
+  function mapAglova3aToCanonical() {
+    setHidden("configuration", "aglova_3a");
+    setHidden("water_position", getState("water_position_3a"));
+    setHidden("chimney_position", getState("chimney_position_3a"));
+    setHidden("wall_1", getState("stena1_len_3a"));
+    setHidden("wall_2", getState("stena2_len_3a"));
+    setHidden("room_height", getState("visochina_3a"));
+
+    setHidden("bar_enabled", yesNo(getState("bar_enabled_3a")));
+    setHidden("bar_len", getState("bar_len_3a"));
+    setHidden("bar_width", getState("bar_width_3a"));
+
+    setHidden("island_enabled", yesNo(getState("island_enabled_3a")));
+    setHidden("island_len", getState("island_len_3a"));
+    setHidden("island_width", getState("island_width_3a"));
+
+    setHidden("oven_tall_unit", yesNo(getState("oven_tall_unit_3a")));
+    setHidden("fridge_type", getState("fridge_type_3a"));
+
+    setHidden("vision", getState("vision_3a"));
+    setHidden("plan", getState("plan_3a"));
+    setHidden("contact_preference", getState("contact_preference_3a"));
+  }
+
+  function mapExtrasToCanonical() {
+    setHidden("dishwasher", yesNo(getState("dishwasher")));
+    setHidden("washing_machine", yesNo(getState("washing_machine")));
+    setHidden("microwave", yesNo(getState("microwave")));
+    setHidden("coffee_machine", yesNo(getState("coffee_machine")));
+  }
+
+  function writeSummaryToCanonical() {
+    setHidden("summary_readable", buildSummary());
+  }
+
+  function mapStateToHiddenInputs() {
+    clearCanonicalHiddenInputs();
+
+    var kt = low(getState("kitchen_type"));
+    if (kt === "prava") mapPravaToCanonical();
+    if (kt === "aglova") mapAglova3aToCanonical();
+
+    mapExtrasToCanonical();
+    writeSummaryToCanonical();
   }
 
   // ==================================================
-  // INIT
+  // INIT FROM ACTIVE UI
   // ==================================================
   function initFromExistingActives() {
     var activeKitchenCard = qs(document, ".kitchen-card.active");
     if (activeKitchenCard) {
       var type =
-        normalizeText(activeKitchenCard.getAttribute("data-kitchen")) ||
-        normalizeText(activeKitchenCard.getAttribute("data-value")) ||
+        norm(activeKitchenCard.getAttribute("data-kitchen")) ||
+        norm(activeKitchenCard.getAttribute("data-value")) ||
         toKey(textOf(activeKitchenCard));
 
       activeKitchenType = type;
@@ -940,29 +887,35 @@ document.addEventListener("DOMContentLoaded", function () {
     qsa(document, ".option-pill.active").forEach(function (pill) {
       var wrap = pill.closest(".question-wrap");
       var field =
-        normalizeText(pill.getAttribute("data-field")) ||
-        normalizeText(wrap && wrap.getAttribute("data-field"));
+        norm(pill.getAttribute("data-field")) ||
+        norm(wrap && wrap.getAttribute("data-field"));
 
-      if (field) {
-        state[field] = getOptionValue(pill);
-      }
+      if (field) state[field] = getOptionValue(pill);
     });
 
     qsa(document, ".style-card.active").forEach(function (card) {
       var wrap = card.closest("[data-field]");
       var field =
-        normalizeText(card.getAttribute("data-field")) ||
-        normalizeText(wrap && wrap.getAttribute("data-field"));
+        norm(card.getAttribute("data-field")) ||
+        norm(wrap && wrap.getAttribute("data-field"));
 
-      if (field) {
-        state[field] = getOptionValue(card);
-      }
+      if (field) state[field] = getOptionValue(card);
     });
 
     qsa(document, 'input[type="checkbox"][data-field]').forEach(function (cb) {
-      var field = normalizeText(cb.getAttribute("data-field"));
+      var field = norm(cb.getAttribute("data-field"));
       if (!field) return;
       if (cb.checked) state[field] = "Да";
+    });
+
+    qsa(document, "input[data-field], textarea[data-field], select[data-field]").forEach(function (el) {
+      var type = low(el.getAttribute("type"));
+      if (type === "checkbox") return;
+
+      var field = norm(el.getAttribute("data-field"));
+      if (!field) return;
+
+      if (norm(el.value)) state[field] = norm(el.value);
     });
 
     qsa(document, ".dimension-row[data-dim]").forEach(function (row) {
@@ -970,11 +923,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  readInitialValuesFromDom();
+  // ==================================================
+  // SUBMIT
+  // ==================================================
+  if (formEl) {
+    formEl.addEventListener("submit", function () {
+      mapStateToHiddenInputs();
+    });
+  }
+
+  // ==================================================
+  // START
+  // ==================================================
   initFromExistingActives();
   updateAllVisibility();
   updateAllCad();
-  updateReadableSummary();
 
   if (modalOverlay && !modalOverlay.classList.contains("is-open")) {
     hide(modalOverlay);
