@@ -25,19 +25,55 @@ document.addEventListener("DOMContentLoaded", function () {
     return style.display !== "none" && style.visibility !== "hidden";
   }
 
-  function isYes(v) {
+  function setSingleActive(target, selector) {
+    if (!target) return;
+
+    var row =
+      target.closest(".options-row") ||
+      target.closest(".style-cards-row") ||
+      target.closest(".choice-cards-row") ||
+      target.parentElement;
+
+    if (!row) return;
+
+    qsa(row, selector).forEach(function (el) {
+      el.classList.remove("active");
+    });
+
+    target.classList.add("active");
+  }
+
+  function isYesText(v) {
     var x = low(v);
-    return x === "да" || x === "yes" || x === "true" || x === "1";
+    return (
+      x === "да" ||
+      x === "yes" ||
+      x === "true" ||
+      x === "1" ||
+      x === "с колона за фурна" ||
+      x === "вграден" ||
+      x === "email" ||
+      x === "phone" ||
+      x === "viber"
+    );
   }
 
   function yesNo(v) {
-    return isYes(v) ? "yes" : "no";
+    return isYesText(v) ? "yes" : "no";
   }
 
   function pushLine(lines, label, value) {
     value = norm(value);
     if (!value) return;
     lines.push(label + ": " + value);
+  }
+
+  function firstFilled(obj, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var v = norm(obj[keys[i]]);
+      if (v) return v;
+    }
+    return "";
   }
 
   // ==================================================
@@ -92,48 +128,61 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================================================
-  // UI READERS
+  // ACTIVE SCENARIO
   // ==================================================
-  function getActiveValueByField(scope, fieldName) {
-    if (!scope || !fieldName) return "";
+  function getVisibleScenario() {
+    var scenarios = [
+      { key: "prava_3", label: "Права", selector: ".step-3-prava" },
+      { key: "aglova_3a", label: "Ъглова без комин", selector: ".step-3a-aglova" },
+      { key: "aglova_3b", label: "Ъглова с комин", selector: ".step-3b-aglova" },
+      { key: "p_3a", label: "П без комин", selector: ".step-3a-p" },
+      { key: "p_3b", label: "П с комин отляво", selector: ".step-3b-p" },
+      { key: "p_3c", label: "П с комин отдясно", selector: ".step-3c-p" }
+    ];
 
-    var owner = qs(scope, '[data-field="' + fieldName + '"]');
-    if (!owner) return "";
-
-    var active =
-      qs(owner, ".option-pill.active") ||
-      qs(owner, ".vision-card.active") ||
-      qs(owner, ".style-card.active") ||
-      qs(owner, "[data-value].active");
-
-    if (active) {
-      return norm(active.getAttribute("data-value") || active.textContent);
+    for (var i = 0; i < scenarios.length; i++) {
+      var el = qs(document, scenarios[i].selector);
+      if (el && isVisible(el)) {
+        return {
+          key: scenarios[i].key,
+          label: scenarios[i].label,
+          el: el
+        };
+      }
     }
 
-    var textInput =
-      qs(owner, "input") ||
-      qs(owner, "textarea") ||
-      qs(owner, "select");
-
-    if (textInput) return norm(textInput.value);
-
-    return "";
+    return { key: "", label: "", el: null };
   }
 
-  function getMeterInput(row) {
-    return (
-      qs(row, '.meters-control input[type="number"]') ||
-      qs(row, ".meters-control input") ||
-      qs(row, '[data-part="meters"]')
-    );
-  }
+  // ==================================================
+  // READ UI
+  // ==================================================
+  function collectFieldValues(scope) {
+    var out = {};
+    if (!scope) return out;
 
-  function getCmInput(row) {
-    return (
-      qs(row, '.centimeters-control input[type="number"]') ||
-      qs(row, ".centimeters-control input") ||
-      qs(row, '[data-part="centimeters"]')
-    );
+    qsa(scope, "[data-field]").forEach(function (owner) {
+      var field = norm(owner.getAttribute("data-field"));
+      if (!field) return;
+
+      var active =
+        qs(owner, ".option-pill.active") ||
+        qs(owner, ".vision-card.active") ||
+        qs(owner, ".style-card.active") ||
+        qs(owner, "[data-value].active");
+
+      if (active) {
+        out[field] = norm(active.getAttribute("data-value") || active.textContent);
+        return;
+      }
+
+      var formField = qs(owner, "input, textarea, select");
+      if (formField) {
+        out[field] = norm(formField.value);
+      }
+    });
+
+    return out;
   }
 
   function clampM(v) {
@@ -160,476 +209,288 @@ document.addEventListener("DOMContentLoaded", function () {
     return m + " м " + cm + " см";
   }
 
-  function getDimValue(scope, dimName) {
-    if (!scope || !dimName) return "";
-
-    var row = qs(scope, '.dimension-row[data-dim="' + dimName + '"]');
-    if (!row) return "";
-
-    var meterInput = getMeterInput(row);
-    var cmInput = getCmInput(row);
-
-    var m = meterInput ? meterInput.value : 0;
-    var cm = cmInput ? cmInput.value : 0;
-
-    var formatted = formatDimension(m, cm);
-    if (formatted) return formatted;
-
-    var hiddenUi =
-      qs(row, ".hidden-dimension-input") ||
-      qs(row, 'input[type="hidden"]');
-
-    return hiddenUi ? norm(hiddenUi.value) : "";
+  function getMeterInput(row) {
+    return (
+      qs(row, '.meters-control input[type="number"]') ||
+      qs(row, ".meters-control input") ||
+      qs(row, '[data-part="meters"]')
+    );
   }
 
-  function getVisibleScenario() {
-    var scenarios = [
-      { key: "prava_3", selector: ".step-3-prava" },
-      { key: "aglova_3a", selector: ".step-3a-aglova" },
-      { key: "aglova_3b", selector: ".step-3b-aglova" },
-      { key: "p_3a", selector: ".step-3a-p" },
-      { key: "p_3b", selector: ".step-3b-p" },
-      { key: "p_3c", selector: ".step-3c-p" }
-    ];
+  function getCmInput(row) {
+    return (
+      qs(row, '.centimeters-control input[type="number"]') ||
+      qs(row, ".centimeters-control input") ||
+      qs(row, '[data-part="centimeters"]')
+    );
+  }
 
-    for (var i = 0; i < scenarios.length; i++) {
-      var el = qs(document, scenarios[i].selector);
-      if (el && isVisible(el)) {
-        return { key: scenarios[i].key, el: el };
+  function collectDimValues(scope) {
+    var out = {};
+    if (!scope) return out;
+
+    qsa(scope, ".dimension-row[data-dim]").forEach(function (row) {
+      var key = norm(row.getAttribute("data-dim"));
+      if (!key) return;
+
+      var mInput = getMeterInput(row);
+      var cmInput = getCmInput(row);
+
+      var val = formatDimension(
+        mInput ? mInput.value : 0,
+        cmInput ? cmInput.value : 0
+      );
+
+      if (!val) {
+        var hiddenUi =
+          qs(row, ".hidden-dimension-input") ||
+          qs(row, 'input[type="hidden"]');
+        if (hiddenUi) val = norm(hiddenUi.value);
       }
-    }
 
-    return { key: "", el: null };
+      out[key] = val;
+    });
+
+    return out;
   }
 
   // ==================================================
-  // SUMMARY BUILDERS
+  // MAP TO CANONICAL
   // ==================================================
-  function buildSummaryForPrava(scope) {
-    var lines = [];
-    lines.push("Форма: Права");
-
-    var water = getActiveValueByField(scope, "water_position_3a");
-    var s1 = getDimValue(scope, "stena1_len_prava_3");
-    var s2 = getDimValue(scope, "stena2_len_prava_3");
-    var h = getDimValue(scope, "visochina_prava_3");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_prava_3");
-    var barLen = getDimValue(scope, "bar_len_prava_3");
-    var barWidth = getDimValue(scope, "bar_width_prava_3");
-
-    var islandEnabled = getActiveValueByField(scope, "island_enabled_prava_3");
-    var islandLen = getDimValue(scope, "island_len_prava_3");
-    var islandWidth = getDimValue(scope, "island_width_prava_3");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_prava_3");
-    var fridge = getActiveValueByField(scope, "fridge_type_prava_3");
-    var vision = getActiveValueByField(scope, "vision_prava_3");
-    var plan = getActiveValueByField(scope, "plan_prava_3");
-    var contact = getActiveValueByField(scope, "contact_preference_prava_3");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "Права",
-      water_position: water,
-      wall_1: s1,
-      wall_2: s2,
-      room_height: h,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
+  function mapScenarioData(current, fields, dims) {
+    var data = {
+      configuration: current.label || "",
+      water_position: "",
+      chimney_position: "",
+      hob_position: "",
+      chimney_a: "",
+      chimney_b: "",
+      wall_1: "",
+      wall_2: "",
+      wall_3: "",
+      room_height: "",
+      bar_enabled: "no",
+      bar_len: "",
+      bar_width: "",
+      island_enabled: "no",
+      island_len: "",
+      island_width: "",
+      oven_tall_unit: "no",
+      fridge_type: "",
+      vision: "",
+      plan: "",
+      contact_preference: "",
+      dishwasher: "no",
+      washing_machine: "no",
+      microwave: "no",
+      coffee_machine: "no",
+      summary_readable: ""
     };
+
+    // canonical fields
+    data.water_position = firstFilled(fields, [
+      "water_position_3a",
+      "water_position_3b",
+      "water_position_p_3a",
+      "water_position_p_3b",
+      "water_position_p_3c"
+    ]);
+
+    data.chimney_position = firstFilled(fields, [
+      "chimney_position_3a",
+      "chimney_position_3b"
+    ]);
+
+    data.hob_position = firstFilled(fields, [
+      "hob_position_p_3a",
+      "hob_position_p_3c"
+    ]);
+
+    data.bar_enabled = yesNo(firstFilled(fields, [
+      "bar_enabled_3a",
+      "bar_enabled_3b",
+      "bar_enabled_prava_3",
+      "bar_enabled_p_3a",
+      "bar_enabled_p_3b",
+      "bar_enabled_p_3c"
+    ]));
+
+    data.island_enabled = yesNo(firstFilled(fields, [
+      "island_enabled_3a",
+      "island_enabled_3b",
+      "island_enabled_prava_3",
+      "island_enabled_p_3a",
+      "island_enabled_p_3b",
+      "island_enabled_p_3c",
+      // fallback for typo cases
+      "bar_enabled_p_3a",
+      "bar_enabled_p_3c"
+    ]));
+
+    data.oven_tall_unit = yesNo(firstFilled(fields, [
+      "oven_tall_unit_3a",
+      "oven_tall_unit_3b",
+      "oven_tall_unit_prava_3",
+      "oven_tall_unit_p_3a",
+      "oven_tall_unit_p_3b",
+      "oven_tall_unit_p_3c"
+    ]));
+
+    data.fridge_type = firstFilled(fields, [
+      "fridge_type_3a",
+      "fridge_type_3b",
+      "fridge_type_prava_3",
+      "fridge_type_p_3a",
+      "fridge_type_p_3b",
+      "fridge_type_p_3c"
+    ]);
+
+    data.vision = firstFilled(fields, [
+      "vision_3a",
+      "vision_3b",
+      "vision_prava_3",
+      "vision_p_3a",
+      "vision_p_3b",
+      "vision_p_3c"
+    ]);
+
+    data.plan = firstFilled(fields, [
+      "plan_3a",
+      "plan_3b",
+      "plan_prava_3",
+      "plan_p_3a",
+      "plan_p_3c",
+      "question-plan_p3b"
+    ]);
+
+    data.contact_preference = firstFilled(fields, [
+      "contact_preference_3a",
+      "contact_preference_3b",
+      "contact_preference_prava_3",
+      "contact_preference_p_3a",
+      "contact_preference_p_3b",
+      "contact_preference_p_3c"
+    ]);
+
+    // dims
+    data.wall_1 = firstFilled(dims, [
+      "stena1_len_3a",
+      "stena1_len_3b",
+      "stena1_len_prava_3",
+      "stena1_len_p_3a",
+      "stena1_len_p_3b",
+      "stena1_len_p_3c"
+    ]);
+
+    data.wall_2 = firstFilled(dims, [
+      "stena2_len_3a",
+      "stena2_len_3b",
+      "stena2_len_prava_3",
+      "stena2_len_p_3a",
+      "stena2_len_p_3b",
+      "stena2_len_p_3c"
+    ]);
+
+    data.wall_3 = firstFilled(dims, [
+      "stena3_len_p_3a",
+      "stena3_len_p_3b",
+      "stena3_len_p_3c"
+    ]);
+
+    data.room_height = firstFilled(dims, [
+      "visochina_3a",
+      "visochina_3b",
+      "visochina_prava_3",
+      "visochina_p_3a",
+      "visochina_p_3b",
+      "visochina_p_3c"
+    ]);
+
+    data.chimney_a = firstFilled(dims, [
+      "komin_a_3b",
+      "komin_a_p_3b",
+      "komin_a_p_3c"
+    ]);
+
+    data.chimney_b = firstFilled(dims, [
+      "komin_b_3b",
+      "komin_b_p_3b",
+      "komin_b_p_3c"
+    ]);
+
+    data.bar_len = firstFilled(dims, [
+      "bar_len_3a",
+      "bar_len_3b",
+      "bar_len_prava_3",
+      "bar_len_p_3a",
+      "bar_len_p_3b",
+      "bar_len_p_3c"
+    ]);
+
+    data.bar_width = firstFilled(dims, [
+      "bar_width_3a",
+      "bar_width_3b",
+      "bar_width_prava_3",
+      "bar_width_p_3a",
+      "bar_width_p_3b",
+      "bar_width_p_3c"
+    ]);
+
+    data.island_len = firstFilled(dims, [
+      "island_len_3a",
+      "island_len_3b",
+      "island_len_prava_3",
+      "island_len_p_3a",
+      "island_len_p_3b",
+      "island_len_p_3c"
+    ]);
+
+    data.island_width = firstFilled(dims, [
+      "island_width_3a",
+      "island_width_3b",
+      "island_width_prava_3",
+      "island_width_p_3a",
+      "island_width_p_3b",
+      "island_width_p_3c"
+    ]);
+
+    // summary
+    var lines = [];
+    if (data.configuration) lines.push("Форма: " + data.configuration);
+    pushLine(lines, "Вода", data.water_position);
+    pushLine(lines, "Комин", data.chimney_position);
+    pushLine(lines, "Котлони", data.hob_position);
+    pushLine(lines, "Стена 1", data.wall_1);
+    pushLine(lines, "Стена 2", data.wall_2);
+    pushLine(lines, "Стена 3", data.wall_3);
+    pushLine(lines, "Височина", data.room_height);
+    pushLine(lines, "Комин A", data.chimney_a);
+    pushLine(lines, "Комин B", data.chimney_b);
+    pushLine(lines, "Бар", data.bar_enabled === "yes" ? "Да" : "");
+    pushLine(lines, "Бар дължина", data.bar_len);
+    pushLine(lines, "Бар ширина", data.bar_width);
+    pushLine(lines, "Остров", data.island_enabled === "yes" ? "Да" : "");
+    pushLine(lines, "Остров дължина", data.island_len);
+    pushLine(lines, "Остров ширина", data.island_width);
+    pushLine(lines, "Колона за фурна", data.oven_tall_unit === "yes" ? "Да" : "");
+    pushLine(lines, "Хладилник", data.fridge_type);
+    pushLine(lines, "Визия", data.vision);
+    pushLine(lines, "Кога планирате", data.plan);
+    pushLine(lines, "Предпочитан контакт", data.contact_preference);
+
+    data.summary_readable = lines.join("\n");
+    return data;
   }
 
-  function buildSummaryForAglova3a(scope) {
-    var lines = [];
-    lines.push("Форма: Ъглова без комин");
-
-    var water = getActiveValueByField(scope, "water_position_3a");
-    var chimney = getActiveValueByField(scope, "chimney_position_3a");
-    var s1 = getDimValue(scope, "stena1_len_3a");
-    var s2 = getDimValue(scope, "stena2_len_3a");
-    var h = getDimValue(scope, "visochina_3a");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_3a");
-    var barLen = getDimValue(scope, "bar_len_3a");
-    var barWidth = getDimValue(scope, "bar_width_3a");
-
-    var islandEnabled = getActiveValueByField(scope, "island_enabled_3a");
-    var islandLen = getDimValue(scope, "island_len_3a");
-    var islandWidth = getDimValue(scope, "island_width_3a");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_3a");
-    var fridge = getActiveValueByField(scope, "fridge_type_3a");
-    var vision = getActiveValueByField(scope, "vision_3a");
-    var plan = getActiveValueByField(scope, "plan_3a");
-    var contact = getActiveValueByField(scope, "contact_preference_3a");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Позиция", chimney);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "Ъглова без комин",
-      water_position: water,
-      chimney_position: chimney,
-      wall_1: s1,
-      wall_2: s2,
-      room_height: h,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
-    };
-  }
-
-  function buildSummaryForAglova3b(scope) {
-    var lines = [];
-    lines.push("Форма: Ъглова с комин");
-
-    var water = getActiveValueByField(scope, "water_position_3b");
-    var chimney = getActiveValueByField(scope, "chimney_position_3b");
-    var s1 = getDimValue(scope, "stena1_len_3b");
-    var s2 = getDimValue(scope, "stena2_len_3b");
-    var h = getDimValue(scope, "visochina_3b");
-    var ka = getDimValue(scope, "komin_a_3b");
-    var kb = getDimValue(scope, "komin_b_3b");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_3b");
-    var barLen = getDimValue(scope, "bar_len_3b");
-    var barWidth = getDimValue(scope, "bar_width_3b");
-
-    var islandEnabled = getActiveValueByField(scope, "island_enabled_3b");
-    var islandLen = getDimValue(scope, "island_len_3b");
-    var islandWidth = getDimValue(scope, "island_width_3b");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_3b");
-    var fridge = getActiveValueByField(scope, "fridge_type_3b");
-    var vision = getActiveValueByField(scope, "vision_3b");
-    var plan = getActiveValueByField(scope, "plan_3b");
-    var contact = getActiveValueByField(scope, "contact_preference_3b");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Комин", chimney);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Комин A", ka);
-    pushLine(lines, "Комин B", kb);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "Ъглова с комин",
-      water_position: water,
-      chimney_position: chimney,
-      wall_1: s1,
-      wall_2: s2,
-      room_height: h,
-      chimney_a: ka,
-      chimney_b: kb,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
-    };
-  }
-
-  function buildSummaryForP3a(scope) {
-    var lines = [];
-    lines.push("Форма: П без комин");
-
-    var water = getActiveValueByField(scope, "water_position_p_3a");
-    var hob = getActiveValueByField(scope, "hob_position_p_3a");
-    var s1 = getDimValue(scope, "stena1_len_p_3a");
-    var s2 = getDimValue(scope, "stena2_len_p_3a");
-    var s3 = getDimValue(scope, "stena3_len_p_3a");
-    var h = getDimValue(scope, "visochina_p_3a");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_p_3a");
-    var barLen = getDimValue(scope, "bar_len_p_3a");
-    var barWidth = getDimValue(scope, "bar_width_p_3a");
-
-    var islandEnabled =
-      getActiveValueByField(scope, "island_enabled_p_3a") ||
-      getActiveValueByField(scope, "bar_enabled_p_3c");
-    var islandLen = getDimValue(scope, "island_len_p_3a");
-    var islandWidth = getDimValue(scope, "island_width_p_3a");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_p_3a");
-    var fridge = getActiveValueByField(scope, "fridge_type_p_3a");
-    var vision = getActiveValueByField(scope, "vision_p_3a");
-    var plan = getActiveValueByField(scope, "plan_p_3a");
-    var contact = getActiveValueByField(scope, "contact_preference_p_3a");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Котлони", hob);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Стена 3", s3);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "П без комин",
-      water_position: water,
-      hob_position: hob,
-      wall_1: s1,
-      wall_2: s2,
-      wall_3: s3,
-      room_height: h,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
-    };
-  }
-
-  function buildSummaryForP3b(scope) {
-    var lines = [];
-    lines.push("Форма: П с комин отляво");
-
-    var water = getActiveValueByField(scope, "water_position_p_3b");
-    var hob = getActiveValueByField(scope, "hob_position_p_3a");
-    var s1 = getDimValue(scope, "stena1_len_p_3b");
-    var s2 = getDimValue(scope, "stena2_len_p_3b");
-    var s3 = getDimValue(scope, "stena3_len_p_3b");
-    var h = getDimValue(scope, "visochina_p_3b");
-    var ka = getDimValue(scope, "komin_a_p_3b");
-    var kb = getDimValue(scope, "komin_b_p_3b");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_p_3b");
-    var barLen = getDimValue(scope, "bar_len_p_3b");
-    var barWidth = getDimValue(scope, "bar_width_p_3b");
-
-    var islandEnabled =
-      getActiveValueByField(scope, "island_enabled_p_3b") ||
-      getActiveValueByField(scope, "bar_enabled_p_3a");
-    var islandLen = getDimValue(scope, "island_len_p_3b");
-    var islandWidth = getDimValue(scope, "island_width_p_3b");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_p_3b");
-    var fridge = getActiveValueByField(scope, "fridge_type_p_3b");
-    var vision = getActiveValueByField(scope, "vision_p_3b");
-    var plan = getActiveValueByField(scope, "question-plan_p3b");
-    var contact = getActiveValueByField(scope, "contact_preference_p_3b");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Котлони", hob);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Стена 3", s3);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Комин A", ka);
-    pushLine(lines, "Комин B", kb);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "П с комин отляво",
-      water_position: water,
-      hob_position: hob,
-      wall_1: s1,
-      wall_2: s2,
-      wall_3: s3,
-      room_height: h,
-      chimney_a: ka,
-      chimney_b: kb,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
-    };
-  }
-
-  function buildSummaryForP3c(scope) {
-    var lines = [];
-    lines.push("Форма: П с комин отдясно");
-
-    var water = getActiveValueByField(scope, "water_position_p_3c");
-    var hob = getActiveValueByField(scope, "hob_position_p_3c");
-    var s1 = getDimValue(scope, "stena1_len_p_3c");
-    var s2 = getDimValue(scope, "stena2_len_p_3c");
-    var s3 = getDimValue(scope, "stena3_len_p_3c");
-    var h = getDimValue(scope, "visochina_p_3c");
-    var ka = getDimValue(scope, "komin_a_p_3c");
-    var kb = getDimValue(scope, "komin_b_p_3c");
-
-    var barEnabled = getActiveValueByField(scope, "bar_enabled_p_3c");
-    var barLen = getDimValue(scope, "bar_len_p_3c");
-    var barWidth = getDimValue(scope, "bar_width_p_3c");
-
-    var islandEnabled =
-      getActiveValueByField(scope, "island_enabled_p_3c") ||
-      getActiveValueByField(scope, "bar_enabled_p_3c");
-    var islandLen = getDimValue(scope, "island_len_p_3c");
-    var islandWidth = getDimValue(scope, "island_width_p_3c");
-
-    var oven = getActiveValueByField(scope, "oven_tall_unit_p_3c");
-    var fridge = getActiveValueByField(scope, "fridge_type_p_3c");
-    var vision = getActiveValueByField(scope, "vision_p_3c");
-    var plan = getActiveValueByField(scope, "plan_p_3c");
-    var contact = getActiveValueByField(scope, "contact_preference_p_3c");
-
-    pushLine(lines, "Вода", water);
-    pushLine(lines, "Котлони", hob);
-    pushLine(lines, "Стена 1", s1);
-    pushLine(lines, "Стена 2", s2);
-    pushLine(lines, "Стена 3", s3);
-    pushLine(lines, "Височина", h);
-    pushLine(lines, "Комин A", ka);
-    pushLine(lines, "Комин B", kb);
-    pushLine(lines, "Бар", barEnabled);
-    pushLine(lines, "Бар дължина", barLen);
-    pushLine(lines, "Бар ширина", barWidth);
-    pushLine(lines, "Остров", islandEnabled);
-    pushLine(lines, "Остров дължина", islandLen);
-    pushLine(lines, "Остров ширина", islandWidth);
-    pushLine(lines, "Колона за фурна", oven);
-    pushLine(lines, "Хладилник", fridge);
-    pushLine(lines, "Визия", vision);
-    pushLine(lines, "Кога планирате", plan);
-    pushLine(lines, "Предпочитан контакт", contact);
-
-    return {
-      configuration: "П с комин отдясно",
-      water_position: water,
-      hob_position: hob,
-      wall_1: s1,
-      wall_2: s2,
-      wall_3: s3,
-      room_height: h,
-      chimney_a: ka,
-      chimney_b: kb,
-      bar_enabled: yesNo(barEnabled),
-      bar_len: barLen,
-      bar_width: barWidth,
-      island_enabled: yesNo(islandEnabled),
-      island_len: islandLen,
-      island_width: islandWidth,
-      oven_tall_unit: yesNo(oven),
-      fridge_type: fridge,
-      vision: vision,
-      plan: plan,
-      contact_preference: contact,
-      summary: lines.join("\n")
-    };
-  }
-
-  // ==================================================
-  // FINAL MAPPER
-  // ==================================================
-  function mapCurrentScenario() {
+  function syncNow() {
     clearHiddenInputs();
 
     var current = getVisibleScenario();
-    var data = null;
+    if (!current.el) return;
 
-    if (current.key === "prava_3") data = buildSummaryForPrava(current.el);
-    if (current.key === "aglova_3a") data = buildSummaryForAglova3a(current.el);
-    if (current.key === "aglova_3b") data = buildSummaryForAglova3b(current.el);
-    if (current.key === "p_3a") data = buildSummaryForP3a(current.el);
-    if (current.key === "p_3b") data = buildSummaryForP3b(current.el);
-    if (current.key === "p_3c") data = buildSummaryForP3c(current.el);
-
-    if (!data) return;
+    var fields = collectFieldValues(current.el);
+    var dims = collectDimValues(current.el);
+    var data = mapScenarioData(current, fields, dims);
 
     setHidden("configuration", data.configuration);
     setHidden("water_position", data.water_position);
@@ -652,13 +513,66 @@ document.addEventListener("DOMContentLoaded", function () {
     setHidden("vision", data.vision);
     setHidden("plan", data.plan);
     setHidden("contact_preference", data.contact_preference);
-    setHidden("summary_readable", data.summary);
+    setHidden("summary_readable", data.summary_readable);
   }
 
   // ==================================================
-  // BIND
+  // ACTIVE STATE FOR UI
   // ==================================================
-  formEl.addEventListener("submit", function () {
-    mapCurrentScenario();
+  document.addEventListener("click", function (e) {
+    var pill = e.target.closest(".option-pill");
+    if (pill) {
+      setSingleActive(pill, ".option-pill");
+      syncNow();
+      return;
+    }
+
+    var card = e.target.closest(".vision-card, .style-card, [data-value]");
+    if (card) {
+      var row =
+        card.closest(".style-cards-row") ||
+        card.closest(".options-row") ||
+        card.parentElement;
+
+      if (row) {
+        qsa(row, ".vision-card, .style-card, [data-value]").forEach(function (el) {
+          el.classList.remove("active");
+        });
+        card.classList.add("active");
+      }
+
+      syncNow();
+      return;
+    }
+
+    var kitchen = e.target.closest(".kitchen-card, .choice-card");
+    if (kitchen) {
+      setTimeout(syncNow, 50);
+    }
   });
+
+  document.addEventListener("input", function (e) {
+    if (
+      e.target.closest(".dimension-row") ||
+      e.target.matches("input[data-field], textarea[data-field], select[data-field]")
+    ) {
+      syncNow();
+    }
+  });
+
+  document.addEventListener("change", function (e) {
+    if (
+      e.target.closest(".dimension-row") ||
+      e.target.matches("input[data-field], textarea[data-field], select[data-field]")
+    ) {
+      syncNow();
+    }
+  });
+
+  formEl.addEventListener("submit", function () {
+    syncNow();
+  });
+
+  // initial
+  syncNow();
 });
