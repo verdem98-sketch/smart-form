@@ -1,4 +1,4 @@
-<script>
+
 /* =========================================================
    AGLOVA COMBO PHASE ENGINE v3
    Page: aglova-kuhnya
@@ -527,11 +527,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderAll();
 });
-</script>
 
 
-<script>
-/* =========================================================
+
+
+/* ======
+
+===================================================
    AGLOVA DIMENSION PICKERS ENGINE v3
    - meters: min 0, step 1
    - centimeters: 0–95 step 5
@@ -649,9 +651,10 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
 });
-</script>
 
-<script>
+
+
+
 /* =========================================================
    AGLOVA VISION CARDS SELECTION ENGINE v2
    Page: aglova-kuhnya
@@ -711,10 +714,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
-</script>
 
-
-<script>
 document.addEventListener("DOMContentLoaded", function () {
   // =========================
   // HELPERS
@@ -1279,10 +1279,10 @@ document.addEventListener("DOMContentLoaded", function () {
     initFinalPhase(phase, index);
   });
 });
-</script>
 
 
-<script>
+
+
 /* =========================================================
    AGLOVA PHASE NAVIGATION ENGINE
    Page: aglova-kuhnya
@@ -1365,9 +1365,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
-</script>
 
-<script>
+
+
+
 /* =========================================================
    AGLOVA FINAL PHASE INSPIRATION CARDS ENGINE v3
    Fallback version
@@ -1406,8 +1407,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
-</script>
-<script>
+
+
+
 /* =========================================================
    AGLOVA PLAN OPTION PILLS ENGINE v2
    Page: aglova-kuhnya
@@ -1512,8 +1514,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
-</script>
-<script>
+
+
 /* =========================================================
    AGLOVA SUBMIT + SUMMARY ENGINE
    Page: aglova-kuhnya
@@ -1940,4 +1942,5 @@ document.addEventListener("DOMContentLoaded", function () {
   // initial
   rebuildEverything();
 });
-</script>
+
+
