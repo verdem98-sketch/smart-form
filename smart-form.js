@@ -1465,10 +1465,10 @@ document.addEventListener("DOMContentLoaded", function () {
     initFinalPhase(phase, index);
   });
 });
-</script>
 
 
-<script>
+
+
 /* =========================================================
    AGLOVA PHASE NAVIGATION ENGINE
    Page: aglova-kuhnya
