@@ -1,3 +1,4 @@
+console.log("SMART FORM JS LOADED");
 /* =========================================================
    VERDE-M SMART FORM — AGLOVA MASTER JS v14
    Paste directly in GitHub smart-form.js
