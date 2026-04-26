@@ -1239,91 +1239,26 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
   });
 })();
 
-/* =====================================================
-   VERDE-M VISION / INSPIRATION CARDS v1
-   Uses only .vm-selected
-   Ignores old is-selected / active ghosts
-   ===================================================== */
 
-(function () {
-  function qs(scope, sel) {
-    return (scope || document).querySelector(sel);
+
+/* SIMPLE VISION TOGGLE (FINAL) */
+
+document.addEventListener("click", function (e) {
+  var card = e.target.closest(".vision-card");
+  if (!card) return;
+
+  var row = card.closest(".vision-cards-row");
+  if (!row) return;
+
+  var isOn = card.classList.contains("vm-selected");
+
+  // чистим всички
+  row.querySelectorAll(".vision-card").forEach(function (c) {
+    c.classList.remove("vm-selected");
+  });
+
+  // toggle
+  if (!isOn) {
+    card.classList.add("vm-selected");
   }
-
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
-  function cleanCard(card) {
-    if (!card) return;
-
-    card.classList.remove("is-selected", "active");
-
-    qsa(card, ".vision-card-image-wrap, .vision-card-image").forEach(function (el) {
-      el.classList.remove("is-selected", "active");
-    });
-  }
-
-  function clearGroup(cards) {
-    cards.forEach(function (card) {
-      card.classList.remove("vm-selected");
-      cleanCard(card);
-    });
-  }
-
-  function initVisionCards() {
-    var flow = document.querySelector(".flow-aglova");
-    if (!flow) return;
-
-    qsa(flow, ".question-wrap-vision .vision-cards-row").forEach(function (row) {
-      var cards = qsa(row, ".vision-card");
-
-      clearGroup(cards);
-
-      cards.forEach(function (card) {
-        card.style.cursor = "pointer";
-
-        card.addEventListener("click", function (e) {
-          e.preventDefault();
-
-          var wasSelected = card.classList.contains("vm-selected");
-
-          clearGroup(cards);
-
-          if (!wasSelected) {
-            card.classList.add("vm-selected");
-          }
-        });
-      });
-    });
-
-    qsa(flow, ".final-phase").forEach(function (phase) {
-      var cards = qsa(phase, ".inspiration-card");
-
-      clearGroup(cards);
-
-      cards.forEach(function (card) {
-        card.style.cursor = "pointer";
-
-        card.addEventListener("click", function (e) {
-          e.preventDefault();
-
-          var wasSelected = card.classList.contains("vm-selected");
-
-          clearGroup(cards);
-
-          if (!wasSelected) {
-            card.classList.add("vm-selected");
-          }
-        });
-      });
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initVisionCards);
-  } else {
-    initVisionCards();
-  }
-})();
-
+});
