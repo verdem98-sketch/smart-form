@@ -1339,64 +1339,42 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 /* =====================================================
-   VISION CARDS NUCLEAR RESET TOGGLE
-   Removes old listeners by cloning the whole row
-   Must stay at VERY END
+   VISION CARDS FORCE OFF PATCH
+   Uses .is-off to override old active/is-selected states
    ===================================================== */
 
-(function () {
-  function initVisionRows() {
-    var flow = document.querySelector(".flow-aglova");
-    if (!flow) return;
+document.addEventListener("click", function (e) {
+  var card = e.target.closest(".question-wrap-vision .vision-card");
+  if (!card) return;
 
-    flow.querySelectorAll(".question-wrap-vision .vision-cards-row").forEach(function (oldRow) {
-      var row = oldRow.cloneNode(true);
-      oldRow.parentNode.replaceChild(row, oldRow);
+  var row = card.closest(".vision-cards-row");
+  if (!row) return;
 
-      function clearAll() {
-        row.querySelectorAll(".vision-card").forEach(function (card) {
-          card.classList.remove("is-selected", "active");
+  var wasOn = !card.classList.contains("is-off") && (
+    card.classList.contains("is-selected") ||
+    card.classList.contains("active") ||
+    !!card.querySelector(".is-selected, .active")
+  );
 
-          card.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
-            inner.classList.remove("is-selected", "active");
-          });
-        });
-      }
+  row.querySelectorAll(".vision-card").forEach(function (item) {
+    item.classList.remove("is-off", "is-selected", "active");
 
-      clearAll();
-
-      row.querySelectorAll(".vision-card").forEach(function (card) {
-        card.style.cursor = "pointer";
-
-        card.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          var wasSelected =
-            card.classList.contains("is-selected") ||
-            card.classList.contains("active") ||
-            !!card.querySelector(".is-selected, .active");
-
-          clearAll();
-
-          if (!wasSelected) {
-            card.classList.add("is-selected");
-
-            var wrap = card.querySelector(".vision-card-image-wrap");
-            var img = card.querySelector(".vision-card-image");
-
-            if (wrap) wrap.classList.add("is-selected");
-            if (img) img.classList.add("is-selected");
-          }
-        });
-      });
+    item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
+      inner.classList.remove("is-selected", "active");
     });
+  });
+
+  if (wasOn) {
+    card.classList.add("is-off");
+    return;
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initVisionRows);
-  } else {
-    initVisionRows();
-  }
-})();
+  card.classList.remove("is-off");
+  card.classList.add("is-selected");
+
+  var wrap = card.querySelector(".vision-card-image-wrap");
+  var img = card.querySelector(".vision-card-image");
+
+  if (wrap) wrap.classList.add("is-selected");
+  if (img) img.classList.add("is-selected");
+}, false);
