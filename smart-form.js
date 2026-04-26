@@ -868,51 +868,69 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   });
 });
 
-    /* =====================================================
-       VISION / INSPIRATION CARDS
-       ===================================================== */
+   /* =====================================================
+   VISION / INSPIRATION CARDS - TOGGLE VERSION
+   ===================================================== */
 
-    qsa(flow, ".vision-cards-row").forEach(function (row) {
-      var cards = qsa(row, ".vision-card");
+qsa(flow, ".vision-cards-row").forEach(function (row) {
+  var cards = qsa(row, ".vision-card");
 
-      cards.forEach(function (card) {
-        card.style.cursor = "pointer";
+  function clearCard(card) {
+    card.classList.remove("is-selected", "active");
 
-        card.addEventListener("click", function () {
-          cards.forEach(function (item) {
-            item.classList.remove("is-selected", "active");
+    var wrap = qs(card, ".vision-card-image-wrap");
+    var img = qs(card, ".vision-card-image");
 
-            var wrap = qs(item, ".vision-card-image-wrap");
-            var img = qs(item, ".vision-card-image");
+    if (wrap) wrap.classList.remove("is-selected", "active");
+    if (img) img.classList.remove("is-selected", "active");
+  }
 
-            if (wrap) wrap.classList.remove("is-selected");
-            if (img) img.classList.remove("is-selected");
-          });
+  function selectCard(card) {
+    card.classList.add("is-selected", "active");
 
-          card.classList.add("is-selected", "active");
+    var wrap = qs(card, ".vision-card-image-wrap");
+    var img = qs(card, ".vision-card-image");
 
-          var activeWrap = qs(card, ".vision-card-image-wrap");
-          var activeImg = qs(card, ".vision-card-image");
+    if (wrap) wrap.classList.add("is-selected", "active");
+    if (img) img.classList.add("is-selected", "active");
+  }
 
-          if (activeWrap) activeWrap.classList.add("is-selected");
-          if (activeImg) activeImg.classList.add("is-selected");
-        });
-      });
+  cards.forEach(function (card) {
+    card.style.cursor = "pointer";
+
+    card.addEventListener("click", function () {
+      var alreadySelected =
+        card.classList.contains("is-selected") ||
+        card.classList.contains("active");
+
+      cards.forEach(clearCard);
+
+      if (!alreadySelected) {
+        selectCard(card);
+      }
+    });
+  });
+});
+
+qsa(flow, ".inspiration-card").forEach(function (card) {
+  card.style.cursor = "pointer";
+
+  card.addEventListener("click", function () {
+    var wrap = card.closest(".final-phase") || flow;
+
+    var alreadySelected =
+      card.classList.contains("is-selected") ||
+      card.classList.contains("active");
+
+    qsa(wrap, ".inspiration-card").forEach(function (item) {
+      item.classList.remove("active", "is-selected");
     });
 
-    qsa(flow, ".inspiration-card").forEach(function (card) {
-      card.style.cursor = "pointer";
-
-      card.addEventListener("click", function () {
-        var wrap = card.closest(".final-phase") || flow;
-
-        qsa(wrap, ".inspiration-card").forEach(function (item) {
-          item.classList.remove("active", "is-selected");
-        });
-
-        card.classList.add("active", "is-selected");
-      });
-    });
+    if (!alreadySelected) {
+      card.classList.add("active", "is-selected");
+    }
+  });
+});
 
     /* =====================================================
        PLAN OPTION PILLS OUTSIDE COMBO
