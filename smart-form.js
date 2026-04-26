@@ -1337,3 +1337,43 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
     });
   });
 })();
+
+/* =====================================================
+   VISION CARDS ABSOLUTE CLICK OVERRIDE
+   Must stay at the VERY END of the file
+   ===================================================== */
+
+document.addEventListener("click", function (e) {
+  var card = e.target.closest(".question-wrap-vision .vision-card");
+  if (!card) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+
+  var row = card.closest(".vision-cards-row");
+  if (!row) return;
+
+  var wasSelected =
+    card.classList.contains("is-selected") ||
+    card.classList.contains("active") ||
+    !!card.querySelector(".is-selected, .active");
+
+  row.querySelectorAll(".vision-card").forEach(function (item) {
+    item.classList.remove("is-selected", "active");
+
+    item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
+      inner.classList.remove("is-selected", "active");
+    });
+  });
+
+  if (!wasSelected) {
+    card.classList.add("is-selected");
+
+    var wrap = card.querySelector(".vision-card-image-wrap");
+    var img = card.querySelector(".vision-card-image");
+
+    if (wrap) wrap.classList.add("is-selected");
+    if (img) img.classList.add("is-selected");
+  }
+}, true);
