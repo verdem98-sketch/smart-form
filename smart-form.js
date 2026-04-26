@@ -868,8 +868,8 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   });
 });
 
-   /* =====================================================
-   VISION / INSPIRATION CARDS - TOGGLE VERSION
+  /* =====================================================
+   VISION / INSPIRATION CARDS - TRUE TOGGLE VERSION
    ===================================================== */
 
 qsa(flow, ".vision-cards-row").forEach(function (row) {
@@ -898,7 +898,11 @@ qsa(flow, ".vision-cards-row").forEach(function (row) {
   cards.forEach(function (card) {
     card.style.cursor = "pointer";
 
-    card.addEventListener("click", function () {
+    card.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       var alreadySelected =
         card.classList.contains("is-selected") ||
         card.classList.contains("active");
@@ -908,14 +912,18 @@ qsa(flow, ".vision-cards-row").forEach(function (row) {
       if (!alreadySelected) {
         selectCard(card);
       }
-    });
+    }, true);
   });
 });
 
 qsa(flow, ".inspiration-card").forEach(function (card) {
   card.style.cursor = "pointer";
 
-  card.addEventListener("click", function () {
+  card.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
     var wrap = card.closest(".final-phase") || flow;
 
     var alreadySelected =
@@ -929,9 +937,10 @@ qsa(flow, ".inspiration-card").forEach(function (card) {
     if (!alreadySelected) {
       card.classList.add("active", "is-selected");
     }
-  });
+  }, true);
 });
 
+     
     /* =====================================================
        PLAN OPTION PILLS OUTSIDE COMBO
        ===================================================== */
