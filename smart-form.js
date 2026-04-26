@@ -1339,45 +1339,39 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 /* =====================================================
-   VISION CARDS FORCE OFF PATCH v2
-   Uses .is-off to override old active/is-selected states
+   KILL ALL OLD VISION CLICK LOGIC (FINAL HARD OVERRIDE)
    ===================================================== */
 
 document.addEventListener("click", function (e) {
   var card = e.target.closest(".question-wrap-vision .vision-card");
   if (!card) return;
 
-  e.preventDefault();
-  e.stopPropagation();
+  // 🧨 убиваме ВСИЧКО друго
+  e.stopImmediatePropagation();
 
   var row = card.closest(".vision-cards-row");
   if (!row) return;
 
-  var wasOn = !card.classList.contains("is-off") && (
-    card.classList.contains("is-selected") ||
-    card.classList.contains("active") ||
-    !!card.querySelector(".is-selected, .active")
-  );
+  var already = card.classList.contains("is-selected");
 
-  row.querySelectorAll(".vision-card").forEach(function (item) {
-    item.classList.remove("is-off", "is-selected", "active");
+  // махаме ВСИЧКО от всички карти
+  row.querySelectorAll(".vision-card").forEach(function (c) {
+    c.classList.remove("is-selected", "active", "is-off");
 
-    item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
-      inner.classList.remove("is-selected", "active", "is-off");
+    c.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (el) {
+      el.classList.remove("is-selected", "active", "is-off");
     });
   });
 
-  if (wasOn) {
-    card.classList.add("is-off");
-    return;
+  // toggle
+  if (!already) {
+    card.classList.add("is-selected");
+
+    var wrap = card.querySelector(".vision-card-image-wrap");
+    var img = card.querySelector(".vision-card-image");
+
+    if (wrap) wrap.classList.add("is-selected");
+    if (img) img.classList.add("is-selected");
   }
 
-  card.classList.remove("is-off");
-  card.classList.add("is-selected");
-
-  var wrap = card.querySelector(".vision-card-image-wrap");
-  var img = card.querySelector(".vision-card-image");
-
-  if (wrap) wrap.classList.add("is-selected");
-  if (img) img.classList.add("is-selected");
-}, false);
+}, true); // ⚠️ capture phase — ПРЕДИ всички други
