@@ -869,7 +869,8 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 });
 
 /* =====================================================
-   VISION / INSPIRATION CARDS — HARD TOGGLE v3
+   VISION / INSPIRATION CARDS — TOGGLE v4
+   - uses JS memory, not class guessing
    ===================================================== */
 
 (function () {
@@ -908,22 +909,9 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
     if (img) img.classList.add("is-selected");
   }
 
-  function isSelected(card) {
-    if (!card) return false;
-
-    var wrap = qs(card, ".vision-card-image-wrap");
-    var img = qs(card, ".vision-card-image");
-
-    return (
-      card.classList.contains("is-selected") ||
-      card.classList.contains("active") ||
-      (wrap && (wrap.classList.contains("is-selected") || wrap.classList.contains("active"))) ||
-      (img && (img.classList.contains("is-selected") || img.classList.contains("active")))
-    );
-  }
-
   qsa(flow, ".vision-cards-row").forEach(function (row) {
     var cards = qsa(row, ".vision-card");
+    var selectedCard = null;
 
     cards.forEach(function (card) {
       clearVision(card);
@@ -936,23 +924,20 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation();
 
-      var wasSelected = isSelected(card);
+      var sameCard = selectedCard === card;
 
       cards.forEach(clearVision);
+      selectedCard = null;
 
-      if (!wasSelected) {
+      if (!sameCard) {
         selectVision(card);
+        selectedCard = card;
       }
-
-      setTimeout(function () {
-        if (wasSelected) {
-          clearVision(card);
-        }
-      }, 20);
     }, true);
   });
+
+  var selectedInspiration = null;
 
   qsa(flow, ".inspiration-card").forEach(function (card) {
     card.classList.remove("is-selected", "active");
@@ -965,28 +950,22 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 
     e.preventDefault();
     e.stopPropagation();
-    e.stopImmediatePropagation();
 
     var wrap = card.closest(".final-phase") || flow;
     var cards = qsa(wrap, ".inspiration-card");
 
-    var wasSelected =
-      card.classList.contains("is-selected") ||
-      card.classList.contains("active");
+    var sameCard = selectedInspiration === card;
 
     cards.forEach(function (item) {
       item.classList.remove("is-selected", "active");
     });
 
-    if (!wasSelected) {
-      card.classList.add("is-selected");
-    }
+    selectedInspiration = null;
 
-    setTimeout(function () {
-      if (wasSelected) {
-        card.classList.remove("is-selected", "active");
-      }
-    }, 20);
+    if (!sameCard) {
+      card.classList.add("is-selected");
+      selectedInspiration = card;
+    }
   }, true);
 })();
      
