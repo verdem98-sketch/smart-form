@@ -1338,6 +1338,50 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
   });
 })();
 
+
+/* =====================================================
+   VISION CARDS FORCE OFF PATCH v2
+   Uses .is-off to override old active/is-selected states
+   ===================================================== */
+
+document.addEventListener("click", function (e) {
+  var card = e.target.closest(".question-wrap-vision .vision-card");
+  if (!card) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  var row = card.closest(".vision-cards-row");
+  if (!row) return;
+
+  var wasOn = !card.classList.contains("is-off") && (
+    card.classList.contains("is-selected") ||
+    card.classList.contains("active") ||
+    !!card.querySelector(".is-selected, .active")
+  );
+
+  row.querySelectorAll(".vision-card").forEach(function (item) {
+    item.classList.remove("is-off", "is-selected", "active");
+
+    item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
+      inner.classList.remove("is-selected", "active", "is-off");
+    });
+  });
+
+  if (wasOn) {
+    card.classList.add("is-off");
+    return;
+  }
+
+  card.classList.remove("is-off");
+  card.classList.add("is-selected");
+
+  var wrap = card.querySelector(".vision-card-image-wrap");
+  var img = card.querySelector(".vision-card-image");
+
+  if (wrap) wrap.classList.add("is-selected");
+  if (img) img.classList.add("is-selected");
+}, false);
 /* =====================================================
    KILL ALL OLD VISION CLICK LOGIC (FINAL HARD OVERRIDE)
    ===================================================== */
