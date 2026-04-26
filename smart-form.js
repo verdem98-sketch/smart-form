@@ -868,106 +868,7 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   });
 });
 
-/* =====================================================
-   VISION / INSPIRATION CARDS — TOGGLE v4
-   - uses JS memory, not class guessing
-   ===================================================== */
 
-(function () {
-  var flow = document.querySelector(".flow-aglova");
-  if (!flow) return;
-
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
-  function qs(scope, sel) {
-    return (scope || document).querySelector(sel);
-  }
-
-  function clearVision(card) {
-    if (!card) return;
-
-    card.classList.remove("is-selected", "active");
-
-    var wrap = qs(card, ".vision-card-image-wrap");
-    var img = qs(card, ".vision-card-image");
-
-    if (wrap) wrap.classList.remove("is-selected", "active");
-    if (img) img.classList.remove("is-selected", "active");
-  }
-
-  function selectVision(card) {
-    if (!card) return;
-
-    card.classList.add("is-selected");
-
-    var wrap = qs(card, ".vision-card-image-wrap");
-    var img = qs(card, ".vision-card-image");
-
-    if (wrap) wrap.classList.add("is-selected");
-    if (img) img.classList.add("is-selected");
-  }
-
-  qsa(flow, ".vision-cards-row").forEach(function (row) {
-    var cards = qsa(row, ".vision-card");
-    var selectedCard = null;
-
-    cards.forEach(function (card) {
-      clearVision(card);
-      card.style.cursor = "pointer";
-    });
-
-    row.addEventListener("click", function (e) {
-      var card = e.target.closest(".vision-card");
-      if (!card || !row.contains(card)) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      var sameCard = selectedCard === card;
-
-      cards.forEach(clearVision);
-      selectedCard = null;
-
-      if (!sameCard) {
-        selectVision(card);
-        selectedCard = card;
-      }
-    }, true);
-  });
-
-  var selectedInspiration = null;
-
-  qsa(flow, ".inspiration-card").forEach(function (card) {
-    card.classList.remove("is-selected", "active");
-    card.style.cursor = "pointer";
-  });
-
-  flow.addEventListener("click", function (e) {
-    var card = e.target.closest(".inspiration-card");
-    if (!card) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    var wrap = card.closest(".final-phase") || flow;
-    var cards = qsa(wrap, ".inspiration-card");
-
-    var sameCard = selectedInspiration === card;
-
-    cards.forEach(function (item) {
-      item.classList.remove("is-selected", "active");
-    });
-
-    selectedInspiration = null;
-
-    if (!sameCard) {
-      card.classList.add("is-selected");
-      selectedInspiration = card;
-    }
-  }, true);
-})();
      
    /* =====================================================
    PLAN OPTION PILLS OUTSIDE COMBO
@@ -1340,8 +1241,9 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 
 
 /* =====================================================
-   VISION CARDS FORCE OFF PATCH v2
-   Uses .is-off to override old active/is-selected states
+   VISION CARDS FINAL STATE ENGINE
+   Own state, ignores old active/is-selected logic
+   MUST STAY LAST
    ===================================================== */
 
 document.addEventListener("click", function (e) {
@@ -1350,65 +1252,24 @@ document.addEventListener("click", function (e) {
 
   e.preventDefault();
   e.stopPropagation();
+  e.stopImmediatePropagation();
 
   var row = card.closest(".vision-cards-row");
   if (!row) return;
 
-  var wasOn = !card.classList.contains("is-off") && (
-    card.classList.contains("is-selected") ||
-    card.classList.contains("active") ||
-    !!card.querySelector(".is-selected, .active")
-  );
+  var wasSelected = card.getAttribute("data-vision-selected") === "true";
 
   row.querySelectorAll(".vision-card").forEach(function (item) {
-    item.classList.remove("is-off", "is-selected", "active");
+    item.removeAttribute("data-vision-selected");
+    item.classList.remove("is-selected", "active", "is-off");
 
     item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
       inner.classList.remove("is-selected", "active", "is-off");
     });
   });
 
-  if (wasOn) {
-    card.classList.add("is-off");
-    return;
-  }
-
-  card.classList.remove("is-off");
-  card.classList.add("is-selected");
-
-  var wrap = card.querySelector(".vision-card-image-wrap");
-  var img = card.querySelector(".vision-card-image");
-
-  if (wrap) wrap.classList.add("is-selected");
-  if (img) img.classList.add("is-selected");
-}, false);
-/* =====================================================
-   KILL ALL OLD VISION CLICK LOGIC (FINAL HARD OVERRIDE)
-   ===================================================== */
-
-document.addEventListener("click", function (e) {
-  var card = e.target.closest(".question-wrap-vision .vision-card");
-  if (!card) return;
-
-  // 🧨 убиваме ВСИЧКО друго
-  e.stopImmediatePropagation();
-
-  var row = card.closest(".vision-cards-row");
-  if (!row) return;
-
-  var already = card.classList.contains("is-selected");
-
-  // махаме ВСИЧКО от всички карти
-  row.querySelectorAll(".vision-card").forEach(function (c) {
-    c.classList.remove("is-selected", "active", "is-off");
-
-    c.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (el) {
-      el.classList.remove("is-selected", "active", "is-off");
-    });
-  });
-
-  // toggle
-  if (!already) {
+  if (!wasSelected) {
+    card.setAttribute("data-vision-selected", "true");
     card.classList.add("is-selected");
 
     var wrap = card.querySelector(".vision-card-image-wrap");
@@ -1418,4 +1279,16 @@ document.addEventListener("click", function (e) {
     if (img) img.classList.add("is-selected");
   }
 
-}, true); // ⚠️ capture phase — ПРЕДИ всички други
+  setTimeout(function () {
+    row.querySelectorAll(".vision-card").forEach(function (item) {
+      if (item.getAttribute("data-vision-selected") === "true") return;
+
+      item.classList.remove("is-selected", "active", "is-off");
+
+      item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
+        inner.classList.remove("is-selected", "active", "is-off");
+      });
+    });
+  }, 0);
+
+}, true);
