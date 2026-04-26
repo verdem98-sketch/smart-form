@@ -1339,13 +1339,16 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 /* =====================================================
-   VISION CARDS FORCE OFF PATCH
+   VISION CARDS FORCE OFF PATCH v2
    Uses .is-off to override old active/is-selected states
    ===================================================== */
 
 document.addEventListener("click", function (e) {
   var card = e.target.closest(".question-wrap-vision .vision-card");
   if (!card) return;
+
+  e.preventDefault();
+  e.stopPropagation();
 
   var row = card.closest(".vision-cards-row");
   if (!row) return;
@@ -1360,7 +1363,7 @@ document.addEventListener("click", function (e) {
     item.classList.remove("is-off", "is-selected", "active");
 
     item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
-      inner.classList.remove("is-selected", "active");
+      inner.classList.remove("is-selected", "active", "is-off");
     });
   });
 
