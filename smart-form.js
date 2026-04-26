@@ -869,24 +869,22 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 });
 
 /* =====================================================
-   VISION / INSPIRATION CARDS — CLEAN TOGGLE v2
-   - second click unselects
-   - clears old is-selected / active on load
+   VISION / INSPIRATION CARDS — HARD TOGGLE v3
    ===================================================== */
 
 (function () {
-  function qs(scope, sel) {
-    return (scope || document).querySelector(sel);
-  }
+  var flow = document.querySelector(".flow-aglova");
+  if (!flow) return;
 
   function qsa(scope, sel) {
     return Array.from((scope || document).querySelectorAll(sel));
   }
 
-  var flow = document.querySelector(".flow-aglova");
-  if (!flow) return;
+  function qs(scope, sel) {
+    return (scope || document).querySelector(sel);
+  }
 
-  function clearVisionCard(card) {
+  function clearVision(card) {
     if (!card) return;
 
     card.classList.remove("is-selected", "active");
@@ -898,7 +896,7 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
     if (img) img.classList.remove("is-selected", "active");
   }
 
-  function selectVisionCard(card) {
+  function selectVision(card) {
     if (!card) return;
 
     card.classList.add("is-selected");
@@ -910,7 +908,7 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
     if (img) img.classList.add("is-selected");
   }
 
-  function isVisionCardSelected(card) {
+  function isSelected(card) {
     if (!card) return false;
 
     var wrap = qs(card, ".vision-card-image-wrap");
@@ -928,50 +926,68 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
     var cards = qsa(row, ".vision-card");
 
     cards.forEach(function (card) {
-      clearVisionCard(card);
+      clearVision(card);
       card.style.cursor = "pointer";
     });
 
-    cards.forEach(function (card) {
-      card.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+    row.addEventListener("click", function (e) {
+      var card = e.target.closest(".vision-card");
+      if (!card || !row.contains(card)) return;
 
-        var wasSelected = isVisionCardSelected(card);
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
 
-        cards.forEach(clearVisionCard);
+      var wasSelected = isSelected(card);
 
-        if (!wasSelected) {
-          selectVisionCard(card);
+      cards.forEach(clearVision);
+
+      if (!wasSelected) {
+        selectVision(card);
+      }
+
+      setTimeout(function () {
+        if (wasSelected) {
+          clearVision(card);
         }
-      });
-    });
+      }, 20);
+    }, true);
   });
 
   qsa(flow, ".inspiration-card").forEach(function (card) {
     card.classList.remove("is-selected", "active");
     card.style.cursor = "pointer";
-
-    card.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      var wrap = card.closest(".final-phase") || flow;
-      var cards = qsa(wrap, ".inspiration-card");
-
-      var wasSelected =
-        card.classList.contains("is-selected") ||
-        card.classList.contains("active");
-
-      cards.forEach(function (item) {
-        item.classList.remove("is-selected", "active");
-      });
-
-      if (!wasSelected) {
-        card.classList.add("is-selected");
-      }
-    });
   });
+
+  flow.addEventListener("click", function (e) {
+    var card = e.target.closest(".inspiration-card");
+    if (!card) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    var wrap = card.closest(".final-phase") || flow;
+    var cards = qsa(wrap, ".inspiration-card");
+
+    var wasSelected =
+      card.classList.contains("is-selected") ||
+      card.classList.contains("active");
+
+    cards.forEach(function (item) {
+      item.classList.remove("is-selected", "active");
+    });
+
+    if (!wasSelected) {
+      card.classList.add("is-selected");
+    }
+
+    setTimeout(function () {
+      if (wasSelected) {
+        card.classList.remove("is-selected", "active");
+      }
+    }, 20);
+  }, true);
 })();
      
     /* =====================================================
