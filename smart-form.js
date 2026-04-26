@@ -969,36 +969,42 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   }, true);
 })();
      
-    /* =====================================================
-       PLAN OPTION PILLS OUTSIDE COMBO
-       ===================================================== */
+   /* =====================================================
+   PLAN OPTION PILLS OUTSIDE COMBO
+   - skips vision cards
+   ===================================================== */
 
-    qsa(flow, ".question-wrap").forEach(function (questionWrap) {
-      if (comboWrap.contains(questionWrap)) return;
+qsa(flow, ".question-wrap").forEach(function (questionWrap) {
+  if (comboWrap && comboWrap.contains(questionWrap)) return;
 
-      var pills = qsa(questionWrap, ".option-pill");
-      if (!pills.length) return;
+  // IMPORTANT: vision cards have their own toggle logic
+  if (questionWrap.classList.contains("question-wrap-vision")) return;
+  if (qsa(questionWrap, ".vision-card").length > 0) return;
 
-      var fieldName = normalize(questionWrap.getAttribute("data-field"));
+  var pills = qsa(questionWrap, ".option-pill");
+  if (!pills.length) return;
 
-      pills.forEach(function (pill) {
-        pill.style.cursor = "pointer";
+  var fieldName = normalize(questionWrap.getAttribute("data-field"));
 
-        pill.addEventListener("click", function () {
-          pills.forEach(function (item) {
-            item.classList.remove("active");
-          });
+  pills.forEach(function (pill) {
+    pill.style.cursor = "pointer";
 
-          pill.classList.add("active");
-
-          if (fieldName && form) {
-            var input = qs(form, '[name="' + fieldName + '"]');
-            if (input) input.value = getDataValue(pill);
-          }
-        });
+    pill.addEventListener("click", function () {
+      pills.forEach(function (item) {
+        item.classList.remove("active");
       });
-    });
 
+      pill.classList.add("active");
+
+      if (fieldName && form) {
+        var input = qs(form, '[name="' + fieldName + '"]');
+        if (input) input.value = getDataValue(pill);
+      }
+    });
+  });
+});
+
+     
     /* =====================================================
        BOOKING CALENDAR
        ===================================================== */
