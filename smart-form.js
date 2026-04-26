@@ -869,23 +869,25 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 });
 
   /* =====================================================
-   VISION / INSPIRATION CARDS - TRUE TOGGLE VERSION
+   VISION / INSPIRATION CARDS - HARD TOGGLE (FINAL)
    ===================================================== */
 
 qsa(flow, ".vision-cards-row").forEach(function (row) {
   var cards = qsa(row, ".vision-card");
 
-  function clearCard(card) {
-    card.classList.remove("is-selected", "active");
+  function clearAll() {
+    cards.forEach(function (card) {
+      card.classList.remove("is-selected", "active");
 
-    var wrap = qs(card, ".vision-card-image-wrap");
-    var img = qs(card, ".vision-card-image");
+      var wrap = qs(card, ".vision-card-image-wrap");
+      var img = qs(card, ".vision-card-image");
 
-    if (wrap) wrap.classList.remove("is-selected", "active");
-    if (img) img.classList.remove("is-selected", "active");
+      if (wrap) wrap.classList.remove("is-selected", "active");
+      if (img) img.classList.remove("is-selected", "active");
+    });
   }
 
-  function selectCard(card) {
+  function apply(card) {
     card.classList.add("is-selected", "active");
 
     var wrap = qs(card, ".vision-card-image-wrap");
@@ -900,44 +902,43 @@ qsa(flow, ".vision-cards-row").forEach(function (row) {
 
     card.addEventListener("click", function (e) {
       e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
 
-      var alreadySelected =
-        card.classList.contains("is-selected") ||
-        card.classList.contains("active");
+      var alreadySelected = card.classList.contains("is-selected");
 
-      cards.forEach(clearCard);
+      // 💣 Ключът е тук — забавяме действието след всички други listeners
+      setTimeout(function () {
+        clearAll();
 
-      if (!alreadySelected) {
-        selectCard(card);
-      }
-    }, true);
+        if (!alreadySelected) {
+          apply(card);
+        }
+      }, 0);
+    });
   });
 });
+
 
 qsa(flow, ".inspiration-card").forEach(function (card) {
   card.style.cursor = "pointer";
 
   card.addEventListener("click", function (e) {
     e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
 
     var wrap = card.closest(".final-phase") || flow;
+    var cards = qsa(wrap, ".inspiration-card");
 
-    var alreadySelected =
-      card.classList.contains("is-selected") ||
-      card.classList.contains("active");
+    var alreadySelected = card.classList.contains("is-selected");
 
-    qsa(wrap, ".inspiration-card").forEach(function (item) {
-      item.classList.remove("active", "is-selected");
-    });
+    setTimeout(function () {
+      cards.forEach(function (c) {
+        c.classList.remove("active", "is-selected");
+      });
 
-    if (!alreadySelected) {
-      card.classList.add("active", "is-selected");
-    }
-  }, true);
+      if (!alreadySelected) {
+        card.classList.add("active", "is-selected");
+      }
+    }, 0);
+  });
 });
 
      
