@@ -868,79 +868,97 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   });
 });
 
-  /* =====================================================
-   VISION / INSPIRATION CARDS - HARD TOGGLE (FINAL)
+/* =====================================================
+   VISION / INSPIRATION CARDS — CLEAN TOGGLE (FINAL)
    ===================================================== */
 
-qsa(flow, ".vision-cards-row").forEach(function (row) {
-  var cards = qsa(row, ".vision-card");
+(function () {
+  function qs(scope, sel) {
+    return (scope || document).querySelector(sel);
+  }
 
-  function clearAll() {
-    cards.forEach(function (card) {
-      card.classList.remove("is-selected", "active");
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
+
+  var flow = document.querySelector(".flow-aglova");
+  if (!flow) return;
+
+  /* ---------------------------
+     VISION CARDS
+  --------------------------- */
+
+  qsa(flow, ".vision-cards-row").forEach(function (row) {
+    var cards = qsa(row, ".vision-card");
+
+    function clearAll() {
+      cards.forEach(function (card) {
+        card.classList.remove("is-selected", "active");
+
+        var wrap = qs(card, ".vision-card-image-wrap");
+        var img = qs(card, ".vision-card-image");
+
+        if (wrap) wrap.classList.remove("is-selected", "active");
+        if (img) img.classList.remove("is-selected", "active");
+      });
+    }
+
+    function apply(card) {
+      card.classList.add("is-selected", "active");
 
       var wrap = qs(card, ".vision-card-image-wrap");
       var img = qs(card, ".vision-card-image");
 
-      if (wrap) wrap.classList.remove("is-selected", "active");
-      if (img) img.classList.remove("is-selected", "active");
-    });
-  }
+      if (wrap) wrap.classList.add("is-selected", "active");
+      if (img) img.classList.add("is-selected", "active");
+    }
 
-  function apply(card) {
-    card.classList.add("is-selected", "active");
+    cards.forEach(function (card) {
+      card.style.cursor = "pointer";
 
-    var wrap = qs(card, ".vision-card-image-wrap");
-    var img = qs(card, ".vision-card-image");
+      card.addEventListener("click", function (e) {
+        e.preventDefault();
 
-    if (wrap) wrap.classList.add("is-selected", "active");
-    if (img) img.classList.add("is-selected", "active");
-  }
+        var alreadySelected =
+          card.classList.contains("is-selected") ||
+          card.classList.contains("active");
 
-  cards.forEach(function (card) {
-    card.style.cursor = "pointer";
-
-    card.addEventListener("click", function (e) {
-      e.preventDefault();
-
-      var alreadySelected = card.classList.contains("is-selected");
-
-      // 💣 Ключът е тук — забавяме действието след всички други listeners
-      setTimeout(function () {
         clearAll();
 
         if (!alreadySelected) {
           apply(card);
         }
-      }, 0);
+      });
     });
   });
-});
 
+  /* ---------------------------
+     INSPIRATION CARDS
+  --------------------------- */
 
-qsa(flow, ".inspiration-card").forEach(function (card) {
-  card.style.cursor = "pointer";
+  qsa(flow, ".inspiration-card").forEach(function (card) {
+    card.style.cursor = "pointer";
 
-  card.addEventListener("click", function (e) {
-    e.preventDefault();
+    card.addEventListener("click", function (e) {
+      e.preventDefault();
 
-    var wrap = card.closest(".final-phase") || flow;
-    var cards = qsa(wrap, ".inspiration-card");
+      var wrap = card.closest(".final-phase") || flow;
+      var cards = qsa(wrap, ".inspiration-card");
 
-    var alreadySelected = card.classList.contains("is-selected");
+      var alreadySelected =
+        card.classList.contains("is-selected") ||
+        card.classList.contains("active");
 
-    setTimeout(function () {
       cards.forEach(function (c) {
-        c.classList.remove("active", "is-selected");
+        c.classList.remove("is-selected", "active");
       });
 
       if (!alreadySelected) {
-        card.classList.add("active", "is-selected");
+        card.classList.add("is-selected", "active");
       }
-    }, 0);
+    });
   });
-});
-
+})();
      
     /* =====================================================
        PLAN OPTION PILLS OUTSIDE COMBO
