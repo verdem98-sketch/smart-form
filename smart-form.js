@@ -869,7 +869,9 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
 });
 
 /* =====================================================
-   VISION / INSPIRATION CARDS — CLEAN TOGGLE (FINAL)
+   VISION / INSPIRATION CARDS — CLEAN TOGGLE v2
+   - second click unselects
+   - clears old is-selected / active on load
    ===================================================== */
 
 (function () {
@@ -884,77 +886,89 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
   var flow = document.querySelector(".flow-aglova");
   if (!flow) return;
 
-  /* ---------------------------
-     VISION CARDS
-  --------------------------- */
+  function clearVisionCard(card) {
+    if (!card) return;
+
+    card.classList.remove("is-selected", "active");
+
+    var wrap = qs(card, ".vision-card-image-wrap");
+    var img = qs(card, ".vision-card-image");
+
+    if (wrap) wrap.classList.remove("is-selected", "active");
+    if (img) img.classList.remove("is-selected", "active");
+  }
+
+  function selectVisionCard(card) {
+    if (!card) return;
+
+    card.classList.add("is-selected");
+
+    var wrap = qs(card, ".vision-card-image-wrap");
+    var img = qs(card, ".vision-card-image");
+
+    if (wrap) wrap.classList.add("is-selected");
+    if (img) img.classList.add("is-selected");
+  }
+
+  function isVisionCardSelected(card) {
+    if (!card) return false;
+
+    var wrap = qs(card, ".vision-card-image-wrap");
+    var img = qs(card, ".vision-card-image");
+
+    return (
+      card.classList.contains("is-selected") ||
+      card.classList.contains("active") ||
+      (wrap && (wrap.classList.contains("is-selected") || wrap.classList.contains("active"))) ||
+      (img && (img.classList.contains("is-selected") || img.classList.contains("active")))
+    );
+  }
 
   qsa(flow, ".vision-cards-row").forEach(function (row) {
     var cards = qsa(row, ".vision-card");
 
-    function clearAll() {
-      cards.forEach(function (card) {
-        card.classList.remove("is-selected", "active");
-
-        var wrap = qs(card, ".vision-card-image-wrap");
-        var img = qs(card, ".vision-card-image");
-
-        if (wrap) wrap.classList.remove("is-selected", "active");
-        if (img) img.classList.remove("is-selected", "active");
-      });
-    }
-
-    function apply(card) {
-      card.classList.add("is-selected", "active");
-
-      var wrap = qs(card, ".vision-card-image-wrap");
-      var img = qs(card, ".vision-card-image");
-
-      if (wrap) wrap.classList.add("is-selected", "active");
-      if (img) img.classList.add("is-selected", "active");
-    }
+    cards.forEach(function (card) {
+      clearVisionCard(card);
+      card.style.cursor = "pointer";
+    });
 
     cards.forEach(function (card) {
-      card.style.cursor = "pointer";
-
       card.addEventListener("click", function (e) {
         e.preventDefault();
+        e.stopPropagation();
 
-        var alreadySelected =
-          card.classList.contains("is-selected") ||
-          card.classList.contains("active");
+        var wasSelected = isVisionCardSelected(card);
 
-        clearAll();
+        cards.forEach(clearVisionCard);
 
-        if (!alreadySelected) {
-          apply(card);
+        if (!wasSelected) {
+          selectVisionCard(card);
         }
       });
     });
   });
 
-  /* ---------------------------
-     INSPIRATION CARDS
-  --------------------------- */
-
   qsa(flow, ".inspiration-card").forEach(function (card) {
+    card.classList.remove("is-selected", "active");
     card.style.cursor = "pointer";
 
     card.addEventListener("click", function (e) {
       e.preventDefault();
+      e.stopPropagation();
 
       var wrap = card.closest(".final-phase") || flow;
       var cards = qsa(wrap, ".inspiration-card");
 
-      var alreadySelected =
+      var wasSelected =
         card.classList.contains("is-selected") ||
         card.classList.contains("active");
 
-      cards.forEach(function (c) {
-        c.classList.remove("is-selected", "active");
+      cards.forEach(function (item) {
+        item.classList.remove("is-selected", "active");
       });
 
-      if (!alreadySelected) {
-        card.classList.add("is-selected", "active");
+      if (!wasSelected) {
+        card.classList.add("is-selected");
       }
     });
   });
