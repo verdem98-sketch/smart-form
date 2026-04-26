@@ -1339,41 +1339,64 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 /* =====================================================
-   VISION CARDS ABSOLUTE CLICK OVERRIDE
-   Must stay at the VERY END of the file
+   VISION CARDS NUCLEAR RESET TOGGLE
+   Removes old listeners by cloning the whole row
+   Must stay at VERY END
    ===================================================== */
 
-document.addEventListener("click", function (e) {
-  var card = e.target.closest(".question-wrap-vision .vision-card");
-  if (!card) return;
+(function () {
+  function initVisionRows() {
+    var flow = document.querySelector(".flow-aglova");
+    if (!flow) return;
 
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
+    flow.querySelectorAll(".question-wrap-vision .vision-cards-row").forEach(function (oldRow) {
+      var row = oldRow.cloneNode(true);
+      oldRow.parentNode.replaceChild(row, oldRow);
 
-  var row = card.closest(".vision-cards-row");
-  if (!row) return;
+      function clearAll() {
+        row.querySelectorAll(".vision-card").forEach(function (card) {
+          card.classList.remove("is-selected", "active");
 
-  var wasSelected =
-    card.classList.contains("is-selected") ||
-    card.classList.contains("active") ||
-    !!card.querySelector(".is-selected, .active");
+          card.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
+            inner.classList.remove("is-selected", "active");
+          });
+        });
+      }
 
-  row.querySelectorAll(".vision-card").forEach(function (item) {
-    item.classList.remove("is-selected", "active");
+      clearAll();
 
-    item.querySelectorAll(".vision-card-image-wrap, .vision-card-image").forEach(function (inner) {
-      inner.classList.remove("is-selected", "active");
+      row.querySelectorAll(".vision-card").forEach(function (card) {
+        card.style.cursor = "pointer";
+
+        card.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          var wasSelected =
+            card.classList.contains("is-selected") ||
+            card.classList.contains("active") ||
+            !!card.querySelector(".is-selected, .active");
+
+          clearAll();
+
+          if (!wasSelected) {
+            card.classList.add("is-selected");
+
+            var wrap = card.querySelector(".vision-card-image-wrap");
+            var img = card.querySelector(".vision-card-image");
+
+            if (wrap) wrap.classList.add("is-selected");
+            if (img) img.classList.add("is-selected");
+          }
+        });
+      });
     });
-  });
-
-  if (!wasSelected) {
-    card.classList.add("is-selected");
-
-    var wrap = card.querySelector(".vision-card-image-wrap");
-    var img = card.querySelector(".vision-card-image");
-
-    if (wrap) wrap.classList.add("is-selected");
-    if (img) img.classList.add("is-selected");
   }
-}, true);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initVisionRows);
+  } else {
+    initVisionRows();
+  }
+})();
