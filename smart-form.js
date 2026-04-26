@@ -706,117 +706,167 @@ console.log("SMART FORM JS LOADED");
       return null;
     }
 
-    /* =====================================================
-       DIMENSION PICKERS
-       ===================================================== */
+   /* =====================================================
+   DIMENSION PICKERS
+   - initial value stays 0
+   - row becomes valid after first touch
+   ===================================================== */
 
-    qsa(document, ".dimension-row").forEach(function (row) {
-      var metersWrap = qs(row, ".meters-control");
-      var cmWrap = qs(row, ".centimeters-control");
+function markRowTouched(row) {
+  if (!row) return;
+  row.classList.add("is-touched");
+  row.setAttribute("data-touched", "true");
+}
 
-      var meterValue = metersWrap ? qs(metersWrap, ".picker-value") : null;
-      var cmValue = cmWrap ? qs(cmWrap, ".picker-value") : null;
+qsa(document, ".dimension-row").forEach(function (row) {
+  var metersWrap = qs(row, ".meters-control");
+  var cmWrap = qs(row, ".centimeters-control");
 
-      if (meterValue && !meterValue.textContent.trim()) meterValue.textContent = "0";
-      if (cmValue && !cmValue.textContent.trim()) cmValue.textContent = "0";
+  var meterValue = metersWrap ? qs(metersWrap, ".picker-value") : null;
+  var cmValue = cmWrap ? qs(cmWrap, ".picker-value") : null;
 
-      if (metersWrap) {
-        var meterBtns = qsa(metersWrap, ".picker-btn");
+  if (meterValue && !meterValue.textContent.trim()) meterValue.textContent = "0";
+  if (cmValue && !cmValue.textContent.trim()) cmValue.textContent = "0";
 
-        if (meterBtns.length === 2) {
-          meterBtns[0].addEventListener("click", function () {
-            var m = getTextNumber(meterValue);
-            if (m > 0) m -= 1;
-            meterValue.textContent = m;
-            hideAllHints();
-          });
+  if (metersWrap) {
+    var meterBtns = qsa(metersWrap, ".picker-btn");
 
-          meterBtns[1].addEventListener("click", function () {
-            var m = getTextNumber(meterValue);
-            meterValue.textContent = m + 1;
-            hideAllHints();
-          });
-        }
-      }
+    if (meterBtns.length === 2) {
+      meterBtns[0].addEventListener("click", function () {
+        markRowTouched(row);
 
-      if (cmWrap) {
-        var cmBtns = qsa(cmWrap, ".picker-btn");
-
-        if (cmBtns.length === 2) {
-          cmBtns[0].addEventListener("click", function () {
-            var cm = getTextNumber(cmValue);
-            var m = getTextNumber(meterValue);
-
-            cm -= 5;
-
-            if (cm < 0) {
-              if (m > 0) {
-                cm = 95;
-                m -= 1;
-              } else {
-                cm = 0;
-              }
-            }
-
-            if (cmValue) cmValue.textContent = cm;
-            if (meterValue) meterValue.textContent = m;
-            hideAllHints();
-          });
-
-          cmBtns[1].addEventListener("click", function () {
-            var cm = getTextNumber(cmValue);
-            var m = getTextNumber(meterValue);
-
-            cm += 5;
-
-            if (cm > 95) {
-              cm = 0;
-              m += 1;
-            }
-
-            if (cmValue) cmValue.textContent = cm;
-            if (meterValue) meterValue.textContent = m;
-            hideAllHints();
-          });
-        }
-      }
-    });
-
-    /* =====================================================
-       EXTRAS / VISION / FINAL GATE
-       ===================================================== */
-
-    if (finalPhase) hide(finalPhase);
-
-    qsa(flow, ".phase-next-btn").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-
+        var m = getTextNumber(meterValue);
+        if (m > 0) m -= 1;
+        meterValue.textContent = m;
         hideAllHints();
+      });
 
-        var emptyDim = findFirstEmptyVisibleDimension();
+      meterBtns[1].addEventListener("click", function () {
+        markRowTouched(row);
 
-        if (emptyDim) {
-          mode = "dimensions";
-          renderAll();
-          shakeDimension(emptyDim);
-          return;
+        var m = getTextNumber(meterValue);
+        meterValue.textContent = m + 1;
+        hideAllHints();
+      });
+    }
+  }
+
+  if (cmWrap) {
+    var cmBtns = qsa(cmWrap, ".picker-btn");
+
+    if (cmBtns.length === 2) {
+      cmBtns[0].addEventListener("click", function () {
+        markRowTouched(row);
+
+        var cm = getTextNumber(cmValue);
+        var m = getTextNumber(meterValue);
+
+        cm -= 5;
+
+        if (cm < 0) {
+          if (m > 0) {
+            cm = 95;
+            m -= 1;
+          } else {
+            cm = 0;
+          }
         }
 
-        if (comboDimPhase) hide(comboDimPhase);
-        if (extrasVisionPhase) hide(extrasVisionPhase);
-        show(finalPhase, "block");
-
-        setTimeout(function () {
-          finalPhase.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-          });
-        }, 50);
-
-        window.dispatchEvent(new Event("resize"));
+        if (cmValue) cmValue.textContent = cm;
+        if (meterValue) meterValue.textContent = m;
+        hideAllHints();
       });
-    });
+
+      cmBtns[1].addEventListener("click", function () {
+        markRowTouched(row);
+
+        var cm = getTextNumber(cmValue);
+        var m = getTextNumber(meterValue);
+
+        cm += 5;
+
+        if (cm > 95) {
+          cm = 0;
+          m += 1;
+        }
+
+        if (cmValue) cmValue.textContent = cm;
+        if (meterValue) meterValue.textContent = m;
+        hideAllHints();
+      });
+    }
+  }
+});
+
+   /* =====================================================
+   EXTRAS / VISION / FINAL GATE
+   - requires visible dimension rows to be touched
+   - 2 м 0 см is valid if row was touched
+   ===================================================== */
+
+if (finalPhase) hide(finalPhase);
+
+function isDimensionRowFilled(row) {
+  if (!row) return true;
+
+  // Новата логика:
+  // попълнено = потребителят е пипнал реда поне веднъж
+  return row.classList.contains("is-touched") ||
+         row.getAttribute("data-touched") === "true";
+}
+
+function findFirstEmptyVisibleDimension() {
+  var rows = qsa(dimensionsPhaseWrap, ".dimension-row");
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+
+    if (!isVisible(row)) continue;
+
+    var hiddenParent = row.closest('[style*="display: none"]');
+    if (hiddenParent) continue;
+
+    if (!isDimensionRowFilled(row)) {
+      return row;
+    }
+  }
+
+  return null;
+}
+
+qsa(flow, ".phase-next-btn").forEach(function (btn) {
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+
+    hideAllHints();
+
+    var emptyDim = findFirstEmptyVisibleDimension();
+
+    if (emptyDim) {
+      mode = "dimensions";
+      renderAll();
+
+      setTimeout(function () {
+        shakeDimension(emptyDim);
+      }, 50);
+
+      return;
+    }
+
+    if (comboDimPhase) hide(comboDimPhase);
+    if (extrasVisionPhase) hide(extrasVisionPhase);
+    show(finalPhase, "block");
+
+    setTimeout(function () {
+      finalPhase.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 50);
+
+    window.dispatchEvent(new Event("resize"));
+  });
+});
 
     /* =====================================================
        VISION / INSPIRATION CARDS
