@@ -1240,25 +1240,37 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 
-
-/* SIMPLE VISION TOGGLE (FINAL) */
+/* VERDE-M REAL CHECKMARK VISION CARDS */
 
 document.addEventListener("click", function (e) {
-  var card = e.target.closest(".vision-card");
+  var card = e.target.closest(".question-wrap-vision .vision-card");
   if (!card) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
 
   var row = card.closest(".vision-cards-row");
   if (!row) return;
 
-  var isOn = card.classList.contains("vm-selected");
+  var wasSelected = !!card.querySelector(".vm-check");
 
-  // чистим всички
   row.querySelectorAll(".vision-card").forEach(function (c) {
-    c.classList.remove("vm-selected");
+    c.classList.remove("active", "is-selected", "vm-selected", "is-off");
+
+    c.querySelectorAll(".active, .is-selected, .vm-selected, .is-off").forEach(function (el) {
+      el.classList.remove("active", "is-selected", "vm-selected", "is-off");
+    });
+
+    c.querySelectorAll(".vm-check").forEach(function (check) {
+      check.remove();
+    });
   });
 
-  // toggle
-  if (!isOn) {
-    card.classList.add("vm-selected");
+  if (!wasSelected) {
+    var check = document.createElement("div");
+    check.className = "vm-check";
+    check.textContent = "✓";
+    card.appendChild(check);
   }
-});
+}, true);
