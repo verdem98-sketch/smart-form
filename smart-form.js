@@ -1240,37 +1240,29 @@ qsa(flow, ".question-wrap").forEach(function (questionWrap) {
 })();
 
 
-/* VERDE-M REAL CHECKMARK VISION CARDS */
+/* VERDE-M VISION CARDS REAL CHECK v2 */
 
 document.addEventListener("click", function (e) {
-  var card = e.target.closest(".question-wrap-vision .vision-card");
+  var card = e.target.closest(".vision-card");
   if (!card) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
 
   var row = card.closest(".vision-cards-row");
   if (!row) return;
 
-  var wasSelected = !!card.querySelector(".vm-check");
+  e.preventDefault();
+
+  var already = !!card.querySelector(".vm-check");
 
   row.querySelectorAll(".vision-card").forEach(function (c) {
-    c.classList.remove("active", "is-selected", "vm-selected", "is-off");
-
-    c.querySelectorAll(".active, .is-selected, .vm-selected, .is-off").forEach(function (el) {
-      el.classList.remove("active", "is-selected", "vm-selected", "is-off");
-    });
-
-    c.querySelectorAll(".vm-check").forEach(function (check) {
-      check.remove();
+    c.querySelectorAll(".vm-check").forEach(function (x) {
+      x.remove();
     });
   });
 
-  if (!wasSelected) {
-    var check = document.createElement("div");
-    check.className = "vm-check";
-    check.textContent = "✓";
-    card.appendChild(check);
+  if (!already) {
+    card.insertAdjacentHTML(
+      "beforeend",
+      '<div class="vm-check">✓</div>'
+    );
   }
 }, true);
