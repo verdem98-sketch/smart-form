@@ -1481,75 +1481,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
 document.addEventListener("DOMContentLoaded", function () {
 
-  var summaryInput = document.querySelector('input[name="summary_readable"]');
-  if (!summaryInput) return;
+  var btn = document.querySelector('input[type="submit"], button[type="submit"]');
+  if (!btn) return;
 
-  var form = summaryInput.closest("form");
-  if (!form) return;
+  function set(name, value) {
+    var el = document.querySelector('input[name="' + name + '"]');
+    if (el) el.value = (value || "").trim();
+  }
 
-  var state = {};
+  function getSelected(field) {
+    var wrap = document.querySelector('[data-field="' + field + '"]');
+    if (!wrap) return "";
 
-  // ===============================
-  // ХВАЩА ВСИЧКИ КЛИКОВЕ
-  // ===============================
-  document.addEventListener("click", function (e) {
+    var el = wrap.querySelector('[data-value].active, [data-value].is-selected');
+    if (!el) return "";
 
-    var option = e.target.closest("[data-value]");
-    if (!option) return;
+    return el.getAttribute("data-value") || el.textContent;
+  }
 
-    var wrap = option.closest("[data-field]");
-    if (!wrap) return;
-
-    var field = wrap.getAttribute("data-field");
-    var value = option.getAttribute("data-value") || option.textContent;
-
-    state[field] = value.trim();
-  });
-
-  // ===============================
-  // DIMENSIONS
-  // ===============================
   function getDim(dim) {
     var row = document.querySelector('[data-dim="' + dim + '"]');
     if (!row) return "";
 
-    var values = Array.from(row.querySelectorAll(".picker-value"))
-      .map(el => el.textContent.trim());
+    var vals = row.querySelectorAll(".picker-value");
+    var m = vals[0]?.textContent.trim() || "0";
+    var cm = vals[1]?.textContent.trim() || "0";
 
-    return (values[0] || "0") + " м " + (values[1] || "0") + " см";
+    return m + " м " + cm + " см";
   }
 
-  // ===============================
-  // CHECKBOX
-  // ===============================
   function isChecked(field) {
     var wrap = document.querySelector('[data-field="' + field + '"]');
     if (!wrap) return false;
+
     var input = wrap.querySelector('input[type="checkbox"]');
     return input && input.checked;
   }
 
-  // ===============================
-  // SET HIDDEN
-  // ===============================
-  function set(name, value) {
-    var input = form.querySelector('input[name="' + name + '"]');
-    if (input) input.value = value || "";
-  }
+  btn.addEventListener("click", function () {
 
-  // ===============================
-  // SUBMIT
-  // ===============================
-  form.addEventListener("submit", function () {
+    // ОСНОВНИ
+    set("chimney_exists", getSelected("chimney_exists"));
+    set("water_position_aglova", getSelected("water_position_aglova"));
+    set("oven_tall_unit_aglova", getSelected("oven_tall_unit_aglova"));
+    set("fridge_type_aglova", getSelected("fridge_type_aglova"));
+    set("bar_enabled_aglova", getSelected("bar_enabled_aglova"));
 
-    // основни
-    set("chimney_exists", state["chimney_exists"]);
-    set("water_position_aglova", state["water_position_aglova"]);
-    set("oven_tall_unit_aglova", state["oven_tall_unit_aglova"]);
-    set("fridge_type_aglova", state["fridge_type_aglova"]);
-    set("bar_enabled_aglova", state["bar_enabled_aglova"]);
-
-    // размери
+    // РАЗМЕРИ
     set("stena1_len_aglova", getDim("stena1_len_aglova"));
     set("stena2_len_aglova", getDim("stena2_len_aglova"));
     set("visochina_aglova", getDim("visochina_aglova"));
@@ -1563,11 +1541,11 @@ document.addEventListener("DOMContentLoaded", function () {
     set("island_len_aglova", getDim("island_len_aglova"));
     set("island_width_aglova", getDim("island_width_aglova"));
 
-    // vision
-    set("upper_finish", state["upper_finish"]);
-    set("lower_finish", state["lower_finish"]);
-    set("countertop_finish", state["countertop_finish"]);
-    set("backsplash_finish", state["backsplash_finish"]);
+    // VISION
+    set("upper_finish", getSelected("upper_finish"));
+    set("lower_finish", getSelected("lower_finish"));
+    set("countertop_finish", getSelected("countertop_finish"));
+    set("backsplash_finish", getSelected("backsplash_finish"));
 
     set("upper_finish_note_aglova",
       document.querySelector('[data-field="upper_finish_note_aglova"] textarea')?.value || ""
@@ -1585,7 +1563,7 @@ document.addEventListener("DOMContentLoaded", function () {
       document.querySelector('[data-field="backsplash_note_aglova"] textarea')?.value || ""
     );
 
-    // checkboxes
+    // CHECKBOX
     ["dishwasher","washing_machine","microwave","coffee_machine"].forEach(k => {
       set(k, isChecked(k) ? "Да" : "");
     });
@@ -1594,21 +1572,12 @@ document.addEventListener("DOMContentLoaded", function () {
       set(k, isChecked(k) ? "Да" : "");
     });
 
-    // финал
-    set("inspiration_card_aglova", state["inspiration_card_aglova"]);
-    set("plan_aglova", state["plan_aglova"]);
+    // FINAL
+    set("inspiration_card_aglova", getSelected("inspiration_card_aglova"));
+    set("plan_aglova", getSelected("plan_aglova"));
 
-    // summary
-    var summary = [];
-
-    summary.push("ЪГЛОВА КУХНЯ");
-    summary.push("");
-
-    Object.keys(state).forEach(k => {
-      summary.push(k + ": " + state[k]);
-    });
-
-    set("summary_readable", summary.join("\n"));
+    // SUMMARY
+    set("summary_readable", "OK");
   });
 
 });
