@@ -1503,4 +1503,4 @@ document.addEventListener("DOMContentLoaded", function () {
     buildSummary();
   });
 });
-</script>
+
