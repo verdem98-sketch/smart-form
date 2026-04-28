@@ -1581,3 +1581,13 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
 });
+
+
+
+
+
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('button[type="submit"], input[type="submit"]');
+  if (!btn) return;
+  alert('CLICK HOOK OK');
+}, true);
