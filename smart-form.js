@@ -1270,82 +1270,86 @@ document.addEventListener("click", function (e) {
 
 
 /* =========================================================
-   AGLOVA DIRECT WRITE ENGINE v1
-   Writes values instantly to hidden inputs
+   AGLOVA DIRECT WRITE ENGINE v2
+   Writes to ALL matching hidden inputs, no DOMContentLoaded trap
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", function () {
-
-  function set(name, value) {
-    var input = document.querySelector('input[name="' + name + '"]');
-    if (input) input.value = String(value || "").trim();
+(function () {
+  function clean(v) {
+    return String(v || "").trim();
   }
 
-  // ===============================
-  // OPTION CLICKS (pill / cards)
-  // ===============================
+  function setAll(name, value) {
+    var inputs = document.querySelectorAll('input[name="' + name + '"]');
+    inputs.forEach(function (input) {
+      input.value = clean(value);
+    });
+  }
+
+  function getFieldFromOption(option) {
+    var wrap = option.closest("[data-field]");
+    if (!wrap) return "";
+
+    if (option.hasAttribute("data-field")) {
+      return option.getAttribute("data-field");
+    }
+
+    return wrap.getAttribute("data-field") || "";
+  }
+
   document.addEventListener("click", function (e) {
     var option = e.target.closest("[data-value]");
     if (!option) return;
 
-    var wrap = option.closest("[data-field]");
-    if (!wrap) return;
-
-    var field = wrap.getAttribute("data-field");
+    var field = getFieldFromOption(option);
     var value = option.getAttribute("data-value") || option.textContent;
 
-    set(field, value);
-  });
+    if (field) setAll(field, value);
+  }, true);
 
-  // ===============================
-  // TEXTAREA (notes)
-  // ===============================
   document.addEventListener("input", function (e) {
-    var fieldWrap = e.target.closest("[data-field]");
-    if (!fieldWrap) return;
-
     if (e.target.tagName !== "TEXTAREA") return;
 
-    var field = fieldWrap.getAttribute("data-field");
-    set(field, e.target.value);
-  });
+    var field = e.target.getAttribute("data-field");
+    if (!field) {
+      var wrap = e.target.closest("[data-field]");
+      field = wrap ? wrap.getAttribute("data-field") : "";
+    }
 
-  // ===============================
-  // DIMENSIONS (live update)
-  // ===============================
+    if (field) setAll(field, e.target.value);
+  }, true);
+
   function updateDimensions() {
     document.querySelectorAll("[data-dim]").forEach(function (row) {
-
       var key = row.getAttribute("data-dim");
-      var values = row.querySelectorAll(".picker-value");
+      var vals = row.querySelectorAll(".picker-value");
 
-      var m = values[0]?.textContent.trim() || "0";
-      var cm = values[1]?.textContent.trim() || "0";
+      var m = vals[0] ? vals[0].textContent : "0";
+      var cm = vals[1] ? vals[1].textContent : "0";
 
-      set(key, m + " м " + cm + " см");
+      setAll(key, clean(m) + " м " + clean(cm) + " см");
     });
   }
 
   document.addEventListener("click", function (e) {
     if (
+      e.target.closest(".picker-btn") ||
       e.target.closest(".meters-control") ||
       e.target.closest(".centimeters-control")
     ) {
-      setTimeout(updateDimensions, 50);
+      setTimeout(updateDimensions, 80);
     }
-  });
+  }, true);
 
-  // ===============================
-  // CHECKBOX
-  // ===============================
   document.addEventListener("change", function (e) {
+    if (e.target.type !== "checkbox") return;
+
     var wrap = e.target.closest("[data-field]");
     if (!wrap) return;
 
-    if (e.target.type !== "checkbox") return;
-
     var field = wrap.getAttribute("data-field");
-    set(field, e.target.checked ? "Да" : "");
-  });
+    if (field) setAll(field, e.target.checked ? "Да" : "");
+  }, true);
 
-});
+  setAll("summary_readable", "AGLOVA ENGINE v2 LOADED");
+})();
