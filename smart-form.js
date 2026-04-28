@@ -1270,42 +1270,82 @@ document.addEventListener("click", function (e) {
 
 
 /* =========================================================
-   AGLOVA SUBMIT DEBUG BLOCK v1
-   Purpose: prove that JS writes into the submitted form
+   AGLOVA DIRECT WRITE ENGINE v1
+   Writes values instantly to hidden inputs
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  var summaryInput = document.querySelector('input[name="summary_readable"]');
-  if (!summaryInput) return;
-
-  var form = summaryInput.closest("form");
-  if (!form) return;
 
   function set(name, value) {
-    var el = form.querySelector('input[name="' + name + '"]');
-    if (el) el.value = String(value || "").trim();
+    var input = document.querySelector('input[name="' + name + '"]');
+    if (input) input.value = String(value || "").trim();
   }
 
-  document.addEventListener(
-    "click",
-    function (e) {
-      var submit = e.target.closest('input[type="submit"], button[type="submit"]');
-      if (!submit) return;
+  // ===============================
+  // OPTION CLICKS (pill / cards)
+  // ===============================
+  document.addEventListener("click", function (e) {
+    var option = e.target.closest("[data-value]");
+    if (!option) return;
 
-      set("summary_readable", "WORKS");
-      set("chimney_exists", "TEST CHIMNEY");
-      set("water_position_aglova", "TEST WATER");
-    },
-    true
-  );
+    var wrap = option.closest("[data-field]");
+    if (!wrap) return;
 
-  form.addEventListener(
-    "submit",
-    function () {
-      set("summary_readable", "WORKS SUBMIT");
-      set("chimney_exists", "TEST CHIMNEY SUBMIT");
-      set("water_position_aglova", "TEST WATER SUBMIT");
-    },
-    true
-  );
+    var field = wrap.getAttribute("data-field");
+    var value = option.getAttribute("data-value") || option.textContent;
+
+    set(field, value);
+  });
+
+  // ===============================
+  // TEXTAREA (notes)
+  // ===============================
+  document.addEventListener("input", function (e) {
+    var fieldWrap = e.target.closest("[data-field]");
+    if (!fieldWrap) return;
+
+    if (e.target.tagName !== "TEXTAREA") return;
+
+    var field = fieldWrap.getAttribute("data-field");
+    set(field, e.target.value);
+  });
+
+  // ===============================
+  // DIMENSIONS (live update)
+  // ===============================
+  function updateDimensions() {
+    document.querySelectorAll("[data-dim]").forEach(function (row) {
+
+      var key = row.getAttribute("data-dim");
+      var values = row.querySelectorAll(".picker-value");
+
+      var m = values[0]?.textContent.trim() || "0";
+      var cm = values[1]?.textContent.trim() || "0";
+
+      set(key, m + " м " + cm + " см");
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    if (
+      e.target.closest(".meters-control") ||
+      e.target.closest(".centimeters-control")
+    ) {
+      setTimeout(updateDimensions, 50);
+    }
+  });
+
+  // ===============================
+  // CHECKBOX
+  // ===============================
+  document.addEventListener("change", function (e) {
+    var wrap = e.target.closest("[data-field]");
+    if (!wrap) return;
+
+    if (e.target.type !== "checkbox") return;
+
+    var field = wrap.getAttribute("data-field");
+    set(field, e.target.checked ? "Да" : "");
+  });
+
 });
