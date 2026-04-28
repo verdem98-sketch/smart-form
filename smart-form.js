@@ -1270,8 +1270,8 @@ document.addEventListener("click", function (e) {
 
 
 /* =========================================================
-   AGLOVA FINAL SUMMARY CLEAN v2
-   Finds the form by summary_readable, fills hidden inputs
+   AGLOVA SUBMIT DEBUG BLOCK v1
+   Purpose: prove that JS writes into the submitted form
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -1281,313 +1281,31 @@ document.addEventListener("DOMContentLoaded", function () {
   var form = summaryInput.closest("form");
   if (!form) return;
 
-  function clean(v) {
-    return String(v || "").trim();
-  }
-
-  function setHidden(name, value) {
-    var input = form.querySelector('input[type="hidden"][name="' + name + '"]');
-    if (input) input.value = clean(value);
-  }
-
-  function getActiveValue(field) {
-    var wrap = document.querySelector('[data-field="' + field + '"]');
-    if (!wrap) return "";
-
-    var active =
-      wrap.querySelector(".active") ||
-      wrap.querySelector(".is-active") ||
-      wrap.querySelector(".is-selected");
-
-    if (!active) return "";
-
-    return clean(active.getAttribute("data-value") || active.textContent);
-  }
-
-  function getTextareaValue(field) {
-    var el = document.querySelector('textarea[data-field="' + field + '"]');
-    return el ? clean(el.value) : "";
-  }
-
-  function getDimValue(dim) {
-    var row = document.querySelector('[data-dim="' + dim + '"]');
-    if (!row) return "";
-
-    var values = Array.from(row.querySelectorAll(".picker-value")).map(function (el) {
-      return clean(el.textContent);
-    });
-
-    var m = values[0] || "0";
-    var cm = values[1] || "0";
-
-    return m + " м " + cm + " см";
-  }
-
-  function isChecked(field) {
-    var wrap = document.querySelector('[data-field="' + field + '"]');
-    if (!wrap) return false;
-
-    var checkbox = wrap.querySelector('input[type="checkbox"]');
-    return checkbox && checkbox.checked;
-  }
-
-  function addLine(lines, label, value) {
-    value = clean(value);
-    if (value) lines.push(label + ": " + value);
-  }
-
-  function buildSummary() {
-    var chimney = getActiveValue("chimney_exists");
-    var water = getActiveValue("water_position_aglova");
-    var oven = getActiveValue("oven_tall_unit_aglova");
-    var fridge = getActiveValue("fridge_type_aglova");
-    var center = getActiveValue("bar_enabled_aglova");
-
-    setHidden("chimney_exists", chimney);
-    setHidden("water_position_aglova", water);
-    setHidden("oven_tall_unit_aglova", oven);
-    setHidden("fridge_type_aglova", fridge);
-    setHidden("bar_enabled_aglova", center);
-
-    var stena1 = getDimValue("stena1_len_aglova");
-    var stena2 = getDimValue("stena2_len_aglova");
-    var height = getDimValue("visochina_aglova");
-    var chimneyA = getDimValue("chimney_a_aglova");
-    var chimneyB = getDimValue("chimney_b_aglova");
-    var barLen = getDimValue("bar_len_aglova");
-    var barWidth = getDimValue("bar_width_aglova");
-    var islandLen = getDimValue("island_len_aglova");
-    var islandWidth = getDimValue("island_width_aglova");
-
-    setHidden("stena1_len_aglova", stena1);
-    setHidden("stena2_len_aglova", stena2);
-    setHidden("visochina_aglova", height);
-    setHidden("chimney_a_aglova", chimneyA);
-    setHidden("chimney_b_aglova", chimneyB);
-    setHidden("bar_len_aglova", barLen);
-    setHidden("bar_width_aglova", barWidth);
-    setHidden("island_len_aglova", islandLen);
-    setHidden("island_width_aglova", islandWidth);
-
-    var upper = getActiveValue("upper_finish");
-    var lower = getActiveValue("lower_finish");
-    var countertop = getActiveValue("countertop_finish");
-    var backsplash = getActiveValue("backsplash_finish");
-
-    var upperNote = getTextareaValue("upper_finish_note_aglova");
-    var lowerNote = getTextareaValue("lower_finish_note_aglova");
-    var countertopNote = getTextareaValue("countertop_note_aglova");
-    var backsplashNote = getTextareaValue("backsplash_note_aglova");
-
-    setHidden("upper_finish", upper);
-    setHidden("lower_finish", lower);
-    setHidden("countertop_finish", countertop);
-    setHidden("backsplash_finish", backsplash);
-    setHidden("upper_finish_note_aglova", upperNote);
-    setHidden("lower_finish_note_aglova", lowerNote);
-    setHidden("countertop_note_aglova", countertopNote);
-    setHidden("backsplash_note_aglova", backsplashNote);
-
-    var appliances = {
-      dishwasher: "Миялна",
-      washing_machine: "Пералня",
-      microwave: "Микровълнова",
-      coffee_machine: "Кафе машина"
-    };
-
-    var extras = {
-      glass_display: "Витрина с осветление",
-      deep_cabinets: "Дълбоки шкафове",
-      more_drawers: "Повече чекмеджета",
-      lift_mechanisms: "Повдигащи механизми",
-      counter_lighting: "Осветление над плота",
-      bottle_rack: "Кошница за бутилки"
-    };
-
-    Object.keys(appliances).forEach(function (key) {
-      setHidden(key, isChecked(key) ? "Да" : "");
-    });
-
-    Object.keys(extras).forEach(function (key) {
-      setHidden(key, isChecked(key) ? "Да" : "");
-    });
-
-    var inspiration = getActiveValue("inspiration_card_aglova");
-    var plan = getActiveValue("plan_aglova");
-
-    setHidden("inspiration_card_aglova", inspiration);
-    setHidden("plan_aglova", plan);
-
-    var lines = [];
-
-    lines.push("ЪГЛОВА КУХНЯ — ЗАЯВКА");
-    lines.push("");
-
-    lines.push("ОСНОВНИ ИЗБОРИ");
-    addLine(lines, "Комин", chimney);
-    addLine(lines, "Вода", water);
-    addLine(lines, "Колона за фурна", oven);
-    addLine(lines, "Хладилник", fridge);
-    addLine(lines, "Бар / остров", center);
-
-    lines.push("");
-    lines.push("РАЗМЕРИ");
-    addLine(lines, "Стена 1", stena1);
-    addLine(lines, "Стена 2", stena2);
-    addLine(lines, "Височина", height);
-    addLine(lines, "Комин A", chimneyA);
-    addLine(lines, "Комин B", chimneyB);
-    addLine(lines, "Бар дължина", barLen);
-    addLine(lines, "Бар ширина", barWidth);
-    addLine(lines, "Остров дължина", islandLen);
-    addLine(lines, "Остров ширина", islandWidth);
-
-    lines.push("");
-    lines.push("ВИЗИЯ");
-    addLine(lines, "Горен ред", upper);
-    addLine(lines, "Бележка горен ред", upperNote);
-    addLine(lines, "Долен ред", lower);
-    addLine(lines, "Бележка долен ред", lowerNote);
-    addLine(lines, "Плот", countertop);
-    addLine(lines, "Бележка плот", countertopNote);
-    addLine(lines, "Гръб", backsplash);
-    addLine(lines, "Бележка гръб", backsplashNote);
-
-    lines.push("");
-    lines.push("УРЕДИ");
-    Object.keys(appliances).forEach(function (key) {
-      if (isChecked(key)) lines.push("✔ " + appliances[key]);
-    });
-
-    lines.push("");
-    lines.push("ДОПЪЛНИТЕЛНИ ЕКСТРИ");
-    Object.keys(extras).forEach(function (key) {
-      if (isChecked(key)) lines.push("✔ " + extras[key]);
-    });
-
-    lines.push("");
-    lines.push("ФИНАЛ");
-    addLine(lines, "Inspiration карта", inspiration);
-    addLine(lines, "План", plan);
-
-    setHidden("summary_readable", lines.join("\n"));
-  }
-
-  form.addEventListener("submit", function () {
-    buildSummary();
-  }, true);
-});
-
-
-document.addEventListener("DOMContentLoaded", function () {
-
-  var btn = document.querySelector('input[type="submit"], button[type="submit"]');
-  if (!btn) return;
-
   function set(name, value) {
-    var el = document.querySelector('input[name="' + name + '"]');
-    if (el) el.value = (value || "").trim();
+    var el = form.querySelector('input[name="' + name + '"]');
+    if (el) el.value = String(value || "").trim();
   }
 
-  function getSelected(field) {
-    var wrap = document.querySelector('[data-field="' + field + '"]');
-    if (!wrap) return "";
+  document.addEventListener(
+    "click",
+    function (e) {
+      var submit = e.target.closest('input[type="submit"], button[type="submit"]');
+      if (!submit) return;
 
-    var el = wrap.querySelector('[data-value].active, [data-value].is-selected');
-    if (!el) return "";
+      set("summary_readable", "WORKS");
+      set("chimney_exists", "TEST CHIMNEY");
+      set("water_position_aglova", "TEST WATER");
+    },
+    true
+  );
 
-    return el.getAttribute("data-value") || el.textContent;
-  }
-
-  function getDim(dim) {
-    var row = document.querySelector('[data-dim="' + dim + '"]');
-    if (!row) return "";
-
-    var vals = row.querySelectorAll(".picker-value");
-    var m = vals[0]?.textContent.trim() || "0";
-    var cm = vals[1]?.textContent.trim() || "0";
-
-    return m + " м " + cm + " см";
-  }
-
-  function isChecked(field) {
-    var wrap = document.querySelector('[data-field="' + field + '"]');
-    if (!wrap) return false;
-
-    var input = wrap.querySelector('input[type="checkbox"]');
-    return input && input.checked;
-  }
-
-  btn.addEventListener("click", function () {
-
-    // ОСНОВНИ
-    set("chimney_exists", getSelected("chimney_exists"));
-    set("water_position_aglova", getSelected("water_position_aglova"));
-    set("oven_tall_unit_aglova", getSelected("oven_tall_unit_aglova"));
-    set("fridge_type_aglova", getSelected("fridge_type_aglova"));
-    set("bar_enabled_aglova", getSelected("bar_enabled_aglova"));
-
-    // РАЗМЕРИ
-    set("stena1_len_aglova", getDim("stena1_len_aglova"));
-    set("stena2_len_aglova", getDim("stena2_len_aglova"));
-    set("visochina_aglova", getDim("visochina_aglova"));
-
-    set("chimney_a_aglova", getDim("chimney_a_aglova"));
-    set("chimney_b_aglova", getDim("chimney_b_aglova"));
-
-    set("bar_len_aglova", getDim("bar_len_aglova"));
-    set("bar_width_aglova", getDim("bar_width_aglova"));
-
-    set("island_len_aglova", getDim("island_len_aglova"));
-    set("island_width_aglova", getDim("island_width_aglova"));
-
-    // VISION
-    set("upper_finish", getSelected("upper_finish"));
-    set("lower_finish", getSelected("lower_finish"));
-    set("countertop_finish", getSelected("countertop_finish"));
-    set("backsplash_finish", getSelected("backsplash_finish"));
-
-    set("upper_finish_note_aglova",
-      document.querySelector('[data-field="upper_finish_note_aglova"] textarea')?.value || ""
-    );
-
-    set("lower_finish_note_aglova",
-      document.querySelector('[data-field="lower_finish_note_aglova"] textarea')?.value || ""
-    );
-
-    set("countertop_note_aglova",
-      document.querySelector('[data-field="countertop_note_aglova"] textarea')?.value || ""
-    );
-
-    set("backsplash_note_aglova",
-      document.querySelector('[data-field="backsplash_note_aglova"] textarea')?.value || ""
-    );
-
-    // CHECKBOX
-    ["dishwasher","washing_machine","microwave","coffee_machine"].forEach(k => {
-      set(k, isChecked(k) ? "Да" : "");
-    });
-
-    ["glass_display","deep_cabinets","more_drawers","lift_mechanisms","counter_lighting","bottle_rack"].forEach(k => {
-      set(k, isChecked(k) ? "Да" : "");
-    });
-
-    // FINAL
-    set("inspiration_card_aglova", getSelected("inspiration_card_aglova"));
-    set("plan_aglova", getSelected("plan_aglova"));
-
-    // SUMMARY
-    set("summary_readable", "OK");
-  });
-
+  form.addEventListener(
+    "submit",
+    function () {
+      set("summary_readable", "WORKS SUBMIT");
+      set("chimney_exists", "TEST CHIMNEY SUBMIT");
+      set("water_position_aglova", "TEST WATER SUBMIT");
+    },
+    true
+  );
 });
-
-
-
-
-
-document.addEventListener('click', function (e) {
-  var btn = e.target.closest('button[type="submit"], input[type="submit"]');
-  if (!btn) return;
-  alert('CLICK HOOK OK');
-}, true);
