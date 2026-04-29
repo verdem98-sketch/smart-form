@@ -1270,54 +1270,79 @@ document.addEventListener("click", function (e) {
 
 
 /* =========================================================
-   AGLOVA DIRECT WRITE ENGINE v2
-   Writes to ALL matching hidden inputs, no DOMContentLoaded trap
+   AGLOVA DIRECT WRITE ENGINE v3
+   Writes selected UI values to ALL matching inputs/textareas
    ========================================================= */
 
 (function () {
   function clean(v) {
-    return String(v || "").trim();
+    return String(v || "").replace(/\s+/g, " ").trim();
   }
 
   function setAll(name, value) {
-    var inputs = document.querySelectorAll('input[name="' + name + '"]');
-    inputs.forEach(function (input) {
-      input.value = clean(value);
-    });
+    if (!name) return;
+
+    document
+      .querySelectorAll('input[name="' + name + '"], textarea[name="' + name + '"]')
+      .forEach(function (el) {
+        el.value = clean(value);
+      });
   }
 
-  function getFieldFromOption(option) {
-    var wrap = option.closest("[data-field]");
-    if (!wrap) return "";
-
-    if (option.hasAttribute("data-field")) {
-      return option.getAttribute("data-field");
-    }
-
-    return wrap.getAttribute("data-field") || "";
+  function getValueFromOption(option) {
+    return clean(option.getAttribute("data-value") || option.textContent);
   }
 
-  document.addEventListener("click", function (e) {
-    var option = e.target.closest("[data-value]");
+  function writeFromOption(option) {
     if (!option) return;
 
-    var field = getFieldFromOption(option);
-    var value = option.getAttribute("data-value") || option.textContent;
+    var wrap = option.closest("[data-field]");
+    var field = "";
 
-    if (field) setAll(field, value);
-  }, true);
-
-  document.addEventListener("input", function (e) {
-    if (e.target.tagName !== "TEXTAREA") return;
-
-    var field = e.target.getAttribute("data-field");
-    if (!field) {
-      var wrap = e.target.closest("[data-field]");
-      field = wrap ? wrap.getAttribute("data-field") : "";
+    if (option.hasAttribute("data-field")) {
+      field = option.getAttribute("data-field");
+    } else if (wrap) {
+      field = wrap.getAttribute("data-field");
     }
 
-    if (field) setAll(field, e.target.value);
-  }, true);
+    if (!field) return;
+
+    setAll(field, getValueFromOption(option));
+  }
+
+  document.addEventListener(
+    "click",
+    function (e) {
+      var option =
+        e.target.closest(".option-pill") ||
+        e.target.closest(".vision-card") ||
+        e.target.closest(".inspiration-card") ||
+        e.target.closest("[data-value]");
+
+      if (!option) return;
+
+      setTimeout(function () {
+        writeFromOption(option);
+      }, 30);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "input",
+    function (e) {
+      var target = e.target;
+      if (!target) return;
+
+      var wrap = target.closest("[data-field]");
+      var field =
+        target.getAttribute("data-field") ||
+        (wrap ? wrap.getAttribute("data-field") : "");
+
+      if (field) setAll(field, target.value);
+    },
+    true
+  );
 
   function updateDimensions() {
     document.querySelectorAll("[data-dim]").forEach(function (row) {
@@ -1331,25 +1356,41 @@ document.addEventListener("click", function (e) {
     });
   }
 
-  document.addEventListener("click", function (e) {
-    if (
-      e.target.closest(".picker-btn") ||
-      e.target.closest(".meters-control") ||
-      e.target.closest(".centimeters-control")
-    ) {
-      setTimeout(updateDimensions, 80);
-    }
-  }, true);
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (
+        e.target.closest(".picker-btn") ||
+        e.target.closest(".meters-control") ||
+        e.target.closest(".centimeters-control")
+      ) {
+        setTimeout(updateDimensions, 80);
+      }
+    },
+    true
+  );
 
-  document.addEventListener("change", function (e) {
-    if (e.target.type !== "checkbox") return;
+  document.addEventListener(
+    "change",
+    function (e) {
+      if (e.target.type !== "checkbox") return;
 
-    var wrap = e.target.closest("[data-field]");
-    if (!wrap) return;
+      var wrapper =
+        e.target.closest("[data-field]") ||
+        e.target.closest("[data-checkbox-field]");
 
-    var field = wrap.getAttribute("data-field");
-    if (field) setAll(field, e.target.checked ? "Да" : "");
-  }, true);
+      var field =
+        e.target.getAttribute("data-checkbox-field") ||
+        e.target.getAttribute("data-field") ||
+        (wrapper
+          ? wrapper.getAttribute("data-checkbox-field") ||
+            wrapper.getAttribute("data-field")
+          : "");
 
-  setAll("summary_readable", "AGLOVA ENGINE v2 LOADED");
+      if (field) setAll(field, e.target.checked ? "Да" : "");
+    },
+    true
+  );
+
+  updateDimensions();
 })();
