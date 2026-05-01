@@ -798,8 +798,11 @@ qsa(document, ".dimension-row").forEach(function (row) {
   }
 });
 
-   /* =====================================================
-   EXTRAS / VISION / FINAL GATE
+
+     
+/* =====================================================
+   EXTRAS / VISION / FINAL GATE v2
+   - requires all combo questions to be answered
    - requires visible dimension rows to be touched
    - 2 м 0 см is valid if row was touched
    ===================================================== */
@@ -809,10 +812,29 @@ if (finalPhase) hide(finalPhase);
 function isDimensionRowFilled(row) {
   if (!row) return true;
 
-  // Новата логика:
-  // попълнено = потребителят е пипнал реда поне веднъж
   return row.classList.contains("is-touched") ||
          row.getAttribute("data-touched") === "true";
+}
+
+function findFirstUnansweredComboQuestion() {
+  var comboQuestions = qsa(comboWrap, ".question-wrap");
+
+  for (var i = 0; i < comboQuestions.length; i++) {
+    var question = comboQuestions[i];
+
+    if (!qsa(question, ".option-pill").length) continue;
+
+    var hasActive =
+      qs(question, ".option-pill.active") ||
+      qs(question, ".option-pill.is-selected") ||
+      qs(question, ".option-pill.vm-selected");
+
+    if (!hasActive) {
+      return question;
+    }
+  }
+
+  return null;
 }
 
 function findFirstEmptyVisibleDimension() {
@@ -825,6 +847,9 @@ function findFirstEmptyVisibleDimension() {
 
     var hiddenParent = row.closest('[style*="display: none"]');
     if (hiddenParent) continue;
+
+    var group = row.closest(".dimensions-group");
+    if (group && !isVisible(group)) continue;
 
     if (!isDimensionRowFilled(row)) {
       return row;
@@ -839,6 +864,25 @@ qsa(flow, ".phase-next-btn").forEach(function (btn) {
     e.preventDefault();
 
     hideAllHints();
+
+    var unansweredQuestion = findFirstUnansweredComboQuestion();
+
+    if (unansweredQuestion) {
+      mode = "combo";
+      renderAll();
+
+      var stepName = unansweredQuestion.getAttribute("data-step");
+
+      if (stepName && typeof goToStep === "function") {
+        goToStep(stepName);
+      }
+
+      setTimeout(function () {
+        shakeQuestion(unansweredQuestion);
+      }, 50);
+
+      return;
+    }
 
     var emptyDim = findFirstEmptyVisibleDimension();
 
