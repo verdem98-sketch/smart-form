@@ -1,158 +1,118 @@
-/* =========================================================
-   VERDE-M PRAVA SMART FORM ENGINE v1
-   Questions only: select / next / back / reset
-   ========================================================= */
+document.addEventListener("DOMContentLoaded", function () {
 
-(function () {
-  if (window.VERDE_PRAVA_ENGINE_V1_LOADED) return;
-  window.VERDE_PRAVA_ENGINE_V1_LOADED = true;
+console.log("PRAVA ENGINE START");
 
-  document.addEventListener("DOMContentLoaded", function () {
-    console.log("PRAVA ENGINE v1 LOADED");
+const flow = document.querySelector(".sf-page-prava");
+if (!flow) {
+console.log("NO PRAVA WRAPPER");
+return;
+}
 
-    var flow =
-      document.querySelector(".sf-page-prava") ||
-      document.querySelector(".prava-form-block") ||
-      document.querySelector(".prava-form");
+const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
+console.log("QUESTIONS:", questions.length);
 
-    if (!flow) {
-      console.warn("PRAVA ENGINE: wrapper not found");
-      return;
-    }
+let state = {};
+let currentIndex = 0;
 
-    var questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
+function showQuestion(index) {
+questions.forEach((q, i) => {
+q.classList.toggle("active-question", i === index);
+});
+currentIndex = index;
+}
 
-    if (!questions.length) {
-      console.warn("PRAVA ENGINE: no .question-wrap-prava found");
-      return;
-    }
+function getField(q) {
+return q.getAttribute("data-field");
+}
 
-    var state = {};
+function clearActive(q) {
+q.querySelectorAll(".option-pill").forEach(p => {
+p.classList.remove("active");
+});
+}
 
-    function hide(el) {
-      if (!el) return;
-      el.style.display = "none";
-      el.classList.remove("active-question");
-    }
+function setActive(pill) {
+const q = pill.closest(".question-wrap-prava");
+clearActive(q);
+pill.classList.add("active");
+}
 
-    function show(el) {
-      if (!el) return;
-      el.style.display = "block";
-      el.classList.add("active-question");
-    }
+// OPTION CLICK
+flow.addEventListener("click", function (e) {
+const pill = e.target.closest(".option-pill");
+if (!pill) return;
 
-    function getQuestionIndex(question) {
-      return questions.indexOf(question);
-    }
+```
+const q = pill.closest(".question-wrap-prava");
+if (!q) return;
 
-    function showOnlyQuestion(question) {
-      questions.forEach(hide);
-      show(question);
-    }
+const field = getField(q);
+const value = pill.getAttribute("data-value");
 
-    function getField(question) {
-      return question ? question.getAttribute("data-field") : "";
-    }
+setActive(pill);
+state[field] = value;
 
-    function hasSelection(question) {
-      return !!question.querySelector(".option-pill.active");
-    }
+console.log("STATE:", state);
+```
 
-    function shake(question) {
-      if (!question) return;
-      question.classList.remove("choice-warning");
-      void question.offsetWidth;
-      question.classList.add("choice-warning");
+});
 
-      setTimeout(function () {
-        question.classList.remove("choice-warning");
-      }, 350);
-    }
+// NEXT
+flow.addEventListener("click", function (e) {
+const btn = e.target.closest(".nav-next");
+if (!btn) return;
 
-    function resetAll() {
-      state = {};
+```
+const q = btn.closest(".question-wrap-prava");
+const field = getField(q);
 
-      flow.querySelectorAll(".option-pill").forEach(function (pill) {
-        pill.classList.remove("active");
-      });
+if (!state[field]) {
+  alert("Избери опция");
+  return;
+}
 
-      showOnlyQuestion(questions[0]);
-      console.log("PRAVA RESET");
-    }
+const nextIndex = currentIndex + 1;
+if (questions[nextIndex]) {
+  showQuestion(nextIndex);
+}
+```
 
-    flow.addEventListener("click", function (e) {
-      var pill = e.target.closest(".option-pill");
-      if (!pill || !flow.contains(pill)) return;
+});
 
-      var question = pill.closest(".question-wrap-prava");
-      if (!question) return;
+// BACK
+flow.addEventListener("click", function (e) {
+const btn = e.target.closest(".nav-back");
+if (!btn) return;
 
-      var field = getField(question);
-      var value = pill.getAttribute("data-value") || pill.textContent.trim();
+```
+const prevIndex = currentIndex - 1;
+if (questions[prevIndex]) {
+  showQuestion(prevIndex);
+}
+```
 
-      question.querySelectorAll(".option-pill").forEach(function (item) {
-        item.classList.remove("active");
-      });
+});
 
-      pill.classList.add("active");
+// RESET
+flow.addEventListener("click", function (e) {
+const btn = e.target.closest('[data-action="reset-prava"]');
+if (!btn) return;
 
-      if (field) {
-        state[field] = value;
-      }
+```
+state = {};
 
-      console.log("PRAVA STATE:", state);
-    });
+flow.querySelectorAll(".option-pill").forEach(p => {
+  p.classList.remove("active");
+});
 
-    flow.addEventListener("click", function (e) {
-      var next = e.target.closest(".nav-next");
-      if (!next || !flow.contains(next)) return;
+showQuestion(0);
 
-      e.preventDefault();
+console.log("RESET");
+```
 
-      var question = next.closest(".question-wrap-prava");
-      if (!question) return;
+});
 
-      if (!hasSelection(question)) {
-        shake(question);
-        return;
-      }
+// INIT
+showQuestion(0);
 
-      var index = getQuestionIndex(question);
-
-      if (next.getAttribute("data-action") === "go-dimensions") {
-        console.log("GO DIMENSIONS — next phase later");
-        return;
-      }
-
-      if (questions[index + 1]) {
-        showOnlyQuestion(questions[index + 1]);
-      }
-    });
-
-    flow.addEventListener("click", function (e) {
-      var back = e.target.closest(".nav-back");
-      if (!back || !flow.contains(back)) return;
-
-      e.preventDefault();
-
-      var question = back.closest(".question-wrap-prava");
-      if (!question) return;
-
-      var index = getQuestionIndex(question);
-
-      if (questions[index - 1]) {
-        showOnlyQuestion(questions[index - 1]);
-      }
-    });
-
-    flow.addEventListener("click", function (e) {
-      var reset = e.target.closest('[data-action="reset-prava"]');
-      if (!reset || !flow.contains(reset)) return;
-
-      e.preventDefault();
-      resetAll();
-    });
-
-    showOnlyQuestion(questions[0]);
-  });
-})();
+});
