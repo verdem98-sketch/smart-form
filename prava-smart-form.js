@@ -407,7 +407,7 @@ document.addEventListener("DOMContentLoaded", function () {
     true
   );
 
-   // ==========================
+// ==========================
 // PRAVA PICKERS ENGINE
 // meters + centimeters
 // ==========================
@@ -668,6 +668,4 @@ document.addEventListener("DOMContentLoaded", function () {
   const dimensionRows = qsa(form, '.dimension-row[data-dim]');
   dimensionRows.forEach(bindRow);
 });
-
-  hide(dimensionsPhase);
 
