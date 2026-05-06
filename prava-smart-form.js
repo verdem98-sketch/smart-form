@@ -409,17 +409,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 4
-   PRAVA PICKERS ENGINE v3 — DOM SAFE
-   meters + centimeters / delegated clicks
+   PRAVA PICKERS ENGINE — RESTORED STABLE VERSION
+   meters + centimeters
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA PICKERS ENGINE v3 START");
+  console.log("PRAVA PICKERS RESTORED START");
 
-  const page = document.querySelector(".sf-page-prava");
-  if (!page) return;
+  const pravaPage = document.querySelector(".sf-page.sf-page-prava, .sf-page-prava");
+  if (!pravaPage) return;
 
-  const form = page.querySelector("form");
+  const form = pravaPage.querySelector("form");
   if (!form) return;
 
   const DIM_TO_HIDDEN = {
@@ -437,87 +437,138 @@ document.addEventListener("DOMContentLoaded", function () {
     return Array.from((scope || document).querySelectorAll(sel));
   }
 
-  function parseValue(valueEl) {
-    if (!valueEl) return 0;
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
 
-    const textEl =
-      qs(valueEl, ".picker-value-text") ||
-      qs(valueEl, ".w-richtext") ||
-      valueEl;
-
-    const n = parseInt(String(textEl.textContent || "").trim(), 10);
-
+  function parseIntSafe(v) {
+    const n = parseInt(String(v || "").trim(), 10);
     return isNaN(n) ? 0 : n;
   }
 
-  function setValue(valueEl, value) {
-    if (!valueEl) return;
-
-    const textEl =
-      qs(valueEl, ".picker-value-text") ||
-      qs(valueEl, ".w-richtext") ||
-      valueEl;
-
-    textEl.textContent = String(value);
+  function setHidden(name, value) {
+    const input = form.querySelector('input[type="hidden"][name="' + name + '"]');
+    if (input) input.value = value || "";
   }
 
-  function getParts(row) {
+  function getRowDim(row) {
+    return row.getAttribute("data-dim") || "";
+  }
+
+  function getHiddenDimInput(row) {
+    const dim = getRowDim(row);
+    if (!dim) return null;
+
+    return (
+      qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
+      qs(row, ".hidden-dimension-input") ||
+      qs(form, '.hidden-dimension-input[data-dim="' + dim + '"]')
+    );
+  }
+
+  function getMetersControl(row) {
+    return qs(row, ".meters-control");
+  }
+
+  function getCentimetersControl(row) {
+    return qs(row, ".centimeters-control");
+  }
+
+  function getValueEl(control) {
+    return control ? qs(control, ".picker-value") : null;
+  }
+
+  function getButtons(control) {
+    return control ? qsa(control, ".picker-btn") : [];
+  }
+
+  function getMinusBtn(control) {
+    const buttons = getButtons(control);
+    return buttons[0] || null;
+  }
+
+  function getPlusBtn(control) {
+    const buttons = getButtons(control);
+    return buttons[buttons.length - 1] || null;
+  }
+
+  function getDisplayedValue(valueEl) {
+    if (!valueEl) return 0;
+
+    const nestedText =
+      qs(valueEl, ".picker-value-text") ||
+      qs(valueEl, ".w-richtext") ||
+      null;
+
+    if (nestedText) return parseIntSafe(nestedText.textContent);
+
+    return parseIntSafe(valueEl.textContent);
+  }
+
+  function setDisplayedValue(valueEl, value) {
+    if (!valueEl) return;
+
+    const nestedText =
+      qs(valueEl, ".picker-value-text") ||
+      qs(valueEl, ".w-richtext") ||
+      null;
+
+    if (nestedText) {
+      nestedText.textContent = String(value);
+      return;
+    }
+
+    valueEl.textContent = String(value);
+  }
+
+  function getRowValues(row) {
+    const metersValueEl = getValueEl(getMetersControl(row));
+    const centimetersValueEl = getValueEl(getCentimetersControl(row));
+
     return {
-      meters: qs(row, ".meters-control .picker-value"),
-      centimeters: qs(row, ".centimeters-control .picker-value")
+      meters: getDisplayedValue(metersValueEl),
+      centimeters: getDisplayedValue(centimetersValueEl)
     };
   }
 
-  function ensureHidden(name) {
-    if (!name) return null;
+  function setRowValues(row, meters, centimeters) {
+    meters = clamp(parseIntSafe(meters), 0, 99);
+    centimeters = clamp(parseIntSafe(centimeters), 0, 95);
 
-    let input =
-      form.querySelector('input[type="hidden"][name="' + name + '"]') ||
-      form.querySelector('[name="' + name + '"]');
+    const metersValueEl = getValueEl(getMetersControl(row));
+    const centimetersValueEl = getValueEl(getCentimetersControl(row));
 
-    if (!input) {
-      input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      form.appendChild(input);
-    }
+    setDisplayedValue(metersValueEl, meters);
+    setDisplayedValue(centimetersValueEl, centimeters);
+  }
 
-    return input;
+  function formatDimension(meters, centimeters) {
+    return meters + " м " + centimeters + " см";
   }
 
   function syncRow(row) {
-    const dim = row.getAttribute("data-dim");
+    const dim = getRowDim(row);
     if (!dim) return;
 
-    const parts = getParts(row);
+    const values = getRowValues(row);
+    const formatted = formatDimension(values.meters, values.centimeters);
 
-    const meters = parseValue(parts.meters);
-    const centimeters = parseValue(parts.centimeters);
+    const localHidden = getHiddenDimInput(row);
+    if (localHidden) localHidden.value = formatted;
 
-    const formatted = meters + " м " + centimeters + " см";
-
-    const localHidden =
-      qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
-      qs(row, ".hidden-dimension-input");
-
-    if (localHidden) {
-      localHidden.value = formatted;
-    }
-
-    const canonical = DIM_TO_HIDDEN[dim];
-
-    if (canonical) {
-      const input = ensureHidden(canonical);
-      if (input) input.value = formatted;
-    }
+    const canonicalName = DIM_TO_HIDDEN[dim];
+    if (canonicalName) setHidden(canonicalName, formatted);
 
     row.classList.add("is-touched");
     row.setAttribute("data-touched", "true");
 
-    console.log("PICKER SYNC:", dim, formatted);
+    console.log("PRAVA PICKER SYNC:", dim, formatted);
   }
 
-  function normalize(meters, centimeters) {
+  function normalizeAfterCmChange(meters, centimeters) {
+    meters = parseIntSafe(meters);
+    centimeters = parseIntSafe(centimeters);
+
     while (centimeters >= 100) {
       meters += 1;
       centimeters -= 100;
@@ -533,55 +584,95 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    centimeters = Math.round(centimeters / 5) * 5;
+
+    if (centimeters >= 100) {
+      meters += 1;
+      centimeters = 0;
+    }
+
+    if (centimeters < 0) centimeters = 0;
+
+    if (centimeters > 95) {
+      meters += 1;
+      centimeters = 0;
+    }
+
     return {
-      meters: Math.max(0, meters),
-      centimeters: Math.max(0, Math.min(95, centimeters))
+      meters: clamp(meters, 0, 99),
+      centimeters: clamp(centimeters, 0, 95)
     };
   }
 
-  form.addEventListener("click", function (e) {
-    const btn = e.target.closest(".picker-btn");
-    if (!btn) return;
+  function incrementMeters(row) {
+    const values = getRowValues(row);
+    setRowValues(row, values.meters + 1, values.centimeters);
+    syncRow(row);
+  }
 
-    const row = btn.closest(".dimension-row[data-dim]");
-    if (!row) return;
+  function decrementMeters(row) {
+    const values = getRowValues(row);
+    setRowValues(row, Math.max(0, values.meters - 1), values.centimeters);
+    syncRow(row);
+  }
 
-    e.preventDefault();
+  function incrementCentimeters(row) {
+    const values = getRowValues(row);
+    const next = normalizeAfterCmChange(values.meters, values.centimeters + 5);
+    setRowValues(row, next.meters, next.centimeters);
+    syncRow(row);
+  }
 
-    const parts = getParts(row);
+  function decrementCentimeters(row) {
+    const values = getRowValues(row);
+    const next = normalizeAfterCmChange(values.meters, values.centimeters - 5);
+    setRowValues(row, next.meters, next.centimeters);
+    syncRow(row);
+  }
 
-    let meters = parseValue(parts.meters);
-    let centimeters = parseValue(parts.centimeters);
+  function bindRow(row) {
+    const metersControl = getMetersControl(row);
+    const centimetersControl = getCentimetersControl(row);
 
-    const control = btn.closest(".meters-control, .centimeters-control");
-    if (!control) return;
+    const metersMinus = getMinusBtn(metersControl);
+    const metersPlus = getPlusBtn(metersControl);
 
-    const buttons = qsa(control, ".picker-btn");
+    const centimetersMinus = getMinusBtn(centimetersControl);
+    const centimetersPlus = getPlusBtn(centimetersControl);
 
-    const isMinus = buttons.indexOf(btn) === 0;
-    const isPlus = buttons.indexOf(btn) === buttons.length - 1;
-
-    if (control.classList.contains("meters-control")) {
-      if (isMinus) meters = Math.max(0, meters - 1);
-      if (isPlus) meters += 1;
+    if (metersMinus) {
+      metersMinus.addEventListener("click", function (e) {
+        e.preventDefault();
+        decrementMeters(row);
+      });
     }
 
-    if (control.classList.contains("centimeters-control")) {
-      if (isMinus) centimeters -= 5;
-      if (isPlus) centimeters += 5;
-
-      const normalized = normalize(meters, centimeters);
-      meters = normalized.meters;
-      centimeters = normalized.centimeters;
+    if (metersPlus) {
+      metersPlus.addEventListener("click", function (e) {
+        e.preventDefault();
+        incrementMeters(row);
+      });
     }
 
-    setValue(parts.meters, meters);
-    setValue(parts.centimeters, centimeters);
+    if (centimetersMinus) {
+      centimetersMinus.addEventListener("click", function (e) {
+        e.preventDefault();
+        decrementCentimeters(row);
+      });
+    }
+
+    if (centimetersPlus) {
+      centimetersPlus.addEventListener("click", function (e) {
+        e.preventDefault();
+        incrementCentimeters(row);
+      });
+    }
 
     syncRow(row);
-  });
+  }
 
-  qsa(form, ".dimension-row[data-dim]").forEach(function (row) {
-    syncRow(row);
-  });
+  const dimensionRows = qsa(form, ".dimension-row[data-dim]");
+  console.log("PRAVA PICKER ROWS:", dimensionRows.length);
+
+  dimensionRows.forEach(bindRow);
 });
