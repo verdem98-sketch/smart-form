@@ -408,7 +408,7 @@ document.addEventListener("DOMContentLoaded", function () {
   );
 
 /* =========================================================
-   CHAPTER 3
+   CHAPTER 4
    PRAVA PICKERS ENGINE v2
    meters + centimeters / delegated clicks
    ========================================================= */
@@ -438,12 +438,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function parseValue(el) {
     if (!el) return 0;
+
     const n = parseInt(String(el.textContent || "").trim(), 10);
+
     return isNaN(n) ? 0 : n;
   }
 
   function setValue(el, value) {
     if (!el) return;
+
     el.textContent = String(value);
   }
 
@@ -467,12 +470,20 @@ document.addEventListener("DOMContentLoaded", function () {
       qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
       qs(row, ".hidden-dimension-input");
 
-    if (localHidden) localHidden.value = formatted;
+    if (localHidden) {
+      localHidden.value = formatted;
+    }
 
     const canonical = DIM_TO_HIDDEN[dim];
+
     if (canonical) {
-      const input = form.querySelector('input[type="hidden"][name="' + canonical + '"]');
-      if (input) input.value = formatted;
+      const input = form.querySelector(
+        'input[type="hidden"][name="' + canonical + '"]'
+      );
+
+      if (input) {
+        input.value = formatted;
+      }
     }
 
     console.log("PICKER SYNC:", dim, formatted);
@@ -497,7 +508,10 @@ document.addEventListener("DOMContentLoaded", function () {
     meters = Math.max(0, meters);
     centimeters = Math.max(0, Math.min(95, centimeters));
 
-    return { meters, centimeters };
+    return {
+      meters,
+      centimeters
+    };
   }
 
   form.addEventListener("click", function (e) {
@@ -515,7 +529,10 @@ document.addEventListener("DOMContentLoaded", function () {
     let centimeters = parseValue(parts.centimeters);
 
     const control = btn.closest(".meters-control, .centimeters-control");
+    if (!control) return;
+
     const buttons = Array.from(control.querySelectorAll(".picker-btn"));
+
     const isMinus = buttons.indexOf(btn) === 0;
     const isPlus = buttons.indexOf(btn) === buttons.length - 1;
 
@@ -529,6 +546,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (isPlus) centimeters += 5;
 
       const normalized = normalize(meters, centimeters);
+
       meters = normalized.meters;
       centimeters = normalized.centimeters;
     }
