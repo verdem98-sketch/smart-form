@@ -407,16 +407,20 @@ document.addEventListener("DOMContentLoaded", function () {
     true
   );
 
-// ==========================
-// PRAVA PICKERS ENGINE
-// meters + centimeters
-// ==========================
-document.addEventListener("DOMContentLoaded", function () {
-  const pravaPage = document.querySelector(".sf-page.sf-page-prava");
-  if (!pravaPage) return;
+/* =========================================================
+   CHAPTER 3
+   PRAVA PICKERS ENGINE v2
+   meters + centimeters / delegated clicks
+   ========================================================= */
 
-  const form = pravaPage.querySelector("form");
-  if (!form) return;
+document.addEventListener("DOMContentLoaded", function () {
+  console.log("PRAVA PICKERS ENGINE START");
+
+  const page = document.querySelector(".sf-page-prava");
+  if (!page) return console.log("NO .sf-page-prava FOR PICKERS");
+
+  const form = page.querySelector("form");
+  if (!form) return console.log("NO FORM FOR PICKERS");
 
   const DIM_TO_HIDDEN = {
     "len_prava_3": "wall_1",
@@ -425,145 +429,56 @@ document.addEventListener("DOMContentLoaded", function () {
     "island_width_3a": "island_width"
   };
 
+  const rows = Array.from(form.querySelectorAll(".dimension-row[data-dim]"));
+  console.log("PICKER ROWS FOUND:", rows.length);
+
   function qs(scope, sel) {
     return (scope || document).querySelector(sel);
   }
 
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function parseIntSafe(v) {
-    const n = parseInt(String(v || "").trim(), 10);
+  function parseValue(el) {
+    if (!el) return 0;
+    const n = parseInt(String(el.textContent || "").trim(), 10);
     return isNaN(n) ? 0 : n;
   }
 
-  function setHidden(name, value) {
-    const input = form.querySelector('input[type="hidden"][name="' + name + '"]');
-    if (input) input.value = value || "";
+  function setValue(el, value) {
+    if (!el) return;
+    el.textContent = String(value);
   }
 
-  function getRowDim(row) {
-    return row.getAttribute("data-dim") || "";
-  }
-
-  function getHiddenDimInput(row) {
-    const dim = getRowDim(row);
-    if (!dim) return null;
-
-    return (
-      qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
-      qs(row, '.hidden-dimension-input') ||
-      qs(form, '.hidden-dimension-input[data-dim="' + dim + '"]')
-    );
-  }
-
-  function getMetersControl(row) {
-    return qs(row, ".meters-control");
-  }
-
-  function getCentimetersControl(row) {
-    return qs(row, ".centimeters-control");
-  }
-
-  function getValueEl(control) {
-    return control ? qs(control, ".picker-value") : null;
-  }
-
-  function getButtons(control) {
-    return control ? qsa(control, ".picker-btn") : [];
-  }
-
-  function getMinusBtn(control) {
-    const buttons = getButtons(control);
-    return buttons[0] || null;
-  }
-
-  function getPlusBtn(control) {
-    const buttons = getButtons(control);
-    return buttons[buttons.length - 1] || null;
-  }
-
-  function getDisplayedValue(valueEl) {
-    if (!valueEl) return 0;
-
-    const nestedText =
-      qs(valueEl, ".picker-value-text") ||
-      qs(valueEl, ".w-richtext") ||
-      null;
-
-    if (nestedText) return parseIntSafe(nestedText.textContent);
-
-    return parseIntSafe(valueEl.textContent);
-  }
-
-  function setDisplayedValue(valueEl, value) {
-    if (!valueEl) return;
-
-    const nestedText =
-      qs(valueEl, ".picker-value-text") ||
-      qs(valueEl, ".w-richtext") ||
-      null;
-
-    if (nestedText) {
-      nestedText.textContent = String(value);
-      return;
-    }
-
-    valueEl.textContent = String(value);
-  }
-
-  function getRowValues(row) {
-    const metersValueEl = getValueEl(getMetersControl(row));
-    const centimetersValueEl = getValueEl(getCentimetersControl(row));
-
+  function getParts(row) {
     return {
-      meters: getDisplayedValue(metersValueEl),
-      centimeters: getDisplayedValue(centimetersValueEl)
+      meters: qs(row, ".meters-control .picker-value"),
+      centimeters: qs(row, ".centimeters-control .picker-value")
     };
   }
 
-  function setRowValues(row, meters, centimeters) {
-    meters = clamp(parseIntSafe(meters), 0, 99);
-    centimeters = clamp(parseIntSafe(centimeters), 0, 95);
-
-    const metersValueEl = getValueEl(getMetersControl(row));
-    const centimetersValueEl = getValueEl(getCentimetersControl(row));
-
-    setDisplayedValue(metersValueEl, meters);
-    setDisplayedValue(centimetersValueEl, centimeters);
-  }
-
-  function formatDimension(meters, centimeters) {
-    return meters + " м " + centimeters + " см";
-  }
-
   function syncRow(row) {
-    const dim = getRowDim(row);
-    if (!dim) return;
+    const dim = row.getAttribute("data-dim");
+    const parts = getParts(row);
 
-    const values = getRowValues(row);
-    const formatted = formatDimension(values.meters, values.centimeters);
+    const meters = parseValue(parts.meters);
+    const centimeters = parseValue(parts.centimeters);
 
-    const localHidden = getHiddenDimInput(row);
-    if (localHidden) {
-      localHidden.value = formatted;
+    const formatted = meters + " м " + centimeters + " см";
+
+    const localHidden =
+      qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
+      qs(row, ".hidden-dimension-input");
+
+    if (localHidden) localHidden.value = formatted;
+
+    const canonical = DIM_TO_HIDDEN[dim];
+    if (canonical) {
+      const input = form.querySelector('input[type="hidden"][name="' + canonical + '"]');
+      if (input) input.value = formatted;
     }
 
-    const canonicalName = DIM_TO_HIDDEN[dim];
-    if (canonicalName) {
-      setHidden(canonicalName, formatted);
-    }
+    console.log("PICKER SYNC:", dim, formatted);
   }
 
-  function normalizeAfterCmChange(meters, centimeters) {
-    meters = parseIntSafe(meters);
-    centimeters = parseIntSafe(centimeters);
-
+  function normalize(meters, centimeters) {
     while (centimeters >= 100) {
       meters += 1;
       centimeters -= 100;
@@ -579,93 +494,50 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    centimeters = Math.round(centimeters / 5) * 5;
+    meters = Math.max(0, meters);
+    centimeters = Math.max(0, Math.min(95, centimeters));
 
-    if (centimeters >= 100) {
-      meters += 1;
-      centimeters = 0;
-    }
-
-    if (centimeters < 0) centimeters = 0;
-    if (centimeters > 95) {
-      meters += 1;
-      centimeters = 0;
-    }
-
-    return {
-      meters: clamp(meters, 0, 99),
-      centimeters: clamp(centimeters, 0, 95)
-    };
+    return { meters, centimeters };
   }
 
-  function incrementMeters(row) {
-    const values = getRowValues(row);
-    setRowValues(row, values.meters + 1, values.centimeters);
-    syncRow(row);
-  }
+  form.addEventListener("click", function (e) {
+    const btn = e.target.closest(".picker-btn");
+    if (!btn) return;
 
-  function decrementMeters(row) {
-    const values = getRowValues(row);
-    setRowValues(row, Math.max(0, values.meters - 1), values.centimeters);
-    syncRow(row);
-  }
+    const row = btn.closest(".dimension-row[data-dim]");
+    if (!row) return;
 
-  function incrementCentimeters(row) {
-    const values = getRowValues(row);
-    const next = normalizeAfterCmChange(values.meters, values.centimeters + 5);
-    setRowValues(row, next.meters, next.centimeters);
-    syncRow(row);
-  }
+    e.preventDefault();
 
-  function decrementCentimeters(row) {
-    const values = getRowValues(row);
-    const next = normalizeAfterCmChange(values.meters, values.centimeters - 5);
-    setRowValues(row, next.meters, next.centimeters);
-    syncRow(row);
-  }
+    const parts = getParts(row);
 
-  function bindRow(row) {
-    const metersControl = getMetersControl(row);
-    const centimetersControl = getCentimetersControl(row);
+    let meters = parseValue(parts.meters);
+    let centimeters = parseValue(parts.centimeters);
 
-    const metersMinus = getMinusBtn(metersControl);
-    const metersPlus = getPlusBtn(metersControl);
+    const control = btn.closest(".meters-control, .centimeters-control");
+    const buttons = Array.from(control.querySelectorAll(".picker-btn"));
+    const isMinus = buttons.indexOf(btn) === 0;
+    const isPlus = buttons.indexOf(btn) === buttons.length - 1;
 
-    const centimetersMinus = getMinusBtn(centimetersControl);
-    const centimetersPlus = getPlusBtn(centimetersControl);
-
-    if (metersMinus) {
-      metersMinus.addEventListener("click", function (e) {
-        e.preventDefault();
-        decrementMeters(row);
-      });
+    if (control.classList.contains("meters-control")) {
+      if (isMinus) meters = Math.max(0, meters - 1);
+      if (isPlus) meters += 1;
     }
 
-    if (metersPlus) {
-      metersPlus.addEventListener("click", function (e) {
-        e.preventDefault();
-        incrementMeters(row);
-      });
+    if (control.classList.contains("centimeters-control")) {
+      if (isMinus) centimeters -= 5;
+      if (isPlus) centimeters += 5;
+
+      const normalized = normalize(meters, centimeters);
+      meters = normalized.meters;
+      centimeters = normalized.centimeters;
     }
 
-    if (centimetersMinus) {
-      centimetersMinus.addEventListener("click", function (e) {
-        e.preventDefault();
-        decrementCentimeters(row);
-      });
-    }
-
-    if (centimetersPlus) {
-      centimetersPlus.addEventListener("click", function (e) {
-        e.preventDefault();
-        incrementCentimeters(row);
-      });
-    }
+    setValue(parts.meters, meters);
+    setValue(parts.centimeters, centimeters);
 
     syncRow(row);
-  }
+  });
 
-  const dimensionRows = qsa(form, '.dimension-row[data-dim]');
-  dimensionRows.forEach(bindRow);
+  rows.forEach(syncRow);
 });
-
