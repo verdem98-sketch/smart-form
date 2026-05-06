@@ -409,18 +409,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 4
-   PRAVA PICKERS ENGINE v2
+   PRAVA PICKERS ENGINE v3 — DOM SAFE
    meters + centimeters / delegated clicks
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA PICKERS ENGINE START");
+  console.log("PRAVA PICKERS ENGINE v3 START");
 
   const page = document.querySelector(".sf-page-prava");
-  if (!page) return console.log("NO .sf-page-prava FOR PICKERS");
+  if (!page) return;
 
   const form = page.querySelector("form");
-  if (!form) return console.log("NO FORM FOR PICKERS");
+  if (!form) return;
 
   const DIM_TO_HIDDEN = {
     "len_prava_3": "wall_1",
@@ -429,25 +429,36 @@ document.addEventListener("DOMContentLoaded", function () {
     "island_width_3a": "island_width"
   };
 
-  const rows = Array.from(form.querySelectorAll(".dimension-row[data-dim]"));
-  console.log("PICKER ROWS FOUND:", rows.length);
-
   function qs(scope, sel) {
     return (scope || document).querySelector(sel);
   }
 
-  function parseValue(el) {
-    if (!el) return 0;
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
 
-    const n = parseInt(String(el.textContent || "").trim(), 10);
+  function parseValue(valueEl) {
+    if (!valueEl) return 0;
+
+    const textEl =
+      qs(valueEl, ".picker-value-text") ||
+      qs(valueEl, ".w-richtext") ||
+      valueEl;
+
+    const n = parseInt(String(textEl.textContent || "").trim(), 10);
 
     return isNaN(n) ? 0 : n;
   }
 
-  function setValue(el, value) {
-    if (!el) return;
+  function setValue(valueEl, value) {
+    if (!valueEl) return;
 
-    el.textContent = String(value);
+    const textEl =
+      qs(valueEl, ".picker-value-text") ||
+      qs(valueEl, ".w-richtext") ||
+      valueEl;
+
+    textEl.textContent = String(value);
   }
 
   function getParts(row) {
@@ -457,8 +468,27 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
+  function ensureHidden(name) {
+    if (!name) return null;
+
+    let input =
+      form.querySelector('input[type="hidden"][name="' + name + '"]') ||
+      form.querySelector('[name="' + name + '"]');
+
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      form.appendChild(input);
+    }
+
+    return input;
+  }
+
   function syncRow(row) {
     const dim = row.getAttribute("data-dim");
+    if (!dim) return;
+
     const parts = getParts(row);
 
     const meters = parseValue(parts.meters);
@@ -477,14 +507,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const canonical = DIM_TO_HIDDEN[dim];
 
     if (canonical) {
-      const input = form.querySelector(
-        'input[type="hidden"][name="' + canonical + '"]'
-      );
-
-      if (input) {
-        input.value = formatted;
-      }
+      const input = ensureHidden(canonical);
+      if (input) input.value = formatted;
     }
+
+    row.classList.add("is-touched");
+    row.setAttribute("data-touched", "true");
 
     console.log("PICKER SYNC:", dim, formatted);
   }
@@ -505,12 +533,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    meters = Math.max(0, meters);
-    centimeters = Math.max(0, Math.min(95, centimeters));
-
     return {
-      meters,
-      centimeters
+      meters: Math.max(0, meters),
+      centimeters: Math.max(0, Math.min(95, centimeters))
     };
   }
 
@@ -531,7 +556,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const control = btn.closest(".meters-control, .centimeters-control");
     if (!control) return;
 
-    const buttons = Array.from(control.querySelectorAll(".picker-btn"));
+    const buttons = qsa(control, ".picker-btn");
 
     const isMinus = buttons.indexOf(btn) === 0;
     const isPlus = buttons.indexOf(btn) === buttons.length - 1;
@@ -546,7 +571,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (isPlus) centimeters += 5;
 
       const normalized = normalize(meters, centimeters);
-
       meters = normalized.meters;
       centimeters = normalized.centimeters;
     }
@@ -557,5 +581,7 @@ document.addEventListener("DOMContentLoaded", function () {
     syncRow(row);
   });
 
-  rows.forEach(syncRow);
+  qsa(form, ".dimension-row[data-dim]").forEach(function (row) {
+    syncRow(row);
+  });
 });
