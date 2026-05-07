@@ -9,20 +9,43 @@
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE
-   HARD HINT VERSION
+   CAPTURE SHIELD VERSION
+   blocks old alert listeners
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA CH1 HARD HINT START");
+  console.log("PRAVA CH1 CAPTURE SHIELD START");
 
   const flow = document.querySelector(".sf-page-prava");
-  if (!flow) return console.log("NO .sf-page-prava FOUND");
+  if (!flow) return;
 
   const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
   console.log("QUESTIONS FOUND:", questions.length);
 
+  const comboPhase =
+    flow.querySelector(".combo-phase") ||
+    flow.querySelector(".combo-phase-wrap");
+
+  const dimensionsPhase =
+    flow.querySelector(".dimensions-phase") ||
+    flow.querySelector(".dimensions-phase-wrap");
+
   let state = {};
   let currentIndex = 0;
+
+  function show(el, displayType) {
+    if (!el) return;
+    el.style.setProperty("display", displayType || "block", "important");
+    el.style.setProperty("visibility", "visible", "important");
+    el.style.setProperty("opacity", "1", "important");
+  }
+
+  function hide(el) {
+    if (!el) return;
+    el.style.setProperty("display", "none", "important");
+    el.style.setProperty("visibility", "hidden", "important");
+    el.style.setProperty("opacity", "0", "important");
+  }
 
   function showQuestion(index) {
     questions.forEach(function (q, i) {
@@ -49,10 +72,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function showHardHint(question) {
+  function showHint(question) {
     if (!question) return;
-
-    console.log("SHOW HARD HINT FOR:", question.getAttribute("data-field"));
 
     let hint = question.querySelector(".question-hint");
 
@@ -66,7 +87,7 @@ document.addEventListener("DOMContentLoaded", function () {
     hint.style.setProperty("display", "block", "important");
     hint.style.setProperty("visibility", "visible", "important");
     hint.style.setProperty("opacity", "1", "important");
-    hint.style.setProperty("margin-top", "10px", "important");
+    hint.style.setProperty("margin-top", "12px", "important");
     hint.style.setProperty("color", "#9a3b00", "important");
     hint.style.setProperty("font-size", "14px", "important");
 
@@ -91,10 +112,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (hint) {
       hint.style.setProperty("display", "none", "important");
-      hint.classList.remove("is-visible");
     }
 
     question.classList.remove("choice-warning");
+  }
+
+  function openDimensionsPhase() {
+    questions.forEach(function (q) {
+      hide(q);
+      q.classList.remove("active-question");
+    });
+
+    hide(comboPhase);
+    show(dimensionsPhase, "block");
+
+    setTimeout(function () {
+      dimensionsPhase.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 50);
   }
 
   function selectPill(pill) {
@@ -128,23 +165,26 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!next) return;
 
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
     const question = currentQuestion();
     const field = fieldOf(question);
 
-    console.log("NAV NEXT:", field, state[field]);
+    console.log("CH1 NAV NEXT:", field, state[field]);
 
     if (field && !state[field]) {
-      showHardHint(question);
+      showHint(question);
       return;
     }
 
     if (currentIndex < questions.length - 1) {
       showQuestion(currentIndex + 1);
-    } else {
-      console.log("END OF QUESTIONS");
+      return;
     }
-  });
+
+    openDimensionsPhase();
+  }, true);
 
   flow.addEventListener("click", function (e) {
     const back = e.target.closest(".nav-back");
@@ -173,11 +213,14 @@ document.addEventListener("DOMContentLoaded", function () {
       hint.style.setProperty("display", "none", "important");
     });
 
+    show(comboPhase, "block");
+    hide(dimensionsPhase);
     showQuestion(0);
 
     console.log("RESET PRAVA");
   });
 
+  hide(dimensionsPhase);
   showQuestion(0);
 });
 
