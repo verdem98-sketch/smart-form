@@ -10,7 +10,7 @@
    CHAPTER 1
    PRAVA FLOW ENGINE
    Question navigation / active states / reset
-   NO ALERT / LOCKED NEXT VERSION
+   NO ALERT VERSION
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -36,16 +36,13 @@ document.addEventListener("DOMContentLoaded", function () {
     return (scope || document).querySelector(sel);
   }
 
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
   function showQuestion(index) {
     questions.forEach(function (q, i) {
       q.classList.toggle("active-question", i === index);
     });
 
     currentIndex = index;
+
     console.log("CURRENT QUESTION:", currentIndex + 1);
   }
 
@@ -54,44 +51,42 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fieldOf(question) {
-    return question ? question.getAttribute("data-field") : null;
+    return question
+      ? question.getAttribute("data-field")
+      : null;
   }
 
   function clearActive(question) {
     if (!question) return;
 
-    qsa(question, ".option-pill").forEach(function (pill) {
+    question.querySelectorAll(".option-pill").forEach(function (pill) {
       pill.classList.remove("active");
       pill.classList.remove("is-selected");
     });
   }
 
-  function hideQuestionHint(question) {
+  function hideHint(question) {
     if (!question) return;
 
-    const hint = qs(question, ".question-hint");
-    if (hint) hint.classList.remove("is-visible");
+    const hint = question.querySelector(".question-hint");
+
+    if (hint) {
+      hint.classList.remove("is-visible");
+    }
 
     question.classList.remove("choice-warning");
   }
 
-  function showQuestionHint(question) {
+  function showHint(question) {
     if (!question) return;
 
-    let hint = qs(question, ".question-hint");
+    let hint = question.querySelector(".question-hint");
 
     if (!hint) {
       hint = document.createElement("div");
       hint.className = "question-hint";
       hint.textContent = "Избери вариант, за да продължим.";
-
-      const optionsRow = qs(question, ".options-row");
-
-      if (optionsRow) {
-        optionsRow.insertAdjacentElement("afterend", hint);
-      } else {
-        question.appendChild(hint);
-      }
+      question.appendChild(hint);
     }
 
     hint.classList.add("is-visible");
@@ -108,12 +103,11 @@ document.addEventListener("DOMContentLoaded", function () {
       behavior: "smooth",
       block: "center"
     });
-
-    console.log("PRAVA WARNING SHOWN");
   }
 
   function selectPill(pill) {
     const question = pill.closest(".question-wrap-prava");
+
     if (!question) return;
 
     const field = fieldOf(question);
@@ -126,87 +120,74 @@ document.addEventListener("DOMContentLoaded", function () {
 
     state[field] = value;
 
-    hideQuestionHint(question);
+    hideHint(question);
 
     console.log("STATE:", state);
   }
 
   flow.addEventListener("click", function (e) {
     const pill = e.target.closest(".option-pill");
+
     if (!pill) return;
 
     e.preventDefault();
+
     selectPill(pill);
   });
 
-  flow.addEventListener(
-    "click",
-    function (e) {
-      const next = e.target.closest(".nav-next");
-      if (!next) return;
+  flow.addEventListener("click", function (e) {
+    const next = e.target.closest(".nav-next");
 
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    if (!next) return;
 
-      const question = currentQuestion();
-      const field = fieldOf(question);
+    e.preventDefault();
 
-      if (field && !state[field]) {
-        showQuestionHint(question);
-        return false;
-      }
+    const question = currentQuestion();
+    const field = fieldOf(question);
 
-      hideQuestionHint(question);
+    if (field && !state[field]) {
+      showHint(question);
+      return;
+    }
 
-      if (currentIndex < questions.length - 1) {
-        showQuestion(currentIndex + 1);
-      } else {
-        console.log("END OF QUESTIONS");
-      }
+    if (currentIndex < questions.length - 1) {
+      showQuestion(currentIndex + 1);
+    } else {
+      console.log("END OF QUESTIONS");
+    }
+  });
 
-      return false;
-    },
-    true
-  );
+  flow.addEventListener("click", function (e) {
+    const back = e.target.closest(".nav-back");
 
-  flow.addEventListener(
-    "click",
-    function (e) {
-      const back = e.target.closest(".nav-back");
-      if (!back) return;
+    if (!back) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    e.preventDefault();
 
-      if (currentIndex > 0) {
-        showQuestion(currentIndex - 1);
-      }
-
-      return false;
-    },
-    true
-  );
+    if (currentIndex > 0) {
+      showQuestion(currentIndex - 1);
+    }
+  });
 
   flow.addEventListener("click", function (e) {
     const reset = e.target.closest('[data-action="reset-prava"]');
+
     if (!reset) return;
 
     e.preventDefault();
 
     state = {};
 
-    qsa(flow, ".option-pill").forEach(function (pill) {
+    flow.querySelectorAll(".option-pill").forEach(function (pill) {
       pill.classList.remove("active");
       pill.classList.remove("is-selected");
     });
 
-    qsa(flow, ".question-hint").forEach(function (hint) {
+    flow.querySelectorAll(".question-hint").forEach(function (hint) {
       hint.classList.remove("is-visible");
     });
 
-    qsa(flow, ".question-wrap-prava").forEach(function (q) {
+    flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
       q.classList.remove("choice-warning");
     });
 
@@ -217,7 +198,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   showQuestion(0);
 });
-
 
 
 
@@ -497,11 +477,12 @@ hide(dimensionsPhase);
 
 /* =========================================================
    CHAPTER 4
-   PRAVA PICKERS ENGINE — GITHUB SAFE
+   PRAVA PICKERS ENGINE — TOUCH SAFE
    meters + centimeters
    ========================================================= */
 
 (function () {
+
   function ready(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
@@ -511,13 +492,14 @@ hide(dimensionsPhase);
   }
 
   ready(function () {
+
     console.log("CHAPTER 4 PICKERS START");
 
     const pravaPage = document.querySelector(".sf-page-prava");
-    if (!pravaPage) return console.log("CH4: no .sf-page-prava");
+    if (!pravaPage) return;
 
     const form = pravaPage.querySelector("form");
-    if (!form) return console.log("CH4: no form");
+    if (!form) return;
 
     const DIM_TO_HIDDEN = {
       "len_prava_3": "wall_1",
@@ -534,10 +516,6 @@ hide(dimensionsPhase);
       return Array.from((scope || document).querySelectorAll(sel));
     }
 
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-
     function parseIntSafe(v) {
       const n = parseInt(String(v || "").trim(), 10);
       return isNaN(n) ? 0 : n;
@@ -546,39 +524,50 @@ hide(dimensionsPhase);
     function getDisplayedValue(valueEl) {
       if (!valueEl) return 0;
 
-      const nestedText =
-        qs(valueEl, ".picker-value-text") ||
-        qs(valueEl, ".w-richtext");
-
-      return parseIntSafe(nestedText ? nestedText.textContent : valueEl.textContent);
+      return parseIntSafe(valueEl.textContent);
     }
 
     function setDisplayedValue(valueEl, value) {
       if (!valueEl) return;
-
-      const nestedText =
-        qs(valueEl, ".picker-value-text") ||
-        qs(valueEl, ".w-richtext");
-
-      if (nestedText) nestedText.textContent = String(value);
-      else valueEl.textContent = String(value);
+      valueEl.textContent = String(value);
     }
 
     function getRowValues(row) {
       return {
-        meters: getDisplayedValue(qs(row, ".meters-control .picker-value")),
-        centimeters: getDisplayedValue(qs(row, ".centimeters-control .picker-value"))
+        meters: getDisplayedValue(
+          qs(row, ".meters-control .picker-value")
+        ),
+        centimeters: getDisplayedValue(
+          qs(row, ".centimeters-control .picker-value")
+        )
       };
     }
 
     function setRowValues(row, meters, centimeters) {
-      setDisplayedValue(qs(row, ".meters-control .picker-value"), clamp(parseIntSafe(meters), 0, 99));
-      setDisplayedValue(qs(row, ".centimeters-control .picker-value"), clamp(parseIntSafe(centimeters), 0, 95));
+      setDisplayedValue(
+        qs(row, ".meters-control .picker-value"),
+        meters
+      );
+
+      setDisplayedValue(
+        qs(row, ".centimeters-control .picker-value"),
+        centimeters
+      );
+    }
+
+    function markTouched(row) {
+      if (!row) return;
+
+      row.classList.add("is-touched");
+      row.setAttribute("data-touched", "true");
     }
 
     function setHidden(name, value) {
       const input = form.querySelector('[name="' + name + '"]');
-      if (input) input.value = value || "";
+
+      if (input) {
+        input.value = value || "";
+      }
     }
 
     function syncRow(row) {
@@ -586,99 +575,116 @@ hide(dimensionsPhase);
       if (!dim) return;
 
       const values = getRowValues(row);
-      const formatted = values.meters + " м " + values.centimeters + " см";
 
-      const localHidden =
-        qs(row, '.hidden-dimension-input[data-dim="' + dim + '"]') ||
-        qs(row, ".hidden-dimension-input") ||
-        qs(form, '.hidden-dimension-input[data-dim="' + dim + '"]');
-
-      if (localHidden) localHidden.value = formatted;
+      const formatted =
+        values.meters + " м " +
+        values.centimeters + " см";
 
       const canonical = DIM_TO_HIDDEN[dim];
-      if (canonical) setHidden(canonical, formatted);
+
+      if (canonical) {
+        setHidden(canonical, formatted);
+      }
 
       console.log("CH4 sync:", dim, formatted);
     }
 
-    function normalizeAfterCmChange(meters, centimeters) {
-      meters = parseIntSafe(meters);
-      centimeters = parseIntSafe(centimeters);
-
-      while (centimeters >= 100) {
-        meters += 1;
-        centimeters -= 100;
-      }
-
-      while (centimeters < 0) {
-        if (meters > 0) {
-          meters -= 1;
-          centimeters += 100;
-        } else {
-          centimeters = 0;
-          break;
-        }
-      }
-
-      centimeters = Math.round(centimeters / 5) * 5;
-
-      if (centimeters >= 100) {
-        meters += 1;
-        centimeters = 0;
-      }
-
-      if (centimeters > 95) {
-        meters += 1;
-        centimeters = 0;
-      }
-
-      return {
-        meters: clamp(meters, 0, 99),
-        centimeters: clamp(centimeters, 0, 95)
-      };
-    }
-
     function bindRow(row) {
+
       if (row.dataset.pickerBound === "true") return;
+
       row.dataset.pickerBound = "true";
 
-      const metersBtns = qsa(row, ".meters-control .picker-btn");
-      const cmBtns = qsa(row, ".centimeters-control .picker-btn");
+      const metersBtns = qsa(
+        row,
+        ".meters-control .picker-btn"
+      );
+
+      const cmBtns = qsa(
+        row,
+        ".centimeters-control .picker-btn"
+      );
 
       if (metersBtns[0]) {
         metersBtns[0].addEventListener("click", function (e) {
+
           e.preventDefault();
+          markTouched(row);
+
           const v = getRowValues(row);
-          setRowValues(row, Math.max(0, v.meters - 1), v.centimeters);
+
+          setRowValues(
+            row,
+            Math.max(0, v.meters - 1),
+            v.centimeters
+          );
+
           syncRow(row);
         });
       }
 
-      if (metersBtns[metersBtns.length - 1]) {
-        metersBtns[metersBtns.length - 1].addEventListener("click", function (e) {
+      if (metersBtns[1]) {
+        metersBtns[1].addEventListener("click", function (e) {
+
           e.preventDefault();
+          markTouched(row);
+
           const v = getRowValues(row);
-          setRowValues(row, v.meters + 1, v.centimeters);
+
+          setRowValues(
+            row,
+            v.meters + 1,
+            v.centimeters
+          );
+
           syncRow(row);
         });
       }
 
       if (cmBtns[0]) {
         cmBtns[0].addEventListener("click", function (e) {
+
           e.preventDefault();
+          markTouched(row);
+
           const v = getRowValues(row);
-          const next = normalizeAfterCmChange(v.meters, v.centimeters - 5);
-          setRowValues(row, next.meters, next.centimeters);
+
+          let cm = v.centimeters - 5;
+          let m = v.meters;
+
+          if (cm < 0) {
+            if (m > 0) {
+              m -= 1;
+              cm = 95;
+            } else {
+              cm = 0;
+            }
+          }
+
+          setRowValues(row, m, cm);
+
           syncRow(row);
         });
       }
 
-      if (cmBtns[cmBtns.length - 1]) {
-        cmBtns[cmBtns.length - 1].addEventListener("click", function (e) {
+      if (cmBtns[1]) {
+        cmBtns[1].addEventListener("click", function (e) {
+
           e.preventDefault();
+          markTouched(row);
+
           const v = getRowValues(row);
-          const next = normalizeAfterCmChange(v.meters, v.centimeters + 5);
-          setRowValues(row, next.meters, next.centimeters);
+
+          let cm = v.centimeters + 5;
+          let m = v.meters;
+
+          if (cm > 95) {
+            cm = 0;
+            m += 1;
+          }
+
+          setRowValues(row, m, cm);
+
           syncRow(row);
         });
       }
@@ -686,10 +692,10 @@ hide(dimensionsPhase);
       syncRow(row);
     }
 
-    const rows = qsa(form, ".dimension-row[data-dim]");
-    console.log("CH4 rows:", rows.length);
-    rows.forEach(bindRow);
+    qsa(form, ".dimension-row[data-dim]").forEach(bindRow);
+
   });
+
 })();
 
 
