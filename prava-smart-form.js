@@ -406,4 +406,5 @@ document.addEventListener("DOMContentLoaded", function () {
     },
     true
   );
-
+hide(dimensionsPhase);
+});
