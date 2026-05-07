@@ -10,7 +10,7 @@
    CHAPTER 1
    PRAVA FLOW ENGINE
    CAPTURE SHIELD VERSION
-   blocks old alert listeners
+   no alert / visible hint
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -22,30 +22,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
   console.log("QUESTIONS FOUND:", questions.length);
 
-  const comboPhase =
-    flow.querySelector(".combo-phase") ||
-    flow.querySelector(".combo-phase-wrap");
-
-  const dimensionsPhase =
-    flow.querySelector(".dimensions-phase") ||
-    flow.querySelector(".dimensions-phase-wrap");
-
   let state = {};
   let currentIndex = 0;
-
-  function show(el, displayType) {
-    if (!el) return;
-    el.style.setProperty("display", displayType || "block", "important");
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
-  }
-
-  function hide(el) {
-    if (!el) return;
-    el.style.setProperty("display", "none", "important");
-    el.style.setProperty("visibility", "hidden", "important");
-    el.style.setProperty("opacity", "0", "important");
-  }
 
   function showQuestion(index) {
     questions.forEach(function (q, i) {
@@ -84,6 +62,8 @@ document.addEventListener("DOMContentLoaded", function () {
       question.appendChild(hint);
     }
 
+    hint.classList.add("is-visible");
+
     hint.style.setProperty("display", "block", "important");
     hint.style.setProperty("visibility", "visible", "important");
     hint.style.setProperty("opacity", "1", "important");
@@ -95,14 +75,14 @@ document.addEventListener("DOMContentLoaded", function () {
     void question.offsetWidth;
     question.classList.add("choice-warning");
 
+    setTimeout(function () {
+      question.classList.remove("choice-warning");
+    }, 350);
+
     question.scrollIntoView({
       behavior: "smooth",
       block: "center"
     });
-
-    setTimeout(function () {
-      question.classList.remove("choice-warning");
-    }, 350);
   }
 
   function hideHint(question) {
@@ -111,27 +91,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const hint = question.querySelector(".question-hint");
 
     if (hint) {
+      hint.classList.remove("is-visible");
       hint.style.setProperty("display", "none", "important");
     }
 
     question.classList.remove("choice-warning");
-  }
-
-  function openDimensionsPhase() {
-    questions.forEach(function (q) {
-      hide(q);
-      q.classList.remove("active-question");
-    });
-
-    hide(comboPhase);
-    show(dimensionsPhase, "block");
-
-    setTimeout(function () {
-      dimensionsPhase.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }, 50);
   }
 
   function selectPill(pill) {
@@ -166,7 +130,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     e.preventDefault();
     e.stopPropagation();
-    e.stopImmediatePropagation();
 
     const question = currentQuestion();
     const field = fieldOf(question);
@@ -180,10 +143,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (currentIndex < questions.length - 1) {
       showQuestion(currentIndex + 1);
-      return;
+    } else {
+      console.log("END OF QUESTIONS");
     }
-
-    openDimensionsPhase();
   }, true);
 
   flow.addEventListener("click", function (e) {
@@ -210,20 +172,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     flow.querySelectorAll(".question-hint").forEach(function (hint) {
+      hint.classList.remove("is-visible");
       hint.style.setProperty("display", "none", "important");
     });
 
-    show(comboPhase, "block");
-    hide(dimensionsPhase);
+    flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
+      q.classList.remove("choice-warning");
+    });
+
     showQuestion(0);
 
     console.log("RESET PRAVA");
   });
 
-  hide(dimensionsPhase);
   showQuestion(0);
 });
-
 
 
 
