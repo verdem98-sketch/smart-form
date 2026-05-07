@@ -10,29 +10,47 @@
    CHAPTER 1
    PRAVA FLOW ENGINE
    Question navigation / active states / reset
+   NO ALERT VERSION
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
   console.log("PRAVA ENGINE START");
 
   const flow = document.querySelector(".sf-page-prava");
+
   if (!flow) {
     console.log("NO .sf-page-prava FOUND");
     return;
   }
 
-  const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
+  const questions = Array.from(
+    flow.querySelectorAll(".question-wrap-prava")
+  );
+
   console.log("QUESTIONS FOUND:", questions.length);
 
   let state = {};
   let currentIndex = 0;
 
+  /* =========================================================
+     HELPERS
+     ========================================================= */
+
+  function qs(scope, sel) {
+    return (scope || document).querySelector(sel);
+  }
+
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
+
   function showQuestion(index) {
-    questions.forEach((q, i) => {
+    questions.forEach(function (q, i) {
       q.classList.toggle("active-question", i === index);
     });
 
     currentIndex = index;
+
     console.log("CURRENT QUESTION:", currentIndex + 1);
   }
 
@@ -41,7 +59,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fieldOf(question) {
-    return question ? question.getAttribute("data-field") : null;
+    return question
+      ? question.getAttribute("data-field")
+      : null;
   }
 
   function clearActive(question) {
@@ -53,8 +73,63 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  function hideQuestionHint(question) {
+    if (!question) return;
+
+    const hint = qs(question, ".question-hint");
+
+    if (hint) {
+      hint.classList.remove("is-visible");
+    }
+
+    question.classList.remove("choice-warning");
+  }
+
+  function showQuestionHint(question) {
+    if (!question) return;
+
+    let hint = qs(question, ".question-hint");
+
+    if (!hint) {
+      hint = document.createElement("div");
+
+      hint.className = "question-hint";
+      hint.textContent = "Избери вариант, за да продължим.";
+
+      const optionsRow = qs(question, ".options-row");
+
+      if (optionsRow) {
+        optionsRow.insertAdjacentElement("afterend", hint);
+      } else {
+        question.appendChild(hint);
+      }
+    }
+
+    question.classList.remove("choice-warning");
+
+    void question.offsetWidth;
+
+    question.classList.add("choice-warning");
+
+    hint.classList.add("is-visible");
+
+    setTimeout(function () {
+      question.classList.remove("choice-warning");
+    }, 350);
+
+    question.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+  }
+
+  /* =========================================================
+     SELECT
+     ========================================================= */
+
   function selectPill(pill) {
     const question = pill.closest(".question-wrap-prava");
+
     if (!question) return;
 
     const field = fieldOf(question);
@@ -67,19 +142,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
     state[field] = value;
 
+    hideQuestionHint(question);
+
     console.log("STATE:", state);
   }
 
+  /* =========================================================
+     OPTION CLICK
+     ========================================================= */
+
   flow.addEventListener("click", function (e) {
     const pill = e.target.closest(".option-pill");
+
     if (!pill) return;
 
     e.preventDefault();
+
     selectPill(pill);
   });
 
+  /* =========================================================
+     NEXT
+     ========================================================= */
+
   flow.addEventListener("click", function (e) {
     const next = e.target.closest(".nav-next");
+
     if (!next) return;
 
     e.preventDefault();
@@ -88,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const field = fieldOf(question);
 
     if (field && !state[field]) {
-      alert("Избери опция");
+      showQuestionHint(question);
       return;
     }
 
@@ -99,8 +187,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  /* =========================================================
+     BACK
+     ========================================================= */
+
   flow.addEventListener("click", function (e) {
     const back = e.target.closest(".nav-back");
+
     if (!back) return;
 
     e.preventDefault();
@@ -110,8 +203,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  /* =========================================================
+     RESET
+     ========================================================= */
+
   flow.addEventListener("click", function (e) {
     const reset = e.target.closest('[data-action="reset-prava"]');
+
     if (!reset) return;
 
     e.preventDefault();
@@ -123,10 +221,22 @@ document.addEventListener("DOMContentLoaded", function () {
       pill.classList.remove("is-selected");
     });
 
+    qsa(flow, ".question-hint").forEach(function (hint) {
+      hint.classList.remove("is-visible");
+    });
+
+    qsa(flow, ".question-wrap-prava").forEach(function (q) {
+      q.classList.remove("choice-warning");
+    });
+
     showQuestion(0);
 
     console.log("RESET PRAVA");
   });
+
+  /* =========================================================
+     INIT
+     ========================================================= */
 
   showQuestion(0);
 });
