@@ -920,3 +920,76 @@ qsa(flow, ".dimension-row").forEach(function (row) {
     }
   }
 });
+
+
+
+
+
+
+
+/* =========================================================
+   PRAVA DIMENSIONS → FINAL PHASE BRIDGE
+   Validates visible dimensions, then opens final phase
+   ========================================================= */
+
+function findFinalPhase() {
+  return (
+    qs(flow, ".final-phase-wrap") ||
+    qs(flow, ".final-phase") ||
+    qs(flow, ".prava-final-phase") ||
+    qs(flow, ".step-final") ||
+    qs(flow, '[data-phase="final"]')
+  );
+}
+
+function isDimensionsPhaseVisible() {
+  return dimensionsWrap && isVisible(dimensionsWrap);
+}
+
+function showFinalPhase() {
+  var finalPhase = findFinalPhase();
+  if (!finalPhase) {
+    console.warn("PRAVA: Final phase not found.");
+    return;
+  }
+
+  if (dimensionsWrap) {
+    dimensionsWrap.style.display = "none";
+  }
+
+  finalPhase.style.display = "block";
+
+  finalPhase.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+function validateDimensionsBeforeFinal() {
+  var emptyDimension = findFirstEmptyVisibleDimension();
+
+  if (emptyDimension) {
+    shakeDimension(emptyDimension);
+    return false;
+  }
+
+  return true;
+}
+
+/* бутонът, който излиза от размерите към final */
+qsa(flow, ".dimensions-next-btn, .nav-next-final, .final-next-btn").forEach(function (btn) {
+  btn.setAttribute("type", "button");
+
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    hideAllHints();
+
+    if (!isDimensionsPhaseVisible()) return;
+
+    if (!validateDimensionsBeforeFinal()) return;
+
+    showFinalPhase();
+  });
+});
