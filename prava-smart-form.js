@@ -9,32 +9,20 @@
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE
-   Question navigation / active states / reset
-   NO ALERT VERSION
+   HARD HINT VERSION
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA ENGINE START");
+  console.log("PRAVA CH1 HARD HINT START");
 
   const flow = document.querySelector(".sf-page-prava");
+  if (!flow) return console.log("NO .sf-page-prava FOUND");
 
-  if (!flow) {
-    console.log("NO .sf-page-prava FOUND");
-    return;
-  }
-
-  const questions = Array.from(
-    flow.querySelectorAll(".question-wrap-prava")
-  );
-
+  const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
   console.log("QUESTIONS FOUND:", questions.length);
 
   let state = {};
   let currentIndex = 0;
-
-  function qs(scope, sel) {
-    return (scope || document).querySelector(sel);
-  }
 
   function showQuestion(index) {
     questions.forEach(function (q, i) {
@@ -42,7 +30,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     currentIndex = index;
-
     console.log("CURRENT QUESTION:", currentIndex + 1);
   }
 
@@ -51,34 +38,21 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fieldOf(question) {
-    return question
-      ? question.getAttribute("data-field")
-      : null;
+    return question ? question.getAttribute("data-field") : null;
   }
 
   function clearActive(question) {
     if (!question) return;
 
     question.querySelectorAll(".option-pill").forEach(function (pill) {
-      pill.classList.remove("active");
-      pill.classList.remove("is-selected");
+      pill.classList.remove("active", "is-selected");
     });
   }
 
-  function hideHint(question) {
+  function showHardHint(question) {
     if (!question) return;
 
-    const hint = question.querySelector(".question-hint");
-
-    if (hint) {
-      hint.classList.remove("is-visible");
-    }
-
-    question.classList.remove("choice-warning");
-  }
-
-  function showHint(question) {
-    if (!question) return;
+    console.log("SHOW HARD HINT FOR:", question.getAttribute("data-field"));
 
     let hint = question.querySelector(".question-hint");
 
@@ -89,25 +63,42 @@ document.addEventListener("DOMContentLoaded", function () {
       question.appendChild(hint);
     }
 
-    hint.classList.add("is-visible");
+    hint.style.setProperty("display", "block", "important");
+    hint.style.setProperty("visibility", "visible", "important");
+    hint.style.setProperty("opacity", "1", "important");
+    hint.style.setProperty("margin-top", "10px", "important");
+    hint.style.setProperty("color", "#9a3b00", "important");
+    hint.style.setProperty("font-size", "14px", "important");
 
     question.classList.remove("choice-warning");
     void question.offsetWidth;
     question.classList.add("choice-warning");
 
-    setTimeout(function () {
-      question.classList.remove("choice-warning");
-    }, 350);
-
     question.scrollIntoView({
       behavior: "smooth",
       block: "center"
     });
+
+    setTimeout(function () {
+      question.classList.remove("choice-warning");
+    }, 350);
+  }
+
+  function hideHint(question) {
+    if (!question) return;
+
+    const hint = question.querySelector(".question-hint");
+
+    if (hint) {
+      hint.style.setProperty("display", "none", "important");
+      hint.classList.remove("is-visible");
+    }
+
+    question.classList.remove("choice-warning");
   }
 
   function selectPill(pill) {
     const question = pill.closest(".question-wrap-prava");
-
     if (!question) return;
 
     const field = fieldOf(question);
@@ -115,8 +106,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     clearActive(question);
 
-    pill.classList.add("active");
-    pill.classList.add("is-selected");
+    pill.classList.add("active", "is-selected");
 
     state[field] = value;
 
@@ -127,17 +117,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
   flow.addEventListener("click", function (e) {
     const pill = e.target.closest(".option-pill");
-
     if (!pill) return;
 
     e.preventDefault();
-
     selectPill(pill);
   });
 
   flow.addEventListener("click", function (e) {
     const next = e.target.closest(".nav-next");
-
     if (!next) return;
 
     e.preventDefault();
@@ -145,8 +132,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const question = currentQuestion();
     const field = fieldOf(question);
 
+    console.log("NAV NEXT:", field, state[field]);
+
     if (field && !state[field]) {
-      showHint(question);
+      showHardHint(question);
       return;
     }
 
@@ -159,7 +148,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   flow.addEventListener("click", function (e) {
     const back = e.target.closest(".nav-back");
-
     if (!back) return;
 
     e.preventDefault();
@@ -171,7 +159,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   flow.addEventListener("click", function (e) {
     const reset = e.target.closest('[data-action="reset-prava"]');
-
     if (!reset) return;
 
     e.preventDefault();
@@ -179,16 +166,11 @@ document.addEventListener("DOMContentLoaded", function () {
     state = {};
 
     flow.querySelectorAll(".option-pill").forEach(function (pill) {
-      pill.classList.remove("active");
-      pill.classList.remove("is-selected");
+      pill.classList.remove("active", "is-selected");
     });
 
     flow.querySelectorAll(".question-hint").forEach(function (hint) {
-      hint.classList.remove("is-visible");
-    });
-
-    flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
-      q.classList.remove("choice-warning");
+      hint.style.setProperty("display", "none", "important");
     });
 
     showQuestion(0);
