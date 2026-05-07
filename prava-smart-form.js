@@ -10,7 +10,7 @@
    CHAPTER 1
    PRAVA FLOW ENGINE
    Question navigation / active states / reset
-   NO ALERT VERSION
+   NO ALERT / LOCKED NEXT VERSION
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -32,10 +32,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let state = {};
   let currentIndex = 0;
 
-  /* =========================================================
-     HELPERS
-     ========================================================= */
-
   function qs(scope, sel) {
     return (scope || document).querySelector(sel);
   }
@@ -50,7 +46,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     currentIndex = index;
-
     console.log("CURRENT QUESTION:", currentIndex + 1);
   }
 
@@ -59,15 +54,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function fieldOf(question) {
-    return question
-      ? question.getAttribute("data-field")
-      : null;
+    return question ? question.getAttribute("data-field") : null;
   }
 
   function clearActive(question) {
     if (!question) return;
 
-    question.querySelectorAll(".option-pill").forEach(function (pill) {
+    qsa(question, ".option-pill").forEach(function (pill) {
       pill.classList.remove("active");
       pill.classList.remove("is-selected");
     });
@@ -77,10 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!question) return;
 
     const hint = qs(question, ".question-hint");
-
-    if (hint) {
-      hint.classList.remove("is-visible");
-    }
+    if (hint) hint.classList.remove("is-visible");
 
     question.classList.remove("choice-warning");
   }
@@ -92,7 +82,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!hint) {
       hint = document.createElement("div");
-
       hint.className = "question-hint";
       hint.textContent = "Избери вариант, за да продължим.";
 
@@ -105,13 +94,11 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    question.classList.remove("choice-warning");
-
-    void question.offsetWidth;
-
-    question.classList.add("choice-warning");
-
     hint.classList.add("is-visible");
+
+    question.classList.remove("choice-warning");
+    void question.offsetWidth;
+    question.classList.add("choice-warning");
 
     setTimeout(function () {
       question.classList.remove("choice-warning");
@@ -121,15 +108,12 @@ document.addEventListener("DOMContentLoaded", function () {
       behavior: "smooth",
       block: "center"
     });
-  }
 
-  /* =========================================================
-     SELECT
-     ========================================================= */
+    console.log("PRAVA WARNING SHOWN");
+  }
 
   function selectPill(pill) {
     const question = pill.closest(".question-wrap-prava");
-
     if (!question) return;
 
     const field = fieldOf(question);
@@ -147,76 +131,73 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("STATE:", state);
   }
 
-  /* =========================================================
-     OPTION CLICK
-     ========================================================= */
-
   flow.addEventListener("click", function (e) {
     const pill = e.target.closest(".option-pill");
-
     if (!pill) return;
 
     e.preventDefault();
-
     selectPill(pill);
   });
 
-  /* =========================================================
-     NEXT
-     ========================================================= */
+  flow.addEventListener(
+    "click",
+    function (e) {
+      const next = e.target.closest(".nav-next");
+      if (!next) return;
 
-  flow.addEventListener("click", function (e) {
-    const next = e.target.closest(".nav-next");
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
 
-    if (!next) return;
+      const question = currentQuestion();
+      const field = fieldOf(question);
 
-    e.preventDefault();
+      if (field && !state[field]) {
+        showQuestionHint(question);
+        return false;
+      }
 
-    const question = currentQuestion();
-    const field = fieldOf(question);
+      hideQuestionHint(question);
 
-    if (field && !state[field]) {
-      showQuestionHint(question);
-      return;
-    }
+      if (currentIndex < questions.length - 1) {
+        showQuestion(currentIndex + 1);
+      } else {
+        console.log("END OF QUESTIONS");
+      }
 
-    if (currentIndex < questions.length - 1) {
-      showQuestion(currentIndex + 1);
-    } else {
-      console.log("END OF QUESTIONS");
-    }
-  });
+      return false;
+    },
+    true
+  );
 
-  /* =========================================================
-     BACK
-     ========================================================= */
+  flow.addEventListener(
+    "click",
+    function (e) {
+      const back = e.target.closest(".nav-back");
+      if (!back) return;
 
-  flow.addEventListener("click", function (e) {
-    const back = e.target.closest(".nav-back");
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
 
-    if (!back) return;
+      if (currentIndex > 0) {
+        showQuestion(currentIndex - 1);
+      }
 
-    e.preventDefault();
-
-    if (currentIndex > 0) {
-      showQuestion(currentIndex - 1);
-    }
-  });
-
-  /* =========================================================
-     RESET
-     ========================================================= */
+      return false;
+    },
+    true
+  );
 
   flow.addEventListener("click", function (e) {
     const reset = e.target.closest('[data-action="reset-prava"]');
-
     if (!reset) return;
 
     e.preventDefault();
 
     state = {};
 
-    flow.querySelectorAll(".option-pill").forEach(function (pill) {
+    qsa(flow, ".option-pill").forEach(function (pill) {
       pill.classList.remove("active");
       pill.classList.remove("is-selected");
     });
@@ -234,13 +215,8 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("RESET PRAVA");
   });
 
-  /* =========================================================
-     INIT
-     ========================================================= */
-
   showQuestion(0);
 });
-
 
 
 
