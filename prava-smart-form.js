@@ -784,8 +784,7 @@ hide(dimensionsPhase);
 
 /* =========================================================
    CHAPTER 6
-   PRAVA FINAL GATE
-   questions + dimensions validation before final phase
+   PRAVA FINAL GATE — FINAL BUTTON ONLY
    ========================================================= */
 
 (function () {
@@ -806,8 +805,6 @@ hide(dimensionsPhase);
     const finalPhase = page.querySelector(".final-phase");
     const comboPhase = page.querySelector(".combo-phase, .combo-phase-wrap");
     const dimensionsPhase = page.querySelector(".dimensions-phase, .dimensions-phase-wrap");
-
-    if (finalPhase) hide(finalPhase);
 
     function qs(scope, sel) {
       return (scope || document).querySelector(sel);
@@ -836,15 +833,12 @@ hide(dimensionsPhase);
       el.style.setProperty("opacity", "0", "important");
     }
 
+    if (finalPhase) hide(finalPhase);
+
     function clearHints() {
       qsa(page, ".question-hint, .dimension-hint").forEach(function (hint) {
         hint.classList.remove("is-visible");
         hint.style.setProperty("display", "none", "important");
-      });
-
-      qsa(page, ".choice-warning, .dimension-warning").forEach(function (el) {
-        el.classList.remove("choice-warning");
-        el.classList.remove("dimension-warning");
       });
     }
 
@@ -864,14 +858,6 @@ hide(dimensionsPhase);
       hint.style.setProperty("display", "block", "important");
       hint.style.setProperty("visibility", "visible", "important");
       hint.style.setProperty("opacity", "1", "important");
-
-      question.classList.remove("choice-warning");
-      void question.offsetWidth;
-      question.classList.add("choice-warning");
-
-      setTimeout(function () {
-        question.classList.remove("choice-warning");
-      }, 350);
 
       question.scrollIntoView({
         behavior: "smooth",
@@ -896,14 +882,6 @@ hide(dimensionsPhase);
       hint.style.setProperty("visibility", "visible", "important");
       hint.style.setProperty("opacity", "1", "important");
       hint.style.setProperty("margin-top", "10px", "important");
-
-      row.classList.remove("dimension-warning");
-      void row.offsetWidth;
-      row.classList.add("dimension-warning");
-
-      setTimeout(function () {
-        row.classList.remove("dimension-warning");
-      }, 350);
 
       row.scrollIntoView({
         behavior: "smooth",
@@ -941,29 +919,11 @@ hide(dimensionsPhase);
       const btn = e.target.closest(".dimension-row .picker-btn");
       if (!btn) return;
 
-      const row = btn.closest(".dimension-row");
-      markRowTouched(row);
+      markRowTouched(btn.closest(".dimension-row"));
     }, true);
 
-    function textNumber(text) {
-      const n = parseInt(String(text || "").replace(/[^\d]/g, ""), 10);
-      return isNaN(n) ? 0 : n;
-    }
-
-    function rowHasNonZeroValue(row) {
-      const values = qsa(row, ".picker-value");
-
-      let total = 0;
-
-      values.forEach(function (valueEl) {
-        total += textNumber(valueEl.textContent);
-      });
-
-      return total > 0;
-    }
-
-    function isDimensionRowFilled(row) {
-      if (!row) return true;
+    function rowHasValue(row) {
+      if (!row) return false;
 
       if (
         row.classList.contains("is-touched") ||
@@ -972,11 +932,14 @@ hide(dimensionsPhase);
         return true;
       }
 
-      return rowHasNonZeroValue(row);
+      return false;
     }
 
     function findFirstEmptyVisibleDimension() {
-      const rows = qsa(page, ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row");
+      const rows = qsa(
+        page,
+        ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row"
+      );
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -986,9 +949,7 @@ hide(dimensionsPhase);
         const group = row.closest(".dimensions-group, [data-owner]");
         if (group && !isVisible(group)) continue;
 
-        if (!isDimensionRowFilled(row)) {
-          return row;
-        }
+        if (!rowHasValue(row)) return row;
       }
 
       return null;
@@ -999,8 +960,8 @@ hide(dimensionsPhase);
       if (dimensionsPhase) hide(dimensionsPhase);
 
       qsa(page, ".question-wrap-prava").forEach(function (q) {
-        q.classList.remove("active-question");
         hide(q);
+        q.classList.remove("active-question");
       });
 
       show(question, "block");
@@ -1041,12 +1002,8 @@ hide(dimensionsPhase);
       window.dispatchEvent(new Event("resize"));
     }
 
-    qsa(page, ".phase-next-btn[data-next-phase], .phase-next-btn").forEach(function (btn) {
+    qsa(page, '.phase-next-btn[data-next-phase="final-phase"]').forEach(function (btn) {
       btn.addEventListener("click", function (e) {
-        const target = btn.getAttribute("data-next-phase") || "";
-
-        if (target && target !== "final-phase") return;
-
         e.preventDefault();
         e.stopPropagation();
 
