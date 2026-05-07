@@ -9,12 +9,12 @@
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE
-   CAPTURE SHIELD VERSION
-   no alert / visible hint
+   Question navigation / active states / reset
+   Safe version: no alert, no capture shield
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA CH1 CAPTURE SHIELD START");
+  console.log("PRAVA CH1 SAFE FLOW START");
 
   const flow = document.querySelector(".sf-page-prava");
   if (!flow) return;
@@ -63,7 +63,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     hint.classList.add("is-visible");
-
     hint.style.setProperty("display", "block", "important");
     hint.style.setProperty("visibility", "visible", "important");
     hint.style.setProperty("opacity", "1", "important");
@@ -128,13 +127,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const next = e.target.closest(".nav-next");
     if (!next) return;
 
+    if (next.classList.contains("phase-next-btn")) return;
+    if (next.hasAttribute("data-next-phase")) return;
+
     e.preventDefault();
-    e.stopPropagation();
 
     const question = currentQuestion();
     const field = fieldOf(question);
 
-    console.log("CH1 NAV NEXT:", field, state[field]);
+    console.log("CH1 QUESTION NEXT:", field, state[field]);
 
     if (field && !state[field]) {
       showHint(question);
@@ -146,7 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
       console.log("END OF QUESTIONS");
     }
-  }, true);
+  });
 
   flow.addEventListener("click", function (e) {
     const back = e.target.closest(".nav-back");
@@ -187,7 +188,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   showQuestion(0);
 });
-
 
 
 
