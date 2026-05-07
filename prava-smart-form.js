@@ -139,6 +139,146 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 /* =========================================================
+   CHAPTER 2
+   PRAVA CAD ENGINE
+   Clean version: no positioning, no wrapper hiding
+   ========================================================= */
+
+document.addEventListener("DOMContentLoaded", function () {
+  const page = document.querySelector(".sf-page-prava");
+  if (!page) return;
+
+  const baseLayer = page.querySelector(".cad-base");
+  const kitchenLayer = page.querySelector(".cad-kitchen");
+  const deepLayer = page.querySelector(".cad-deep_cabinets, .cad-deep-cabinets");
+  const islandLayer = page.querySelector(".cad-island");
+
+  const baseImgs = Array.from(page.querySelectorAll(".cad-base img"));
+  const kitchenImgs = Array.from(page.querySelectorAll(".cad-kitchen img"));
+  const deepImgs = Array.from(page.querySelectorAll(".cad-deep_cabinets img, .cad-deep-cabinets img"));
+  const islandImgs = Array.from(page.querySelectorAll(".cad-island img"));
+
+  function keepWrapperAlive(el) {
+    if (!el) return;
+    el.style.removeProperty("display");
+  }
+
+  function hideImgs(list) {
+    list.forEach(function (img) {
+      img.classList.remove("is-active");
+      img.style.setProperty("display", "none", "important");
+    });
+  }
+
+  function showImg(img) {
+    if (!img) return;
+    img.classList.add("is-active");
+    img.style.setProperty("display", "block", "important");
+  }
+
+  function getValue(field) {
+    const wrap = page.querySelector('.question-wrap-prava[data-field="' + field + '"]');
+    const active = wrap
+      ? wrap.querySelector(".option-pill.active, .option-pill.is-selected")
+      : null;
+
+    return active ? active.getAttribute("data-value") : "";
+  }
+
+  function fridgeIsBuilt(value) {
+    const v = String(value || "").toLowerCase();
+
+    return (
+      v.includes("вграден") ||
+      v === "built" ||
+      v === "yes"
+    );
+  }
+
+  function buildKitchenClass() {
+    const water = getValue("water_position_prava");
+    if (!water) return "";
+
+    const oven = getValue("oven_tall_unit") === "yes";
+    const built = fridgeIsBuilt(getValue("fridge_type"));
+
+    if (oven && built) return "kitchen-" + water + "-oven-fridge-built";
+    if (oven) return "kitchen-" + water + "-oven";
+    if (built) return "kitchen-" + water + "-fridge-built";
+
+    return "kitchen-" + water + "-base";
+  }
+
+  function findKitchenImg(kitchenClass) {
+    return kitchenImgs.find(function (img) {
+      return img.classList.contains(kitchenClass);
+    });
+  }
+
+  function renderPravaCad() {
+    const kitchenClass = buildKitchenClass();
+
+    keepWrapperAlive(baseLayer);
+    keepWrapperAlive(kitchenLayer);
+    keepWrapperAlive(deepLayer);
+    keepWrapperAlive(islandLayer);
+
+    hideImgs(baseImgs);
+    hideImgs(kitchenImgs);
+    hideImgs(deepImgs);
+    hideImgs(islandImgs);
+
+    if (!kitchenClass) {
+      showImg(baseImgs[0]);
+    } else {
+      const img = findKitchenImg(kitchenClass);
+
+      if (img) {
+        showImg(img);
+      } else {
+        showImg(baseImgs[0]);
+        console.warn("NO KITCHEN IMAGE CLASS:", kitchenClass);
+      }
+    }
+
+    const deep = getValue("deep_cabinets") || getValue("deep-cabinets");
+
+    if (deep === "yes") {
+      showImg(deepImgs[0]);
+    }
+
+    const island = getValue("island");
+
+    if (island === "yes") {
+      showImg(islandImgs[0]);
+    }
+
+    console.log("PRAVA CAD CLASS:", kitchenClass || "base");
+  }
+
+  page.addEventListener("click", function (e) {
+    if (
+      e.target.closest(".option-pill") ||
+      e.target.closest(".nav-next") ||
+      e.target.closest(".nav-back") ||
+      e.target.closest('[data-action="reset-prava"]')
+    ) {
+      setTimeout(renderPravaCad, 30);
+    }
+  });
+
+  renderPravaCad();
+});
+
+
+
+
+
+
+
+
+
+/* =========================================================
    CHAPTER 3
    OPEN DIMENSIONS PHASE
    After last combo question
