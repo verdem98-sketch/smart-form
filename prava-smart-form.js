@@ -133,10 +133,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
+
 /* =========================================================
    CHAPTER 2
    PRAVA CAD ENGINE
    Dynamic kitchen rendering / overlays
+   VERSION: v2 - layer wrappers stay alive
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -152,23 +154,56 @@ document.addEventListener("DOMContentLoaded", function () {
   const deepImgs = Array.from(page.querySelectorAll(".cad-deep_cabinets img, .cad-deep-cabinets img"));
   const islandImgs = Array.from(page.querySelectorAll(".cad-island img"));
 
-  function setDisplay(el, value) {
-    if (!el) return;
-    el.style.setProperty("display", value, "important");
+  function keepLayerAlive(layer) {
+    if (!layer) return;
+
+    layer.style.setProperty("display", "block", "important");
+    layer.style.setProperty("position", "absolute", "important");
+    layer.style.setProperty("inset", "0", "important");
+    layer.style.setProperty("width", "100%", "important");
+    layer.style.setProperty("height", "100%", "important");
+    layer.style.setProperty("margin", "0", "important");
+    layer.style.setProperty("padding", "0", "important");
+    layer.style.setProperty("pointer-events", "none", "important");
   }
 
-  function hideImgs(list) {
+  function hideLayerImgs(list) {
     list.forEach(function (img) {
       img.classList.remove("is-active");
       img.style.setProperty("display", "none", "important");
     });
   }
 
+  function prepareImg(img) {
+    if (!img) return;
+
+    img.style.setProperty("position", "absolute", "important");
+    img.style.setProperty("inset", "0", "important");
+    img.style.setProperty("width", "100%", "important");
+    img.style.setProperty("height", "100%", "important");
+    img.style.setProperty("object-fit", "contain", "important");
+    img.style.setProperty("object-position", "center center", "important");
+    img.style.setProperty("max-width", "none", "important");
+    img.style.setProperty("margin", "0", "important");
+    img.style.setProperty("padding", "0", "important");
+  }
+
   function showImg(img) {
     if (!img) return;
 
+    prepareImg(img);
     img.classList.add("is-active");
     img.style.setProperty("display", "block", "important");
+  }
+
+  function showBase() {
+    if (!baseLayer) return;
+    baseLayer.style.setProperty("display", "block", "important");
+  }
+
+  function hideBase() {
+    if (!baseLayer) return;
+    baseLayer.style.setProperty("display", "none", "important");
   }
 
   function getValue(field) {
@@ -199,17 +234,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const oven = getValue("oven_tall_unit") === "yes";
     const built = fridgeIsBuilt(getValue("fridge_type"));
 
-    if (oven && built) {
-      return "kitchen-" + water + "-oven-fridge-built";
-    }
-
-    if (oven) {
-      return "kitchen-" + water + "-oven";
-    }
-
-    if (built) {
-      return "kitchen-" + water + "-fridge-built";
-    }
+    if (oven && built) return "kitchen-" + water + "-oven-fridge-built";
+    if (oven) return "kitchen-" + water + "-oven";
+    if (built) return "kitchen-" + water + "-fridge-built";
 
     return "kitchen-" + water + "-base";
   }
@@ -223,28 +250,28 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderPravaCad() {
     const kitchenClass = buildKitchenClass();
 
-    hideImgs(kitchenImgs);
-    hideImgs(deepImgs);
-    hideImgs(islandImgs);
+    keepLayerAlive(kitchenLayer);
+    keepLayerAlive(deepLayer);
+    keepLayerAlive(islandLayer);
 
-    setDisplay(deepLayer, "none");
-    setDisplay(islandLayer, "none");
+    if (kitchenLayer) kitchenLayer.style.setProperty("z-index", "2", "important");
+    if (deepLayer) deepLayer.style.setProperty("z-index", "3", "important");
+    if (islandLayer) islandLayer.style.setProperty("z-index", "4", "important");
+
+    hideLayerImgs(kitchenImgs);
+    hideLayerImgs(deepImgs);
+    hideLayerImgs(islandImgs);
 
     if (!kitchenClass) {
-      setDisplay(baseLayer, "block");
-      setDisplay(kitchenLayer, "none");
+      showBase();
     } else {
       const img = findKitchenImg(kitchenClass);
 
       if (img) {
-        setDisplay(baseLayer, "none");
-        setDisplay(kitchenLayer, "block");
-
+        hideBase();
         showImg(img);
       } else {
-        setDisplay(baseLayer, "block");
-        setDisplay(kitchenLayer, "none");
-
+        showBase();
         console.warn("NO KITCHEN IMAGE CLASS:", kitchenClass);
       }
     }
@@ -252,14 +279,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const deep = getValue("deep_cabinets") || getValue("deep-cabinets");
 
     if (deep === "yes") {
-      setDisplay(deepLayer, "block");
       showImg(deepImgs[0]);
     }
 
     const island = getValue("island");
 
     if (island === "yes") {
-      setDisplay(islandLayer, "block");
       showImg(islandImgs[0]);
     }
 
@@ -279,6 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderPravaCad();
 });
+
 
 
 
