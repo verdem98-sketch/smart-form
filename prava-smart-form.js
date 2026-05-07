@@ -785,6 +785,7 @@ hide(dimensionsPhase);
 /* =========================================================
    CHAPTER 6
    PRAVA FINAL GATE — FINAL BUTTON ONLY
+   debug-safe version
    ========================================================= */
 
 (function () {
@@ -858,6 +859,17 @@ hide(dimensionsPhase);
       hint.style.setProperty("display", "block", "important");
       hint.style.setProperty("visibility", "visible", "important");
       hint.style.setProperty("opacity", "1", "important");
+      hint.style.setProperty("margin-top", "12px", "important");
+      hint.style.setProperty("color", "#9a3b00", "important");
+      hint.style.setProperty("font-size", "14px", "important");
+
+      question.classList.remove("choice-warning");
+      void question.offsetWidth;
+      question.classList.add("choice-warning");
+
+      setTimeout(function () {
+        question.classList.remove("choice-warning");
+      }, 350);
 
       question.scrollIntoView({
         behavior: "smooth",
@@ -882,6 +894,16 @@ hide(dimensionsPhase);
       hint.style.setProperty("visibility", "visible", "important");
       hint.style.setProperty("opacity", "1", "important");
       hint.style.setProperty("margin-top", "10px", "important");
+      hint.style.setProperty("color", "#9a3b00", "important");
+      hint.style.setProperty("font-size", "14px", "important");
+
+      row.classList.remove("dimension-warning");
+      void row.offsetWidth;
+      row.classList.add("dimension-warning");
+
+      setTimeout(function () {
+        row.classList.remove("dimension-warning");
+      }, 350);
 
       row.scrollIntoView({
         behavior: "smooth",
@@ -890,7 +912,10 @@ hide(dimensionsPhase);
     }
 
     function hasAnsweredQuestion(question) {
-      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
+      return !!qs(
+        question,
+        ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected"
+      );
     }
 
     function findFirstUnansweredQuestion() {
@@ -925,14 +950,10 @@ hide(dimensionsPhase);
     function rowHasValue(row) {
       if (!row) return false;
 
-      if (
+      return (
         row.classList.contains("is-touched") ||
         row.getAttribute("data-touched") === "true"
-      ) {
-        return true;
-      }
-
-      return false;
+      );
     }
 
     function findFirstEmptyVisibleDimension() {
@@ -982,7 +1003,10 @@ hide(dimensionsPhase);
     }
 
     function openFinal() {
-      qsa(page, ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase").forEach(function (el) {
+      qsa(
+        page,
+        ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase"
+      ).forEach(function (el) {
         hide(el);
       });
 
@@ -1002,16 +1026,25 @@ hide(dimensionsPhase);
       window.dispatchEvent(new Event("resize"));
     }
 
-    qsa(page, '.phase-next-btn[data-next-phase="final-phase"]').forEach(function (btn) {
+    const finalBtns = qsa(page, ".phase-next-btn").filter(function (btn) {
+      return btn.getAttribute("data-next-phase") === "final-phase";
+    });
+
+    console.log("CH6 FINAL BUTTONS FOUND:", finalBtns.length);
+
+    finalBtns.forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
+
+        console.log("CH6 FINAL CLICK");
 
         clearHints();
 
         const unanswered = findFirstUnansweredQuestion();
 
         if (unanswered) {
+          console.log("CH6 BLOCKED QUESTION:", unanswered.getAttribute("data-field"));
           openComboToQuestion(unanswered);
           return;
         }
@@ -1019,16 +1052,17 @@ hide(dimensionsPhase);
         const emptyDim = findFirstEmptyVisibleDimension();
 
         if (emptyDim) {
+          console.log("CH6 BLOCKED DIM:", emptyDim.getAttribute("data-dim"));
           openDimensionsToRow(emptyDim);
           return;
         }
 
+        console.log("CH6 OPEN FINAL");
         openFinal();
       }, true);
     });
   });
 })();
-
 
 
 
