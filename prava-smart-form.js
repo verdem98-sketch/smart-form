@@ -701,6 +701,83 @@ hide(dimensionsPhase);
 
 
 
+// ==========================
+// PRAVA FINAL PHASE ENGINE
+// hide CAD + hide all previous phases + show final only
+// ==========================
+document.addEventListener("DOMContentLoaded", function () {
+  const pravaPage = document.querySelector(".sf-page.sf-page-prava");
+  if (!pravaPage) return;
+
+  const form = pravaPage.querySelector("form");
+  if (!form) return;
+
+  const FINAL_HIDE_SELECTORS = [
+    ".combo-phase",
+    ".dimensions-phase",
+    ".extras-vision-phase",
+    ".extras-phase",
+    ".vision-phase",
+    ".prava-left",
+    ".sticky-cad-wrap",
+    ".cad-stage",
+    ".cad-base",
+    ".cad-kitchen",
+    ".cad-deep_cabinets",
+    ".cad-deep-cabinets",
+    ".cad-island",
+    ".cad-prava-island"
+  ];
+
+  function forceHide(sel) {
+    pravaPage.querySelectorAll(sel).forEach(function (el) {
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+      el.style.setProperty("opacity", "0", "important");
+      el.setAttribute("aria-hidden", "true");
+    });
+  }
+
+  function forceShow(sel) {
+    form.querySelectorAll(sel).forEach(function (el) {
+      el.style.setProperty("display", "block", "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+      el.removeAttribute("aria-hidden");
+    });
+  }
+
+  function goToPhase(targetPhaseClass) {
+    FINAL_HIDE_SELECTORS.forEach(forceHide);
+
+    form.querySelectorAll(".final-phase").forEach(function (el) {
+      el.style.setProperty("display", "none", "important");
+    });
+
+    forceShow("." + targetPhaseClass);
+
+    console.log("PRAVA FINAL PHASE:", targetPhaseClass);
+  }
+
+  form.querySelectorAll("[data-next-phase]").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+
+      const targetPhaseClass = btn.getAttribute("data-next-phase");
+      if (!targetPhaseClass) return;
+
+      goToPhase(targetPhaseClass);
+    });
+  });
+});
+
+
+
+
+
+
+
+
 
 
 /* =========================================================
@@ -926,70 +1003,3 @@ qsa(flow, ".dimension-row").forEach(function (row) {
 
 
 
-
-/* =========================================================
-   PRAVA DIMENSIONS → FINAL PHASE BRIDGE
-   Validates visible dimensions, then opens final phase
-   ========================================================= */
-
-function findFinalPhase() {
-  return (
-    qs(flow, ".final-phase-wrap") ||
-    qs(flow, ".final-phase") ||
-    qs(flow, ".prava-final-phase") ||
-    qs(flow, ".step-final") ||
-    qs(flow, '[data-phase="final"]')
-  );
-}
-
-function isDimensionsPhaseVisible() {
-  return dimensionsWrap && isVisible(dimensionsWrap);
-}
-
-function showFinalPhase() {
-  var finalPhase = findFinalPhase();
-  if (!finalPhase) {
-    console.warn("PRAVA: Final phase not found.");
-    return;
-  }
-
-  if (dimensionsWrap) {
-    dimensionsWrap.style.display = "none";
-  }
-
-  finalPhase.style.display = "block";
-
-  finalPhase.scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
-}
-
-function validateDimensionsBeforeFinal() {
-  var emptyDimension = findFirstEmptyVisibleDimension();
-
-  if (emptyDimension) {
-    shakeDimension(emptyDimension);
-    return false;
-  }
-
-  return true;
-}
-
-/* бутонът, който излиза от размерите към final */
-qsa(flow, ".dimensions-next-btn, .nav-next-final, .final-next-btn").forEach(function (btn) {
-  btn.setAttribute("type", "button");
-
-  btn.addEventListener("click", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    hideAllHints();
-
-    if (!isDimensionsPhaseVisible()) return;
-
-    if (!validateDimensionsBeforeFinal()) return;
-
-    showFinalPhase();
-  });
-});
