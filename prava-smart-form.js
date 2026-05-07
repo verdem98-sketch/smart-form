@@ -782,7 +782,295 @@ hide(dimensionsPhase);
 
 
 
+/* =========================================================
+   CHAPTER 6
+   PRAVA FINAL GATE
+   questions + dimensions validation before final phase
+   ========================================================= */
 
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    console.log("CHAPTER 6 FINAL GATE START");
+
+    const page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    const finalPhase = page.querySelector(".final-phase");
+    const comboPhase = page.querySelector(".combo-phase, .combo-phase-wrap");
+    const dimensionsPhase = page.querySelector(".dimensions-phase, .dimensions-phase-wrap");
+
+    if (finalPhase) hide(finalPhase);
+
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
+    }
+
+    function qsa(scope, sel) {
+      return Array.from((scope || document).querySelectorAll(sel));
+    }
+
+    function isVisible(el) {
+      if (!el) return false;
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+
+    function show(el, displayType) {
+      if (!el) return;
+      el.style.setProperty("display", displayType || "block", "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+    }
+
+    function hide(el) {
+      if (!el) return;
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+      el.style.setProperty("opacity", "0", "important");
+    }
+
+    function clearHints() {
+      qsa(page, ".question-hint, .dimension-hint").forEach(function (hint) {
+        hint.classList.remove("is-visible");
+        hint.style.setProperty("display", "none", "important");
+      });
+
+      qsa(page, ".choice-warning, .dimension-warning").forEach(function (el) {
+        el.classList.remove("choice-warning");
+        el.classList.remove("dimension-warning");
+      });
+    }
+
+    function showQuestionHint(question) {
+      if (!question) return;
+
+      let hint = qs(question, ".question-hint");
+
+      if (!hint) {
+        hint = document.createElement("div");
+        hint.className = "question-hint";
+        hint.textContent = "Избери вариант, за да продължим.";
+        question.appendChild(hint);
+      }
+
+      hint.classList.add("is-visible");
+      hint.style.setProperty("display", "block", "important");
+      hint.style.setProperty("visibility", "visible", "important");
+      hint.style.setProperty("opacity", "1", "important");
+
+      question.classList.remove("choice-warning");
+      void question.offsetWidth;
+      question.classList.add("choice-warning");
+
+      setTimeout(function () {
+        question.classList.remove("choice-warning");
+      }, 350);
+
+      question.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    function showDimensionHint(row) {
+      if (!row) return;
+
+      let hint = qs(row, ".dimension-hint");
+
+      if (!hint) {
+        hint = document.createElement("div");
+        hint.className = "dimension-hint";
+        hint.textContent = "Попълни размера, за да продължим.";
+        row.appendChild(hint);
+      }
+
+      hint.classList.add("is-visible");
+      hint.style.setProperty("display", "block", "important");
+      hint.style.setProperty("visibility", "visible", "important");
+      hint.style.setProperty("opacity", "1", "important");
+      hint.style.setProperty("margin-top", "10px", "important");
+
+      row.classList.remove("dimension-warning");
+      void row.offsetWidth;
+      row.classList.add("dimension-warning");
+
+      setTimeout(function () {
+        row.classList.remove("dimension-warning");
+      }, 350);
+
+      row.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    function hasAnsweredQuestion(question) {
+      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
+    }
+
+    function findFirstUnansweredQuestion() {
+      const questions = qsa(page, ".question-wrap-prava");
+
+      for (let i = 0; i < questions.length; i++) {
+        const question = questions[i];
+
+        if (!qsa(question, ".option-pill").length) continue;
+
+        if (!hasAnsweredQuestion(question)) {
+          return question;
+        }
+      }
+
+      return null;
+    }
+
+    function markRowTouched(row) {
+      if (!row) return;
+      row.classList.add("is-touched");
+      row.setAttribute("data-touched", "true");
+    }
+
+    page.addEventListener("click", function (e) {
+      const btn = e.target.closest(".dimension-row .picker-btn");
+      if (!btn) return;
+
+      const row = btn.closest(".dimension-row");
+      markRowTouched(row);
+    }, true);
+
+    function textNumber(text) {
+      const n = parseInt(String(text || "").replace(/[^\d]/g, ""), 10);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function rowHasNonZeroValue(row) {
+      const values = qsa(row, ".picker-value");
+
+      let total = 0;
+
+      values.forEach(function (valueEl) {
+        total += textNumber(valueEl.textContent);
+      });
+
+      return total > 0;
+    }
+
+    function isDimensionRowFilled(row) {
+      if (!row) return true;
+
+      if (
+        row.classList.contains("is-touched") ||
+        row.getAttribute("data-touched") === "true"
+      ) {
+        return true;
+      }
+
+      return rowHasNonZeroValue(row);
+    }
+
+    function findFirstEmptyVisibleDimension() {
+      const rows = qsa(page, ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row");
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        if (!isVisible(row)) continue;
+
+        const group = row.closest(".dimensions-group, [data-owner]");
+        if (group && !isVisible(group)) continue;
+
+        if (!isDimensionRowFilled(row)) {
+          return row;
+        }
+      }
+
+      return null;
+    }
+
+    function openComboToQuestion(question) {
+      if (comboPhase) show(comboPhase, "block");
+      if (dimensionsPhase) hide(dimensionsPhase);
+
+      qsa(page, ".question-wrap-prava").forEach(function (q) {
+        q.classList.remove("active-question");
+        hide(q);
+      });
+
+      show(question, "block");
+      question.classList.add("active-question");
+
+      setTimeout(function () {
+        showQuestionHint(question);
+      }, 80);
+    }
+
+    function openDimensionsToRow(row) {
+      if (comboPhase) hide(comboPhase);
+      if (dimensionsPhase) show(dimensionsPhase, "block");
+
+      setTimeout(function () {
+        showDimensionHint(row);
+      }, 80);
+    }
+
+    function openFinal() {
+      qsa(page, ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase").forEach(function (el) {
+        hide(el);
+      });
+
+      qsa(page, ".prava-left, .sticky-cad-wrap, .cad-stage").forEach(function (el) {
+        hide(el);
+      });
+
+      show(finalPhase, "block");
+
+      setTimeout(function () {
+        finalPhase.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }, 80);
+
+      window.dispatchEvent(new Event("resize"));
+    }
+
+    qsa(page, ".phase-next-btn[data-next-phase], .phase-next-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        const target = btn.getAttribute("data-next-phase") || "";
+
+        if (target && target !== "final-phase") return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        clearHints();
+
+        const unanswered = findFirstUnansweredQuestion();
+
+        if (unanswered) {
+          openComboToQuestion(unanswered);
+          return;
+        }
+
+        const emptyDim = findFirstEmptyVisibleDimension();
+
+        if (emptyDim) {
+          openDimensionsToRow(emptyDim);
+          return;
+        }
+
+        openFinal();
+      }, true);
+    });
+  });
+})();
 
 
 
