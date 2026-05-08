@@ -7,95 +7,119 @@
 
 /* =========================================================
    CHAPTER 7
-   PRAVA VISION CARDS ENGINE — BLACKBOX INIT
-   active / is-selected / vm-selected compatibility
+   PRAVA VISION CARDS ENGINE
    ========================================================= */
 
 console.log("CHAPTER 7 VISION CARDS START");
 
 (function () {
-  function initPravaVisionCards() {
+
+  function initVisionCards() {
+
     var pravaPage = document.querySelector(".sf-page-prava");
-    if (!pravaPage) {
-      console.log("CH7: no .sf-page-prava found");
-      return;
-    }
+    if (!pravaPage) return;
 
     function qsa(scope, sel) {
       return Array.from((scope || document).querySelectorAll(sel));
     }
 
-    function getCardValue(card) {
-      return (
-        card.getAttribute("data-value") ||
-        card.getAttribute("data-name") ||
-        card.querySelector("[data-value]")?.getAttribute("data-value") ||
-        card.textContent.trim()
-      );
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
     }
 
-    function setHiddenValue(fieldName, value) {
-      if (!fieldName) return;
-
-      var input =
-        pravaPage.querySelector('input[name="' + fieldName + '"]') ||
-        pravaPage.querySelector('input[data-field="' + fieldName + '"]');
-
-      if (input) {
-        input.value = value || "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        console.log("CH7 hidden set:", fieldName, value);
-      } else {
-        console.log("CH7 hidden NOT found:", fieldName, value);
-      }
-    }
-
-    function clearGroup(cards) {
-      cards.forEach(function (card) {
-        card.classList.remove("active", "is-selected", "vm-selected");
-      });
-    }
-
-    var groups = qsa(
+    var questionWraps = qsa(
       pravaPage,
-      "[data-field].inspiration-cards-row, [data-field].vision-cards-row, .inspiration-cards-row[data-field], .vision-cards-row[data-field]"
+      '.question-wrap[data-field]'
     );
 
-    console.log("CH7 groups found:", groups.length);
+    console.log("CH7 questionWraps:", questionWraps.length);
 
-    groups.forEach(function (group) {
-      var fieldName = group.getAttribute("data-field");
-      var cards = qsa(group, ".vision-card");
+    questionWraps.forEach(function (wrap) {
 
-      console.log("CH7 group:", fieldName, "cards:", cards.length);
+      var fieldName = wrap.getAttribute("data-field");
+      if (!fieldName) return;
+
+      var row = qs(wrap, ".vision-cards-row");
+      if (!row) return;
+
+      var cards = qsa(row, ".vision-card");
+
+      console.log(
+        "CH7 field:",
+        fieldName,
+        "cards:",
+        cards.length
+      );
 
       cards.forEach(function (card) {
+
         if (card.dataset.ch7Bound === "true") return;
         card.dataset.ch7Bound = "true";
 
         card.addEventListener("click", function () {
-          var value = getCardValue(card);
 
-          clearGroup(cards);
+          cards.forEach(function (c) {
+            c.classList.remove(
+              "active",
+              "is-selected",
+              "vm-selected"
+            );
+          });
 
-          card.classList.add("active", "is-selected", "vm-selected");
+          card.classList.add(
+            "active",
+            "is-selected",
+            "vm-selected"
+          );
 
-          setHiddenValue(fieldName, value);
+          var label =
+            qs(card, ".vision-card-label");
 
-          console.log("CH7 selected:", fieldName, value);
+          var value = label
+            ? label.textContent.trim()
+            : card.textContent.trim();
+
+          var hidden =
+            pravaPage.querySelector(
+              'input[name="' + fieldName + '"]'
+            );
+
+          if (hidden) {
+            hidden.value = value;
+
+            hidden.dispatchEvent(
+              new Event("input", { bubbles: true })
+            );
+
+            hidden.dispatchEvent(
+              new Event("change", { bubbles: true })
+            );
+          }
+
+          console.log(
+            "CH7 selected:",
+            fieldName,
+            value
+          );
+
         });
+
       });
+
     });
+
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initPravaVisionCards);
+    document.addEventListener(
+      "DOMContentLoaded",
+      initVisionCards
+    );
   } else {
-    initPravaVisionCards();
+    initVisionCards();
   }
-})();
 
+})();
 
 
 
