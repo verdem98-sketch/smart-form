@@ -8,7 +8,7 @@
 /* =========================================================
    CHAPTER 7
    PRAVA VISION CARDS — HARD OVERRIDE
-   AGLOVA 1:1
+   toggle on/off fixed
    ========================================================= */
 
 console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
@@ -26,7 +26,8 @@ console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
 
   function valFrom(el) {
     if (!el) return "";
-    return clean(el.getAttribute("data-value") || el.value || el.textContent);
+    var label = el.querySelector(".vision-card-label");
+    return clean(el.getAttribute("data-value") || (label && label.textContent) || el.textContent);
   }
 
   function setAll(name, value) {
@@ -48,45 +49,41 @@ console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
     qsa(page, ".vision-cards-row").forEach(function (row) {
       var cards = qsa(row, ".vision-card");
 
-      console.log("CH7 PRAVA row cards:", cards.length);
-
       cards.forEach(function (card) {
-        card.addEventListener(
-          "click",
-          function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
+        card.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
 
-            var isActive = card.classList.contains("vm-selected");
+          var wasActive = card.classList.contains("vm-selected");
 
-            cards.forEach(function (c) {
-              c.classList.remove("vm-selected", "is-selected", "active");
-              c.querySelectorAll(".vm-check").forEach(function (x) {
-                x.remove();
-              });
+          cards.forEach(function (c) {
+            c.classList.remove("vm-selected", "is-selected", "active");
+            c.querySelectorAll(".vm-check").forEach(function (x) {
+              x.remove();
             });
+          });
 
-            if (!isActive) {
-              card.classList.add("vm-selected", "is-selected", "active");
-              card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
-            }
+          var wrap = card.closest("[data-field]");
+          var field = wrap ? wrap.getAttribute("data-field") : "";
 
-            var wrap = card.closest("[data-field]");
-            var field = wrap ? wrap.getAttribute("data-field") : "";
-            var value = valFrom(card);
+          if (wasActive) {
+            setAll(field, "");
+            console.log("CH7 PRAVA unselected:", field);
+            return;
+          }
 
-            if (field) setAll(field, value);
+          card.classList.add("vm-selected", "is-selected", "active");
+          card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
 
-            console.log("CH7 PRAVA selected:", field, value);
-          },
-          true
-        );
+          setAll(field, valFrom(card));
+
+          console.log("CH7 PRAVA selected:", field, valFrom(card));
+        }, true);
       });
     });
   });
 })();
-
 
 
 /* =========================================================
