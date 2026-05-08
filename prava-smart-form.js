@@ -9,12 +9,12 @@
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE
-   DOM SYNC SAFE VERSION
-   no alert / no capture shield
+   DOM SYNC SAFE v2
+   hard hide inactive questions
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA CH1 DOM SYNC SAFE START");
+  console.log("PRAVA CH1 DOM SYNC SAFE v2 START");
 
   const flow = document.querySelector(".sf-page-prava");
   if (!flow) return;
@@ -25,24 +25,36 @@ document.addEventListener("DOMContentLoaded", function () {
   let state = {};
   let currentIndex = 0;
 
+  function hardShow(el) {
+    if (!el) return;
+    el.style.setProperty("display", "block", "important");
+    el.style.setProperty("visibility", "visible", "important");
+    el.style.setProperty("opacity", "1", "important");
+  }
+
+  function hardHide(el) {
+    if (!el) return;
+    el.style.setProperty("display", "none", "important");
+    el.style.setProperty("visibility", "hidden", "important");
+    el.style.setProperty("opacity", "0", "important");
+  }
+
   function syncCurrentIndexFromDom() {
     const activeIndex = questions.findIndex(function (q) {
       return q.classList.contains("active-question");
     });
 
-    if (activeIndex >= 0) {
-      currentIndex = activeIndex;
-    }
+    if (activeIndex >= 0) currentIndex = activeIndex;
   }
 
   function showQuestion(index) {
     questions.forEach(function (q, i) {
-      q.classList.toggle("active-question", i === index);
-
       if (i === index) {
-        q.style.removeProperty("display");
-        q.style.removeProperty("visibility");
-        q.style.removeProperty("opacity");
+        q.classList.add("active-question");
+        hardShow(q);
+      } else {
+        q.classList.remove("active-question");
+        hardHide(q);
       }
     });
 
@@ -201,9 +213,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
       q.classList.remove("choice-warning");
-      q.style.removeProperty("display");
-      q.style.removeProperty("visibility");
-      q.style.removeProperty("opacity");
     });
 
     showQuestion(0);
