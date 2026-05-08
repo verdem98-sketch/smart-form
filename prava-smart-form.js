@@ -9,12 +9,12 @@
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE
-   Question navigation / active states / reset
-   Safe version: no alert, no capture shield
+   DOM SYNC SAFE VERSION
+   no alert / no capture shield
    ========================================================= */
 
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA CH1 SAFE FLOW START");
+  console.log("PRAVA CH1 DOM SYNC SAFE START");
 
   const flow = document.querySelector(".sf-page-prava");
   if (!flow) return;
@@ -25,9 +25,25 @@ document.addEventListener("DOMContentLoaded", function () {
   let state = {};
   let currentIndex = 0;
 
+  function syncCurrentIndexFromDom() {
+    const activeIndex = questions.findIndex(function (q) {
+      return q.classList.contains("active-question");
+    });
+
+    if (activeIndex >= 0) {
+      currentIndex = activeIndex;
+    }
+  }
+
   function showQuestion(index) {
     questions.forEach(function (q, i) {
       q.classList.toggle("active-question", i === index);
+
+      if (i === index) {
+        q.style.removeProperty("display");
+        q.style.removeProperty("visibility");
+        q.style.removeProperty("opacity");
+      }
     });
 
     currentIndex = index;
@@ -35,6 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function currentQuestion() {
+    syncCurrentIndexFromDom();
     return questions[currentIndex];
   }
 
@@ -110,6 +127,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     state[field] = value;
 
+    const realIndex = questions.indexOf(question);
+    if (realIndex >= 0) currentIndex = realIndex;
+
     hideHint(question);
 
     console.log("STATE:", state);
@@ -155,6 +175,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     e.preventDefault();
 
+    syncCurrentIndexFromDom();
+
     if (currentIndex > 0) {
       showQuestion(currentIndex - 1);
     }
@@ -179,6 +201,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
       q.classList.remove("choice-warning");
+      q.style.removeProperty("display");
+      q.style.removeProperty("visibility");
+      q.style.removeProperty("opacity");
     });
 
     showQuestion(0);
@@ -188,7 +213,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   showQuestion(0);
 });
-
 
 
 
