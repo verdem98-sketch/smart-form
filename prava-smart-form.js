@@ -1088,6 +1088,74 @@ hide(dimensionsPhase);
 
 
 
+/* =========================================================
+   CHAPTER 7
+   PRAVA VISION CARDS ENGINE
+   active / is-selected / vm-selected compatibility
+   ========================================================= */
+
+document.addEventListener("DOMContentLoaded", function () {
+  var pravaPage = document.querySelector(".sf-page-prava");
+  if (!pravaPage) return;
+
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
+
+  function getCardValue(card) {
+    return (
+      card.getAttribute("data-value") ||
+      card.getAttribute("data-name") ||
+      card.textContent.trim()
+    );
+  }
+
+  function setHiddenValue(fieldName, value) {
+    if (!fieldName) return;
+
+    var input =
+      pravaPage.querySelector('input[name="' + fieldName + '"]') ||
+      pravaPage.querySelector('input[data-field="' + fieldName + '"]');
+
+    if (input) {
+      input.value = value || "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  function clearGroup(cards) {
+    cards.forEach(function (card) {
+      card.classList.remove("active");
+      card.classList.remove("is-selected");
+      card.classList.remove("vm-selected");
+    });
+  }
+
+  qsa(pravaPage, ".inspiration-cards-row[data-field], .vision-cards-row[data-field], [data-field].inspiration-cards-row").forEach(function (group) {
+    var fieldName = group.getAttribute("data-field");
+    var cards = qsa(group, ".vision-card");
+
+    cards.forEach(function (card) {
+      card.addEventListener("click", function () {
+        var value = getCardValue(card);
+
+        clearGroup(cards);
+
+        card.classList.add("active");
+        card.classList.add("is-selected");
+        card.classList.add("vm-selected");
+
+        setHiddenValue(fieldName, value);
+      });
+    });
+  });
+});
+
+
+
+
+
 
 
 
