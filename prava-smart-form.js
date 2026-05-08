@@ -808,8 +808,8 @@ hide(dimensionsPhase);
 
 /* =========================================================
    CHAPTER 6
-   PRAVA FINAL GATE — FINAL BUTTON ONLY
-   debug-safe version
+   PRAVA FINAL GATE — CLEAN QUESTION RESTORE
+   final button only
    ========================================================= */
 
 (function () {
@@ -822,7 +822,7 @@ hide(dimensionsPhase);
   }
 
   ready(function () {
-    console.log("CHAPTER 6 FINAL GATE START");
+    console.log("CHAPTER 6 FINAL GATE CLEAN RESTORE START");
 
     const page = document.querySelector(".sf-page-prava");
     if (!page) return;
@@ -887,14 +887,6 @@ hide(dimensionsPhase);
       hint.style.setProperty("color", "#9a3b00", "important");
       hint.style.setProperty("font-size", "14px", "important");
 
-      question.classList.remove("choice-warning");
-      void question.offsetWidth;
-      question.classList.add("choice-warning");
-
-      setTimeout(function () {
-        question.classList.remove("choice-warning");
-      }, 350);
-
       question.scrollIntoView({
         behavior: "smooth",
         block: "center"
@@ -921,14 +913,6 @@ hide(dimensionsPhase);
       hint.style.setProperty("color", "#9a3b00", "important");
       hint.style.setProperty("font-size", "14px", "important");
 
-      row.classList.remove("dimension-warning");
-      void row.offsetWidth;
-      row.classList.add("dimension-warning");
-
-      setTimeout(function () {
-        row.classList.remove("dimension-warning");
-      }, 350);
-
       row.scrollIntoView({
         behavior: "smooth",
         block: "center"
@@ -936,10 +920,7 @@ hide(dimensionsPhase);
     }
 
     function hasAnsweredQuestion(question) {
-      return !!qs(
-        question,
-        ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected"
-      );
+      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
     }
 
     function findFirstUnansweredQuestion() {
@@ -947,7 +928,6 @@ hide(dimensionsPhase);
 
       for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
-
         if (!qsa(question, ".option-pill").length) continue;
 
         if (!hasAnsweredQuestion(question)) {
@@ -1001,16 +981,21 @@ hide(dimensionsPhase);
     }
 
     function openComboToQuestion(question) {
-      if (comboPhase) show(comboPhase, "block");
+      if (!question) return;
+
+      if (finalPhase) hide(finalPhase);
       if (dimensionsPhase) hide(dimensionsPhase);
+      if (comboPhase) show(comboPhase, "block");
 
       qsa(page, ".question-wrap-prava").forEach(function (q) {
-        hide(q);
         q.classList.remove("active-question");
+        hide(q);
       });
 
       show(question, "block");
       question.classList.add("active-question");
+
+      console.log("CH6 RESTORE QUESTION:", question.getAttribute("data-field"));
 
       setTimeout(function () {
         showQuestionHint(question);
@@ -1018,6 +1003,7 @@ hide(dimensionsPhase);
     }
 
     function openDimensionsToRow(row) {
+      if (finalPhase) hide(finalPhase);
       if (comboPhase) hide(comboPhase);
       if (dimensionsPhase) show(dimensionsPhase, "block");
 
