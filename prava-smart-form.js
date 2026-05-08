@@ -7,118 +7,84 @@
 
 /* =========================================================
    CHAPTER 7
-   PRAVA VISION CARDS ENGINE
+   PRAVA VISION CARDS — HARD OVERRIDE
+   AGLOVA 1:1
    ========================================================= */
 
-console.log("CHAPTER 7 VISION CARDS START");
+console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
 
 (function () {
+  "use strict";
 
-  function initVisionCards() {
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
 
-    var pravaPage = document.querySelector(".sf-page-prava");
-    if (!pravaPage) return;
+  function clean(v) {
+    return String(v || "").trim();
+  }
 
-    function qsa(scope, sel) {
-      return Array.from((scope || document).querySelectorAll(sel));
-    }
+  function valFrom(el) {
+    if (!el) return "";
+    return clean(el.getAttribute("data-value") || el.value || el.textContent);
+  }
 
-    function qs(scope, sel) {
-      return (scope || document).querySelector(sel);
-    }
+  function setAll(name, value) {
+    if (!name) return;
 
-    var questionWraps = qsa(
-      pravaPage,
-      '.question-wrap[data-field]'
-    );
+    document
+      .querySelectorAll('input[name="' + name + '"], textarea[name="' + name + '"]')
+      .forEach(function (el) {
+        el.value = clean(value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+  }
 
-    console.log("CH7 questionWraps:", questionWraps.length);
+  document.addEventListener("DOMContentLoaded", function () {
+    var page = document.querySelector(".sf-page-prava");
+    if (!page) return;
 
-    questionWraps.forEach(function (wrap) {
-
-      var fieldName = wrap.getAttribute("data-field");
-      if (!fieldName) return;
-
-      var row = qs(wrap, ".vision-cards-row");
-      if (!row) return;
-
+    qsa(page, ".vision-cards-row").forEach(function (row) {
       var cards = qsa(row, ".vision-card");
 
-      console.log(
-        "CH7 field:",
-        fieldName,
-        "cards:",
-        cards.length
-      );
+      console.log("CH7 PRAVA row cards:", cards.length);
 
       cards.forEach(function (card) {
+        card.addEventListener(
+          "click",
+          function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
 
-        if (card.dataset.ch7Bound === "true") return;
-        card.dataset.ch7Bound = "true";
+            var isActive = card.classList.contains("vm-selected");
 
-        card.addEventListener("click", function () {
+            cards.forEach(function (c) {
+              c.classList.remove("vm-selected", "is-selected", "active");
+              c.querySelectorAll(".vm-check").forEach(function (x) {
+                x.remove();
+              });
+            });
 
-          cards.forEach(function (c) {
-            c.classList.remove(
-              "active",
-              "is-selected",
-              "vm-selected"
-            );
-          });
+            if (!isActive) {
+              card.classList.add("vm-selected", "is-selected", "active");
+              card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
+            }
 
-          card.classList.add(
-            "active",
-            "is-selected",
-            "vm-selected"
-          );
+            var wrap = card.closest("[data-field]");
+            var field = wrap ? wrap.getAttribute("data-field") : "";
+            var value = valFrom(card);
 
-          var label =
-            qs(card, ".vision-card-label");
+            if (field) setAll(field, value);
 
-          var value = label
-            ? label.textContent.trim()
-            : card.textContent.trim();
-
-          var hidden =
-            pravaPage.querySelector(
-              'input[name="' + fieldName + '"]'
-            );
-
-          if (hidden) {
-            hidden.value = value;
-
-            hidden.dispatchEvent(
-              new Event("input", { bubbles: true })
-            );
-
-            hidden.dispatchEvent(
-              new Event("change", { bubbles: true })
-            );
-          }
-
-          console.log(
-            "CH7 selected:",
-            fieldName,
-            value
-          );
-
-        });
-
+            console.log("CH7 PRAVA selected:", field, value);
+          },
+          true
+        );
       });
-
     });
-
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      initVisionCards
-    );
-  } else {
-    initVisionCards();
-  }
-
+  });
 })();
 
 
