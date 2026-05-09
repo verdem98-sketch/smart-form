@@ -1495,8 +1495,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 11
-   PRAVA SUCCESS RENDER v2
-   CAD + texts + checkboxes + inspiration
+   PRAVA SUCCESS RENDER v3
+   CAD fixed + inspiration fallback + checkboxes
    ========================================================= */
 
 (function () {
@@ -1509,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   ready(function () {
-    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v2 START");
+    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v3 START");
 
     var page = document.querySelector(".sf-page-prava");
     if (!page) return;
@@ -1566,7 +1566,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function checkboxValue(name) {
-      var boxes = qsa(page, '[name="' + name + '"], [data-field="' + name + '"] input[type="checkbox"], [data-checkbox-field="' + name + '"]');
+      var boxes = qsa(
+        page,
+        '[name="' + name + '"], [data-field="' + name + '"] input[type="checkbox"], [data-checkbox-field="' + name + '"]'
+      );
 
       for (var i = 0; i < boxes.length; i++) {
         if (boxes[i].checked) return "Да";
@@ -1603,7 +1606,10 @@ document.addEventListener("DOMContentLoaded", function () {
         qs(wrap, ".vision-card.vm-selected") ||
         qs(wrap, ".inspiration-card.active") ||
         qs(wrap, ".inspiration-card.is-selected") ||
-        qs(wrap, ".inspiration-card.vm-selected");
+        qs(wrap, ".inspiration-card.vm-selected") ||
+        qs(wrap, "[data-value].active") ||
+        qs(wrap, "[data-value].is-selected") ||
+        qs(wrap, "[data-value].vm-selected");
 
       return selected ? clean(selected.getAttribute("data-value") || selected.textContent) : "";
     }
@@ -1635,24 +1641,30 @@ document.addEventListener("DOMContentLoaded", function () {
       return date || slot || "";
     }
 
-    function isActuallyVisible(el) {
-      if (!el) return false;
-
-      var style = window.getComputedStyle(el);
-
-      if (style.display === "none") return false;
-      if (style.visibility === "hidden") return false;
-      if (style.opacity === "0") return false;
-
-      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-
     function getVisibleImageSrc(selector) {
       var imgs = qsa(page, selector);
 
+      var active = imgs.find(function (img) {
+        var st = img.getAttribute("style") || "";
+
+        return (
+          img.classList.contains("is-active") ||
+          img.classList.contains("active") ||
+          img.style.display === "block" ||
+          st.indexOf("display: block") > -1
+        );
+      });
+
+      if (active) {
+        return active.currentSrc || active.src || "";
+      }
+
       for (var i = 0; i < imgs.length; i++) {
-        if (isActuallyVisible(imgs[i])) {
-          return imgs[i].currentSrc || imgs[i].src || "";
+        var img = imgs[i];
+        var style = window.getComputedStyle(img);
+
+        if (style.display !== "none" && style.visibility !== "hidden") {
+          return img.currentSrc || img.src || "";
         }
       }
 
@@ -1712,12 +1724,41 @@ document.addEventListener("DOMContentLoaded", function () {
       var card =
         qs(wrap, selector + ".vm-selected") ||
         qs(wrap, selector + ".is-selected") ||
-        qs(wrap, selector + ".active");
+        qs(wrap, selector + ".active") ||
+        qs(wrap, "[data-value].vm-selected") ||
+        qs(wrap, "[data-value].is-selected") ||
+        qs(wrap, "[data-value].active");
 
       if (!card) return "";
 
       var img = qs(card, "img");
       return img ? (img.currentSrc || img.src || "") : "";
+    }
+
+    function getInspirationSrc() {
+      var src =
+        selectedImgInField("inspiration_card_prava", ".inspiration-card") ||
+        selectedImgInField("inspiration_card_prava", ".vision-card") ||
+        selectedImgInField("inspiration_card_prava", "[data-value]") ||
+        selectedImgInField("inspiration_card", ".inspiration-card") ||
+        selectedImgInField("inspiration", ".inspiration-card");
+
+      if (src) return src;
+
+      var selected =
+        qs(page, ".inspiration-card.vm-selected") ||
+        qs(page, ".inspiration-card.is-selected") ||
+        qs(page, ".inspiration-card.active") ||
+        qs(page, "[data-field='inspiration_card_prava'] .vm-selected") ||
+        qs(page, "[data-field='inspiration_card_prava'] .is-selected") ||
+        qs(page, "[data-field='inspiration_card_prava'] .active");
+
+      if (selected) {
+        var img = qs(selected, "img");
+        if (img) return img.currentSrc || img.src || "";
+      }
+
+      return "";
     }
 
     function setSuccessImage(key, src) {
@@ -1765,8 +1806,15 @@ document.addEventListener("DOMContentLoaded", function () {
         translate(valueOrSelected("island", "island"))
       );
 
-      setMany(["len_prava_3", "wall_1", "stena1_len_aglova"], dim("len_prava_3") !== "—" ? dim("len_prava_3") : dim("wall_1"));
-      setMany(["height_prava_3", "room_height", "visochina_aglova"], dim("height_prava_3") !== "—" ? dim("height_prava_3") : dim("room_height"));
+      setMany(
+        ["len_prava_3", "wall_1", "stena1_len_aglova"],
+        dim("len_prava_3") !== "—" ? dim("len_prava_3") : dim("wall_1")
+      );
+
+      setMany(
+        ["height_prava_3", "room_height", "visochina_aglova"],
+        dim("height_prava_3") !== "—" ? dim("height_prava_3") : dim("room_height")
+      );
 
       setMany(["island_len_3a"], dim("island_len_3a"));
       setMany(["island_width_3a"], dim("island_width_3a"));
@@ -1800,7 +1848,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       setMany(
         ["inspiration_card_prava", "inspiration_card_aglova", "inspiration_card"],
-        getValue("inspiration_card_prava") || getValue("inspiration_card") || getSelectedText("inspiration_card_prava")
+        getValue("inspiration_card_prava") ||
+          getValue("inspiration_card") ||
+          getSelectedText("inspiration_card_prava")
       );
 
       setMany(
@@ -1818,11 +1868,7 @@ document.addEventListener("DOMContentLoaded", function () {
       setSuccessImage("countertop_finish", selectedImgInField("countertop_finish", ".vision-card"));
       setSuccessImage("backsplash_finish", selectedImgInField("backsplash_finish", ".vision-card"));
 
-      var inspirationSrc =
-        selectedImgInField("inspiration_card_prava", ".inspiration-card") ||
-        selectedImgInField("inspiration_card_prava", ".vision-card") ||
-        selectedImgInField("inspiration_card", ".inspiration-card") ||
-        selectedImgInField("inspiration", ".inspiration-card");
+      var inspirationSrc = getInspirationSrc();
 
       setSuccessImage("inspiration_card_prava", inspirationSrc);
       setSuccessImage("inspiration_card_aglova", inspirationSrc);
@@ -1836,7 +1882,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderCadPreview();
       fillImages();
 
-      console.log("CH11 PRAVA SUCCESS RENDERED v2");
+      console.log("CH11 PRAVA SUCCESS RENDERED v3");
     }
 
     form.addEventListener("submit", function () {
