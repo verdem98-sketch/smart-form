@@ -1495,8 +1495,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 11
-   PRAVA SUCCESS RENDER v5
-   CAD + deep cabinets overlay + inspiration + island dims
+   PRAVA SUCCESS RENDER v6
+   CAD + deep layer + grid-safe success layout
    ========================================================= */
 
 (function () {
@@ -1509,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   ready(function () {
-    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v5 START");
+    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v6 START");
 
     var page = document.querySelector(".sf-page-prava");
     if (!page) return;
@@ -1712,22 +1712,29 @@ document.addEventListener("DOMContentLoaded", function () {
       img.style.setProperty("object-fit", "contain", "important");
       img.style.setProperty("display", "block", "important");
 
-      if (zIndex) {
-        img.style.setProperty("z-index", String(zIndex), "important");
-      }
+      if (zIndex) img.style.setProperty("z-index", String(zIndex), "important");
 
       target.appendChild(img);
     }
 
-    function forceShow(el) {
+    function forceShowBlock(el) {
       if (!el) return;
 
       el.style.setProperty("display", "block", "important");
       el.style.setProperty("visibility", "visible", "important");
       el.style.setProperty("opacity", "1", "important");
-      el.style.setProperty("height", "auto", "important");
-      el.style.setProperty("min-height", "0", "important");
-      el.style.setProperty("overflow", "visible", "important");
+      el.style.setProperty("overflow", "hidden", "important");
+    }
+
+    function forceGrid(el) {
+      if (!el) return;
+
+      el.style.setProperty("display", "grid", "important");
+      el.style.setProperty("grid-template-columns", "repeat(3, minmax(0, 1fr))", "important");
+      el.style.setProperty("gap", "18px", "important");
+      el.style.setProperty("align-items", "stretch", "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
     }
 
     function renderCadPreview() {
@@ -1737,10 +1744,12 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      forceShow(target);
-      forceShow(target.parentElement);
-      forceShow(target.closest(".title-cad"));
-      forceShow(target.closest(".success-preview-wrap"));
+      var previewWrap = target.closest(".success-preview-wrap");
+
+      forceShowBlock(target);
+      forceShowBlock(target.parentElement);
+      forceShowBlock(target.closest(".title-cad"));
+      forceGrid(previewWrap);
 
       target.innerHTML = "";
 
@@ -1750,8 +1759,8 @@ document.addEventListener("DOMContentLoaded", function () {
       stage.style.setProperty("position", "relative", "important");
       stage.style.setProperty("display", "block", "important");
       stage.style.setProperty("width", "100%", "important");
-      stage.style.setProperty("height", "190px", "important");
-      stage.style.setProperty("min-height", "190px", "important");
+      stage.style.setProperty("height", "185px", "important");
+      stage.style.setProperty("min-height", "185px", "important");
       stage.style.setProperty("overflow", "hidden", "important");
       stage.style.setProperty("border-radius", "14px", "important");
       stage.style.setProperty("background", "#f4f1ee", "important");
@@ -1884,7 +1893,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       var deepText = translate(valueOrSelected("deep_cabinets", "deep_cabinets"));
       if (!deepText || deepText === "—") deepText = checkboxValue("deep_cabinets");
-
       setMany(["deep_cabinets"], deepText);
 
       setMany(
@@ -1973,7 +1981,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderCadPreview();
       fillImages();
 
-      console.log("CH11 PRAVA SUCCESS RENDERED v5");
+      console.log("CH11 PRAVA SUCCESS RENDERED v6");
     }
 
     form.addEventListener("submit", function () {
