@@ -1172,7 +1172,7 @@ hide(dimensionsPhase);
    CHAPTER 8
    PRAVA BOOKING CALENDAR
    ========================================================= */
-
+console.log("🔥 CH8 PRAVA BOOKING LOADED");
 document.addEventListener("DOMContentLoaded", function () {
   var flow = document.querySelector(".sf-page-prava");
   if (!flow) return;
