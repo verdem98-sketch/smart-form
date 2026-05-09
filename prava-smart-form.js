@@ -1167,7 +1167,7 @@ hide(dimensionsPhase);
 
 
 
-<script>
+
 /* =========================================================
    CHAPTER 8
    PRAVA BOOKING CALENDAR
