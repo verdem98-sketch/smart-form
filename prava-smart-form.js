@@ -1283,6 +1283,119 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
+/* =========================================================
+   CHAPTER 9
+   PRAVA INSPIRATION CARD SELECT
+   green check + hidden input sync
+   ========================================================= */
+
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    console.log("CHAPTER 9 PRAVA INSPIRATION START");
+
+    var page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
+    }
+
+    function qsa(scope, sel) {
+      return Array.from((scope || document).querySelectorAll(sel));
+    }
+
+    function setHidden(name, value) {
+      var input = qs(page, '[name="' + name + '"]') || qs(document, '[name="' + name + '"]');
+
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+
+        var form = qs(page, "form");
+        if (form) form.appendChild(input);
+      }
+
+      if (input) input.value = value || "";
+    }
+
+    function getCardValue(card) {
+      return (
+        card.getAttribute("data-value") ||
+        card.getAttribute("data-inspiration") ||
+        card.getAttribute("aria-label") ||
+        card.textContent ||
+        ""
+      ).trim();
+    }
+
+    function ensureCheck(card) {
+      var check = qs(card, ".inspiration-check");
+
+      if (!check) {
+        check = document.createElement("div");
+        check.className = "inspiration-check";
+        check.textContent = "✓";
+        card.appendChild(check);
+      }
+
+      return check;
+    }
+
+    var cards = qsa(page, ".inspiration-card, [data-field='inspiration_card_prava'] .vision-card, [data-field='inspiration_card_prava'] [data-value]");
+
+    if (!cards.length) {
+      console.log("CH9 inspiration cards found: 0");
+      return;
+    }
+
+    console.log("CH9 inspiration cards found:", cards.length);
+
+    cards.forEach(function (card) {
+      ensureCheck(card);
+
+      card.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        var alreadySelected =
+          card.classList.contains("vm-selected") ||
+          card.classList.contains("is-selected") ||
+          card.classList.contains("active");
+
+        cards.forEach(function (item) {
+          item.classList.remove("vm-selected", "is-selected", "active");
+        });
+
+        if (alreadySelected) {
+          setHidden("inspiration_card_prava", "");
+          setHidden("inspiration_card", "");
+          return;
+        }
+
+        card.classList.add("vm-selected", "is-selected", "active");
+
+        var value = getCardValue(card);
+
+        setHidden("inspiration_card_prava", value);
+        setHidden("inspiration_card", value);
+
+        console.log("CH9 inspiration selected:", value);
+      });
+    });
+  });
+})();
+
+
+
+
 
 /* =========================================================
    CHAPTER 6
