@@ -5,85 +5,6 @@
    ========================================================= */
 
 
-/* =========================================================
-   CHAPTER 7
-   PRAVA VISION CARDS — HARD OVERRIDE
-   toggle on/off fixed
-   ========================================================= */
-
-console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
-
-(function () {
-  "use strict";
-
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
-  function clean(v) {
-    return String(v || "").trim();
-  }
-
-  function valFrom(el) {
-    if (!el) return "";
-    var label = el.querySelector(".vision-card-label");
-    return clean(el.getAttribute("data-value") || (label && label.textContent) || el.textContent);
-  }
-
-  function setAll(name, value) {
-    if (!name) return;
-
-    document
-      .querySelectorAll('input[name="' + name + '"], textarea[name="' + name + '"]')
-      .forEach(function (el) {
-        el.value = clean(value);
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    var page = document.querySelector(".sf-page-prava");
-    if (!page) return;
-
-    qsa(page, ".vision-cards-row").forEach(function (row) {
-      var cards = qsa(row, ".vision-card");
-
-      cards.forEach(function (card) {
-        card.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          var wasActive = card.classList.contains("vm-selected");
-
-          cards.forEach(function (c) {
-            c.classList.remove("vm-selected", "is-selected", "active");
-            c.querySelectorAll(".vm-check").forEach(function (x) {
-              x.remove();
-            });
-          });
-
-          var wrap = card.closest("[data-field]");
-          var field = wrap ? wrap.getAttribute("data-field") : "";
-
-          if (wasActive) {
-            setAll(field, "");
-            console.log("CH7 PRAVA unselected:", field);
-            return;
-          }
-
-          card.classList.add("vm-selected", "is-selected", "active");
-          card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
-
-          setAll(field, valFrom(card));
-
-          console.log("CH7 PRAVA selected:", field, valFrom(card));
-        }, true);
-      });
-    });
-  });
-})();
 
 
 /* =========================================================
@@ -890,6 +811,88 @@ hide(dimensionsPhase);
   });
 })();
 
+/* =========================================================
+   CHAPTER 7
+   PRAVA VISION CARDS — HARD OVERRIDE
+   toggle on/off fixed
+   ========================================================= */
+
+console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
+
+(function () {
+  "use strict";
+
+  function qsa(scope, sel) {
+    return Array.from((scope || document).querySelectorAll(sel));
+  }
+
+  function clean(v) {
+    return String(v || "").trim();
+  }
+
+  function valFrom(el) {
+    if (!el) return "";
+    var label = el.querySelector(".vision-card-label");
+    return clean(el.getAttribute("data-value") || (label && label.textContent) || el.textContent);
+  }
+
+  function setAll(name, value) {
+    if (!name) return;
+
+    document
+      .querySelectorAll('input[name="' + name + '"], textarea[name="' + name + '"]')
+      .forEach(function (el) {
+        el.value = clean(value);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    qsa(page, ".vision-cards-row").forEach(function (row) {
+      var cards = qsa(row, ".vision-card");
+
+      cards.forEach(function (card) {
+        card.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          var wasActive = card.classList.contains("vm-selected");
+
+          cards.forEach(function (c) {
+            c.classList.remove("vm-selected", "is-selected", "active");
+            c.querySelectorAll(".vm-check").forEach(function (x) {
+              x.remove();
+            });
+          });
+
+          var wrap = card.closest("[data-field]");
+          var field = wrap ? wrap.getAttribute("data-field") : "";
+
+          if (wasActive) {
+            setAll(field, "");
+            console.log("CH7 PRAVA unselected:", field);
+            return;
+          }
+
+          card.classList.add("vm-selected", "is-selected", "active");
+          card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
+
+          setAll(field, valFrom(card));
+
+          console.log("CH7 PRAVA selected:", field, valFrom(card));
+        }, true);
+      });
+    });
+  });
+})();
+
+
+
 
 
 /* =========================================================
@@ -1394,7 +1397,100 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 
 
+/* =========================================================
+   CHAPTER 10
+   PRAVA PLAN SELECT
+   active state + hidden input sync
+   ========================================================= */
 
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    console.log("CHAPTER 10 PRAVA PLAN START");
+
+    var page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
+    }
+
+    function qsa(scope, sel) {
+      return Array.from((scope || document).querySelectorAll(sel));
+    }
+
+    function setHidden(name, value) {
+      var input = qs(page, '[name="' + name + '"]') || qs(document, '[name="' + name + '"]');
+
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+
+        var form = qs(page, "form");
+        if (form) form.appendChild(input);
+      }
+
+      input.value = value || "";
+    }
+
+    function getValue(btn) {
+      return (
+        btn.getAttribute("data-value") ||
+        btn.textContent ||
+        ""
+      ).trim();
+    }
+
+    var wrap = qs(page, ".plan-wrap");
+    if (!wrap) {
+      console.log("CH10 plan wrap not found");
+      return;
+    }
+
+    var buttons = qsa(wrap, ".option-pill");
+
+    console.log("CH10 plan buttons found:", buttons.length);
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        var alreadySelected =
+          btn.classList.contains("active") ||
+          btn.classList.contains("is-selected") ||
+          btn.classList.contains("vm-selected");
+
+        buttons.forEach(function (item) {
+          item.classList.remove("active", "is-selected", "vm-selected");
+        });
+
+        if (alreadySelected) {
+          setHidden("plan_prava_3", "");
+          setHidden("plan", "");
+          console.log("CH10 plan cleared");
+          return;
+        }
+
+        btn.classList.add("active", "is-selected", "vm-selected");
+
+        var value = getValue(btn);
+
+        setHidden("plan_prava_3", value);
+        setHidden("plan", value);
+
+        console.log("CH10 plan selected:", value);
+      });
+    });
+  });
+})();
 
 
 /* =========================================================
