@@ -892,283 +892,6 @@ hide(dimensionsPhase);
 
 
 
-
-
-
-/* =========================================================
-   CHAPTER 6
-   PRAVA FINAL GATE — CLEAN QUESTION RESTORE
-   final button only
-   ========================================================= */
-
-(function () {
-  function ready(fn) {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", fn);
-    } else {
-      fn();
-    }
-  }
-
-  ready(function () {
-    console.log("CHAPTER 6 FINAL GATE CLEAN RESTORE START");
-
-    const page = document.querySelector(".sf-page-prava");
-    if (!page) return;
-
-    const finalPhase = page.querySelector(".final-phase");
-    const comboPhase = page.querySelector(".combo-phase, .combo-phase-wrap");
-    const dimensionsPhase = page.querySelector(".dimensions-phase, .dimensions-phase-wrap");
-
-    function qs(scope, sel) {
-      return (scope || document).querySelector(sel);
-    }
-
-    function qsa(scope, sel) {
-      return Array.from((scope || document).querySelectorAll(sel));
-    }
-
-    function isVisible(el) {
-      if (!el) return false;
-      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-
-    function show(el, displayType) {
-      if (!el) return;
-      el.style.setProperty("display", displayType || "block", "important");
-      el.style.setProperty("visibility", "visible", "important");
-      el.style.setProperty("opacity", "1", "important");
-    }
-
-    function hide(el) {
-      if (!el) return;
-      el.style.setProperty("display", "none", "important");
-      el.style.setProperty("visibility", "hidden", "important");
-      el.style.setProperty("opacity", "0", "important");
-    }
-
-    if (finalPhase) hide(finalPhase);
-
-    function clearHints() {
-      qsa(page, ".question-hint, .dimension-hint").forEach(function (hint) {
-        hint.classList.remove("is-visible");
-        hint.style.setProperty("display", "none", "important");
-      });
-    }
-
-    function showQuestionHint(question) {
-      if (!question) return;
-
-      let hint = qs(question, ".question-hint");
-
-      if (!hint) {
-        hint = document.createElement("div");
-        hint.className = "question-hint";
-        hint.textContent = "Избери вариант, за да продължим.";
-        question.appendChild(hint);
-      }
-
-      hint.classList.add("is-visible");
-      hint.style.setProperty("display", "block", "important");
-      hint.style.setProperty("visibility", "visible", "important");
-      hint.style.setProperty("opacity", "1", "important");
-      hint.style.setProperty("margin-top", "12px", "important");
-      hint.style.setProperty("color", "#9a3b00", "important");
-      hint.style.setProperty("font-size", "14px", "important");
-
-      question.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    }
-
-    function showDimensionHint(row) {
-      if (!row) return;
-
-      let hint = qs(row, ".dimension-hint");
-
-      if (!hint) {
-        hint = document.createElement("div");
-        hint.className = "dimension-hint";
-        hint.textContent = "Попълни размера, за да продължим.";
-        row.appendChild(hint);
-      }
-
-      hint.classList.add("is-visible");
-      hint.style.setProperty("display", "block", "important");
-      hint.style.setProperty("visibility", "visible", "important");
-      hint.style.setProperty("opacity", "1", "important");
-      hint.style.setProperty("margin-top", "10px", "important");
-      hint.style.setProperty("color", "#9a3b00", "important");
-      hint.style.setProperty("font-size", "14px", "important");
-
-      row.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    }
-
-    function hasAnsweredQuestion(question) {
-      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
-    }
-
-    function findFirstUnansweredQuestion() {
-      const questions = qsa(page, ".question-wrap-prava");
-
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        if (!qsa(question, ".option-pill").length) continue;
-
-        if (!hasAnsweredQuestion(question)) {
-          return question;
-        }
-      }
-
-      return null;
-    }
-
-    function markRowTouched(row) {
-      if (!row) return;
-      row.classList.add("is-touched");
-      row.setAttribute("data-touched", "true");
-    }
-
-    page.addEventListener("click", function (e) {
-      const btn = e.target.closest(".dimension-row .picker-btn");
-      if (!btn) return;
-
-      markRowTouched(btn.closest(".dimension-row"));
-    }, true);
-
-    function rowHasValue(row) {
-      if (!row) return false;
-
-      return (
-        row.classList.contains("is-touched") ||
-        row.getAttribute("data-touched") === "true"
-      );
-    }
-
-    function findFirstEmptyVisibleDimension() {
-      const rows = qsa(
-        page,
-        ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row"
-      );
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-
-        if (!isVisible(row)) continue;
-
-        const group = row.closest(".dimensions-group, [data-owner]");
-        if (group && !isVisible(group)) continue;
-
-        if (!rowHasValue(row)) return row;
-      }
-
-      return null;
-    }
-
-    function openComboToQuestion(question) {
-      if (!question) return;
-
-      if (finalPhase) hide(finalPhase);
-      if (dimensionsPhase) hide(dimensionsPhase);
-      if (comboPhase) show(comboPhase, "block");
-
-      qsa(page, ".question-wrap-prava").forEach(function (q) {
-        q.classList.remove("active-question");
-        hide(q);
-      });
-
-      show(question, "block");
-      question.classList.add("active-question");
-
-      console.log("CH6 RESTORE QUESTION:", question.getAttribute("data-field"));
-
-      setTimeout(function () {
-        showQuestionHint(question);
-      }, 80);
-    }
-
-    function openDimensionsToRow(row) {
-      if (finalPhase) hide(finalPhase);
-      if (comboPhase) hide(comboPhase);
-      if (dimensionsPhase) show(dimensionsPhase, "block");
-
-      setTimeout(function () {
-        showDimensionHint(row);
-      }, 80);
-    }
-
-    function openFinal() {
-      qsa(
-        page,
-        ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase"
-      ).forEach(function (el) {
-        hide(el);
-      });
-
-      qsa(page, ".prava-left, .sticky-cad-wrap, .cad-stage").forEach(function (el) {
-        hide(el);
-      });
-
-      show(finalPhase, "block");
-
-      setTimeout(function () {
-        finalPhase.scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      }, 80);
-
-      window.dispatchEvent(new Event("resize"));
-    }
-
-    const finalBtns = qsa(page, ".phase-next-btn").filter(function (btn) {
-      return btn.getAttribute("data-next-phase") === "final-phase";
-    });
-
-    console.log("CH6 FINAL BUTTONS FOUND:", finalBtns.length);
-
-    finalBtns.forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        console.log("CH6 FINAL CLICK");
-
-        clearHints();
-
-        const unanswered = findFirstUnansweredQuestion();
-
-        if (unanswered) {
-          console.log("CH6 BLOCKED QUESTION:", unanswered.getAttribute("data-field"));
-          openComboToQuestion(unanswered);
-          return;
-        }
-
-        const emptyDim = findFirstEmptyVisibleDimension();
-
-        if (emptyDim) {
-          console.log("CH6 BLOCKED DIM:", emptyDim.getAttribute("data-dim"));
-          openDimensionsToRow(emptyDim);
-          return;
-        }
-
-        console.log("CH6 OPEN FINAL");
-        openFinal();
-      }, true);
-    });
-  });
-})();
-
-
-
-
-
-
-
 /* =========================================================
    CHAPTER 8
    PRAVA BOOKING CALENDAR
@@ -1558,6 +1281,283 @@ document.addEventListener("DOMContentLoaded", function () {
     initFinalPhase(phase, index);
   });
 });
+
+
+
+/* =========================================================
+   CHAPTER 6
+   PRAVA FINAL GATE — CLEAN QUESTION RESTORE
+   final button only
+   ========================================================= */
+
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    console.log("CHAPTER 6 FINAL GATE CLEAN RESTORE START");
+
+    const page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    const finalPhase = page.querySelector(".final-phase");
+    const comboPhase = page.querySelector(".combo-phase, .combo-phase-wrap");
+    const dimensionsPhase = page.querySelector(".dimensions-phase, .dimensions-phase-wrap");
+
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
+    }
+
+    function qsa(scope, sel) {
+      return Array.from((scope || document).querySelectorAll(sel));
+    }
+
+    function isVisible(el) {
+      if (!el) return false;
+      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    }
+
+    function show(el, displayType) {
+      if (!el) return;
+      el.style.setProperty("display", displayType || "block", "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+    }
+
+    function hide(el) {
+      if (!el) return;
+      el.style.setProperty("display", "none", "important");
+      el.style.setProperty("visibility", "hidden", "important");
+      el.style.setProperty("opacity", "0", "important");
+    }
+
+    if (finalPhase) hide(finalPhase);
+
+    function clearHints() {
+      qsa(page, ".question-hint, .dimension-hint").forEach(function (hint) {
+        hint.classList.remove("is-visible");
+        hint.style.setProperty("display", "none", "important");
+      });
+    }
+
+    function showQuestionHint(question) {
+      if (!question) return;
+
+      let hint = qs(question, ".question-hint");
+
+      if (!hint) {
+        hint = document.createElement("div");
+        hint.className = "question-hint";
+        hint.textContent = "Избери вариант, за да продължим.";
+        question.appendChild(hint);
+      }
+
+      hint.classList.add("is-visible");
+      hint.style.setProperty("display", "block", "important");
+      hint.style.setProperty("visibility", "visible", "important");
+      hint.style.setProperty("opacity", "1", "important");
+      hint.style.setProperty("margin-top", "12px", "important");
+      hint.style.setProperty("color", "#9a3b00", "important");
+      hint.style.setProperty("font-size", "14px", "important");
+
+      question.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    function showDimensionHint(row) {
+      if (!row) return;
+
+      let hint = qs(row, ".dimension-hint");
+
+      if (!hint) {
+        hint = document.createElement("div");
+        hint.className = "dimension-hint";
+        hint.textContent = "Попълни размера, за да продължим.";
+        row.appendChild(hint);
+      }
+
+      hint.classList.add("is-visible");
+      hint.style.setProperty("display", "block", "important");
+      hint.style.setProperty("visibility", "visible", "important");
+      hint.style.setProperty("opacity", "1", "important");
+      hint.style.setProperty("margin-top", "10px", "important");
+      hint.style.setProperty("color", "#9a3b00", "important");
+      hint.style.setProperty("font-size", "14px", "important");
+
+      row.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }
+
+    function hasAnsweredQuestion(question) {
+      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
+    }
+
+    function findFirstUnansweredQuestion() {
+      const questions = qsa(page, ".question-wrap-prava");
+
+      for (let i = 0; i < questions.length; i++) {
+        const question = questions[i];
+        if (!qsa(question, ".option-pill").length) continue;
+
+        if (!hasAnsweredQuestion(question)) {
+          return question;
+        }
+      }
+
+      return null;
+    }
+
+    function markRowTouched(row) {
+      if (!row) return;
+      row.classList.add("is-touched");
+      row.setAttribute("data-touched", "true");
+    }
+
+    page.addEventListener("click", function (e) {
+      const btn = e.target.closest(".dimension-row .picker-btn");
+      if (!btn) return;
+
+      markRowTouched(btn.closest(".dimension-row"));
+    }, true);
+
+    function rowHasValue(row) {
+      if (!row) return false;
+
+      return (
+        row.classList.contains("is-touched") ||
+        row.getAttribute("data-touched") === "true"
+      );
+    }
+
+    function findFirstEmptyVisibleDimension() {
+      const rows = qsa(
+        page,
+        ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row"
+      );
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        if (!isVisible(row)) continue;
+
+        const group = row.closest(".dimensions-group, [data-owner]");
+        if (group && !isVisible(group)) continue;
+
+        if (!rowHasValue(row)) return row;
+      }
+
+      return null;
+    }
+
+    function openComboToQuestion(question) {
+      if (!question) return;
+
+      if (finalPhase) hide(finalPhase);
+      if (dimensionsPhase) hide(dimensionsPhase);
+      if (comboPhase) show(comboPhase, "block");
+
+      qsa(page, ".question-wrap-prava").forEach(function (q) {
+        q.classList.remove("active-question");
+        hide(q);
+      });
+
+      show(question, "block");
+      question.classList.add("active-question");
+
+      console.log("CH6 RESTORE QUESTION:", question.getAttribute("data-field"));
+
+      setTimeout(function () {
+        showQuestionHint(question);
+      }, 80);
+    }
+
+    function openDimensionsToRow(row) {
+      if (finalPhase) hide(finalPhase);
+      if (comboPhase) hide(comboPhase);
+      if (dimensionsPhase) show(dimensionsPhase, "block");
+
+      setTimeout(function () {
+        showDimensionHint(row);
+      }, 80);
+    }
+
+    function openFinal() {
+      qsa(
+        page,
+        ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase"
+      ).forEach(function (el) {
+        hide(el);
+      });
+
+      qsa(page, ".prava-left, .sticky-cad-wrap, .cad-stage").forEach(function (el) {
+        hide(el);
+      });
+
+      show(finalPhase, "block");
+
+      setTimeout(function () {
+        finalPhase.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }, 80);
+
+      window.dispatchEvent(new Event("resize"));
+    }
+
+    const finalBtns = qsa(page, ".phase-next-btn").filter(function (btn) {
+      return btn.getAttribute("data-next-phase") === "final-phase";
+    });
+
+    console.log("CH6 FINAL BUTTONS FOUND:", finalBtns.length);
+
+    finalBtns.forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        console.log("CH6 FINAL CLICK");
+
+        clearHints();
+
+        const unanswered = findFirstUnansweredQuestion();
+
+        if (unanswered) {
+          console.log("CH6 BLOCKED QUESTION:", unanswered.getAttribute("data-field"));
+          openComboToQuestion(unanswered);
+          return;
+        }
+
+        const emptyDim = findFirstEmptyVisibleDimension();
+
+        if (emptyDim) {
+          console.log("CH6 BLOCKED DIM:", emptyDim.getAttribute("data-dim"));
+          openDimensionsToRow(emptyDim);
+          return;
+        }
+
+        console.log("CH6 OPEN FINAL");
+        openFinal();
+      }, true);
+    });
+  });
+})();
+
+
+
+
+
+
+
 
 
 
