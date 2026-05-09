@@ -1494,6 +1494,285 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 /* =========================================================
+   CHAPTER 11
+   PRAVA SUCCESS RENDER
+   fills copied success-card from AGLOVA
+   ========================================================= */
+
+(function () {
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  ready(function () {
+    console.log("CHAPTER 11 PRAVA SUCCESS RENDER START");
+
+    var page = document.querySelector(".sf-page-prava");
+    if (!page) return;
+
+    var form = page.querySelector("form");
+    if (!form) return;
+
+    var formBlock = form.closest(".w-form") || page;
+
+    function qs(scope, sel) {
+      return (scope || document).querySelector(sel);
+    }
+
+    function qsa(scope, sel) {
+      return Array.from((scope || document).querySelectorAll(sel));
+    }
+
+    function clean(v) {
+      return String(v || "").trim();
+    }
+
+    function lower(v) {
+      return clean(v).toLowerCase();
+    }
+
+    function getValue(name) {
+      var el =
+        form.querySelector('[name="' + name + '"]') ||
+        page.querySelector('[name="' + name + '"]') ||
+        document.querySelector('[name="' + name + '"]');
+
+      return clean(el && el.value);
+    }
+
+    function setText(key, value) {
+      qsa(formBlock, '[data-success="' + key + '"]').forEach(function (el) {
+        el.textContent = clean(value) || "—";
+      });
+    }
+
+    function setMany(keys, value) {
+      keys.forEach(function (key) {
+        setText(key, value);
+      });
+    }
+
+    function getSelectedText(fieldName) {
+      var wrap = qs(page, '[data-field="' + fieldName + '"]');
+      if (!wrap) return "";
+
+      var selected =
+        qs(wrap, ".option-pill.active") ||
+        qs(wrap, ".option-pill.is-selected") ||
+        qs(wrap, ".option-pill.vm-selected") ||
+        qs(wrap, ".vision-card.active") ||
+        qs(wrap, ".vision-card.is-selected") ||
+        qs(wrap, ".vision-card.vm-selected") ||
+        qs(wrap, ".inspiration-card.active") ||
+        qs(wrap, ".inspiration-card.is-selected") ||
+        qs(wrap, ".inspiration-card.vm-selected");
+
+      return selected ? clean(selected.getAttribute("data-value") || selected.textContent) : "";
+    }
+
+    function valueOrSelected(name, fieldName) {
+      return getValue(name) || getSelectedText(fieldName || name);
+    }
+
+    function yesNo(v) {
+      v = lower(v);
+      if (!v) return "";
+      if (v === "yes" || v === "да" || v === "true") return "Да";
+      if (v === "no" || v === "не" || v === "false") return "Не";
+      return v;
+    }
+
+    function combined(a, b) {
+      var av = getValue(a);
+      var bv = getValue(b);
+
+      if (!av && !bv) return "";
+      if (av && bv) return av + " × " + bv;
+      return av || bv;
+    }
+
+    function meetingCombined() {
+      var date = getValue("meeting_date");
+      var slot = getValue("meeting_slot");
+      var custom = getValue("custom_date");
+
+      if (custom) return custom;
+      if (date && slot) return date + " / " + slot;
+      return date || slot || "";
+    }
+
+    function getVisibleImageSrc(selector) {
+      var imgs = qsa(page, selector);
+
+      for (var i = 0; i < imgs.length; i++) {
+        var img = imgs[i];
+        var style = window.getComputedStyle(img);
+
+        if (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          img.offsetWidth > 0 &&
+          img.offsetHeight > 0
+        ) {
+          return img.currentSrc || img.src || "";
+        }
+      }
+
+      return "";
+    }
+
+    function addLayer(target, src, className) {
+      if (!src) return;
+
+      var img = document.createElement("img");
+      img.className = className || "success-cad-layer";
+      img.src = src;
+      img.alt = "";
+
+      target.appendChild(img);
+    }
+
+    function renderCadPreview() {
+      var target = qs(formBlock, ".success-cad-preview");
+      if (!target) return;
+
+      target.innerHTML = "";
+
+      var stage = document.createElement("div");
+      stage.className = "success-cad-stage";
+
+      var kitchenSrc =
+        getVisibleImageSrc(".cad-img-kitchen") ||
+        getVisibleImageSrc(".cad-prava-kitchen img") ||
+        getVisibleImageSrc(".cad-kitchen img");
+
+      var islandSrc =
+        getVisibleImageSrc(".cad-img-island") ||
+        getVisibleImageSrc(".cad-prava-island img") ||
+        getVisibleImageSrc(".cad-island img");
+
+      addLayer(stage, kitchenSrc, "success-cad-layer success-cad-kitchen");
+
+      if (yesNo(valueOrSelected("island", "island")) === "Да") {
+        addLayer(stage, islandSrc, "success-cad-layer success-cad-island");
+      }
+
+      target.appendChild(stage);
+    }
+
+    function selectedImgInField(fieldName, cardSelector) {
+      var wrap = qs(page, '[data-field="' + fieldName + '"]');
+      if (!wrap) return "";
+
+      var selector = cardSelector || ".vision-card";
+
+      var card =
+        qs(wrap, selector + ".vm-selected") ||
+        qs(wrap, selector + ".is-selected") ||
+        qs(wrap, selector + ".active");
+
+      if (!card) return "";
+
+      var img = qs(card, "img");
+      return img ? (img.currentSrc || img.src || "") : "";
+    }
+
+    function setSuccessImage(key, src) {
+      qsa(formBlock, '[data-success-img="' + key + '"]').forEach(function (img) {
+        if (!src) {
+          img.removeAttribute("src");
+          img.style.setProperty("display", "none", "important");
+          return;
+        }
+
+        img.src = src;
+        img.style.setProperty("display", "block", "important");
+      });
+    }
+
+    function fillTexts() {
+      setMany(["chimney_exists", "chimney_position_prava"], valueOrSelected("chimney_position_prava", "chimney_position_prava"));
+      setMany(["water_position_aglova", "water_position_prava"], valueOrSelected("water_position_prava", "water_position_prava"));
+      setMany(["oven_tall_unit_aglova", "oven_tall_unit"], yesNo(valueOrSelected("oven_tall_unit", "oven_tall_unit")));
+      setMany(["fridge_type_aglova", "fridge_type"], valueOrSelected("fridge_type", "fridge_type"));
+      setMany(["bar_enabled_aglova", "island"], yesNo(valueOrSelected("island", "island")));
+
+      setMany(["stena1_len_aglova", "len_prava_3", "wall_1"], getValue("len_prava_3") || getValue("wall_1"));
+      setMany(["stena2_len_aglova", "height_prava_3", "room_height"], getValue("height_prava_3") || getValue("room_height"));
+
+      setText("visochina_aglova", getValue("height_prava_3") || getValue("room_height"));
+
+      setText("bar_combined", "—");
+      setText("island_combined", combined("island_len_3a", "island_width_3a"));
+
+      [
+        "upper_finish",
+        "lower_finish",
+        "countertop_finish",
+        "backsplash_finish",
+        "dishwasher",
+        "washing_machine",
+        "microwave",
+        "coffee_machine",
+        "glass_display",
+        "deep_cabinets",
+        "more_drawers",
+        "lift_mechanisms",
+        "counter_lighting",
+        "bottle_rack",
+        "custom_date"
+      ].forEach(function (name) {
+        setText(name, getValue(name) || valueOrSelected(name, name));
+      });
+
+      setMany(["inspiration_card_aglova", "inspiration_card_prava", "inspiration_card"], getValue("inspiration_card_prava") || getValue("inspiration_card"));
+      setMany(["plan_aglova", "plan_prava_3", "plan"], getValue("plan_prava_3") || getValue("plan"));
+
+      setText("meeting_combined", meetingCombined());
+    }
+
+    function fillImages() {
+      setSuccessImage("upper_finish", selectedImgInField("upper_finish", ".vision-card"));
+      setSuccessImage("lower_finish", selectedImgInField("lower_finish", ".vision-card"));
+      setSuccessImage("countertop_finish", selectedImgInField("countertop_finish", ".vision-card"));
+      setSuccessImage("backsplash_finish", selectedImgInField("backsplash_finish", ".vision-card"));
+
+      setSuccessImage(
+        "inspiration_card_aglova",
+        selectedImgInField("inspiration_card_prava", ".inspiration-card") ||
+        selectedImgInField("inspiration_card_prava", ".vision-card")
+      );
+
+      setSuccessImage(
+        "inspiration_card_prava",
+        selectedImgInField("inspiration_card_prava", ".inspiration-card") ||
+        selectedImgInField("inspiration_card_prava", ".vision-card")
+      );
+    }
+
+    function renderSuccess() {
+      fillTexts();
+      renderCadPreview();
+      fillImages();
+      console.log("CH11 PRAVA SUCCESS RENDERED");
+    }
+
+    form.addEventListener("submit", function () {
+      setTimeout(renderSuccess, 400);
+      setTimeout(renderSuccess, 1000);
+      setTimeout(renderSuccess, 1800);
+    });
+  });
+})();
+
+
+
+
+/* =========================================================
    CHAPTER 6
    PRAVA FINAL GATE — CLEAN QUESTION RESTORE
    final button only
