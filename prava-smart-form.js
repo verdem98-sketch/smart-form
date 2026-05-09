@@ -1495,8 +1495,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 11
-   PRAVA SUCCESS RENDER v4
-   CAD force show + inspiration + island dimensions fallback
+   PRAVA SUCCESS RENDER v5
+   CAD + deep cabinets overlay + inspiration + island dims
    ========================================================= */
 
 (function () {
@@ -1509,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   ready(function () {
-    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v4 START");
+    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v5 START");
 
     var page = document.querySelector(".sf-page-prava");
     if (!page) return;
@@ -1594,6 +1594,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function checkboxValue(name) {
+      var selected =
+        qs(page, '[data-field="' + name + '"].active') ||
+        qs(page, '[data-field="' + name + '"].is-selected') ||
+        qs(page, '[data-field="' + name + '"].vm-selected');
+
+      if (selected) return "Да";
+
       var boxes = qsa(
         page,
         '[name="' + name + '"], [data-field="' + name + '"] input[type="checkbox"], [data-checkbox-field="' + name + '"]'
@@ -1690,13 +1697,24 @@ document.addEventListener("DOMContentLoaded", function () {
       return "";
     }
 
-    function addLayer(target, src, className) {
+    function addLayer(target, src, className, zIndex) {
       if (!src) return;
 
       var img = document.createElement("img");
       img.className = className || "success-cad-layer";
       img.src = src;
       img.alt = "";
+
+      img.style.setProperty("position", "absolute", "important");
+      img.style.setProperty("inset", "0", "important");
+      img.style.setProperty("width", "100%", "important");
+      img.style.setProperty("height", "100%", "important");
+      img.style.setProperty("object-fit", "contain", "important");
+      img.style.setProperty("display", "block", "important");
+
+      if (zIndex) {
+        img.style.setProperty("z-index", String(zIndex), "important");
+      }
 
       target.appendChild(img);
     }
@@ -1743,6 +1761,18 @@ document.addEventListener("DOMContentLoaded", function () {
         getVisibleImageSrc(".cad-kitchen .cad-img") ||
         getVisibleImageSrc(".cad-kitchen img");
 
+      var deepValue = translate(valueOrSelected("deep_cabinets", "deep_cabinets"));
+      var deepChosen = deepValue === "Да";
+
+      var deepSrc =
+        getVisibleImageSrc(".cad-stage .cad-img-deep_cabinets") ||
+        getVisibleImageSrc(".cad-deep_cabinets .cad-img") ||
+        getVisibleImageSrc(".cad-prava-deep_cabinets .cad-img") ||
+        getVisibleImageSrc(".cad-deep-cabinets .cad-img") ||
+        getVisibleImageSrc(".cad-deep_cabinets img") ||
+        getVisibleImageSrc(".cad-prava-deep_cabinets img") ||
+        getVisibleImageSrc(".cad-deep-cabinets img");
+
       var islandChosen = translate(valueOrSelected("island", "island")) === "Да";
 
       var islandSrc =
@@ -1750,24 +1780,21 @@ document.addEventListener("DOMContentLoaded", function () {
         getVisibleImageSrc(".cad-prava-island img") ||
         getVisibleImageSrc(".cad-island img");
 
-      addLayer(stage, kitchenSrc, "success-cad-layer success-cad-kitchen");
+      addLayer(stage, kitchenSrc, "success-cad-layer success-cad-kitchen", 1);
+
+      if (deepChosen) {
+        addLayer(stage, deepSrc, "success-cad-layer success-cad-deep_cabinets", 2);
+      }
 
       if (islandChosen) {
-        addLayer(stage, islandSrc, "success-cad-layer success-cad-island");
+        addLayer(stage, islandSrc, "success-cad-layer success-cad-island", 3);
       }
 
       target.appendChild(stage);
 
-      qsa(stage, "img").forEach(function (img) {
-        img.style.setProperty("position", "absolute", "important");
-        img.style.setProperty("inset", "0", "important");
-        img.style.setProperty("width", "100%", "important");
-        img.style.setProperty("height", "100%", "important");
-        img.style.setProperty("object-fit", "contain", "important");
-        img.style.setProperty("display", "block", "important");
-      });
-
       console.log("CH11 CAD SRC:", kitchenSrc);
+      console.log("CH11 DEEP VALUE:", deepValue);
+      console.log("CH11 DEEP SRC:", deepSrc);
       console.log("CH11 ISLAND SRC:", islandSrc);
     }
 
@@ -1855,10 +1882,10 @@ document.addEventListener("DOMContentLoaded", function () {
         translate(valueOrSelected("fridge_type", "fridge_type"))
       );
 
-      setMany(
-        ["deep_cabinets"],
-        translate(valueOrSelected("deep_cabinets", "deep_cabinets"))
-      );
+      var deepText = translate(valueOrSelected("deep_cabinets", "deep_cabinets"));
+      if (!deepText || deepText === "—") deepText = checkboxValue("deep_cabinets");
+
+      setMany(["deep_cabinets"], deepText);
 
       setMany(
         ["island", "bar_enabled_aglova"],
@@ -1899,7 +1926,6 @@ document.addEventListener("DOMContentLoaded", function () {
         "microwave",
         "coffee_machine",
         "glass_display",
-        "deep_cabinets",
         "more_drawers",
         "lift_mechanisms",
         "counter_lighting",
@@ -1947,7 +1973,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderCadPreview();
       fillImages();
 
-      console.log("CH11 PRAVA SUCCESS RENDERED v4");
+      console.log("CH11 PRAVA SUCCESS RENDERED v5");
     }
 
     form.addEventListener("submit", function () {
@@ -1958,7 +1984,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 })();
-
 
 
 /* =========================================================
