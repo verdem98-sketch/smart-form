@@ -1495,8 +1495,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* =========================================================
    CHAPTER 11
-   PRAVA SUCCESS RENDER v3
-   CAD fixed + inspiration fallback + checkboxes
+   PRAVA SUCCESS RENDER v4
+   CAD force show + inspiration + island dimensions fallback
    ========================================================= */
 
 (function () {
@@ -1509,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   ready(function () {
-    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v3 START");
+    console.log("CHAPTER 11 PRAVA SUCCESS RENDER v4 START");
 
     var page = document.querySelector(".sf-page-prava");
     if (!page) return;
@@ -1565,6 +1565,34 @@ document.addEventListener("DOMContentLoaded", function () {
       return clean(el && el.value);
     }
 
+    function getDimValue(dimName) {
+      var hidden =
+        getValue(dimName) ||
+        getValue(dimName.replace("_3a", "")) ||
+        getValue(dimName.replace("_3a", "_3"));
+
+      if (hidden) return hidden;
+
+      var row =
+        qs(page, '[data-dim="' + dimName + '"]') ||
+        qs(page, '[data-dim="' + dimName.replace("_3a", "") + '"]');
+
+      if (!row) return "";
+
+      var localInput = qs(row, ".hidden-dimension-input");
+      if (localInput && clean(localInput.value)) return clean(localInput.value);
+
+      var meters = qs(row, ".meters-control .picker-value");
+      var cm = qs(row, ".centimeters-control .picker-value");
+
+      var mText = clean(meters && meters.textContent);
+      var cmText = clean(cm && cm.textContent);
+
+      if (mText || cmText) return (mText || "0 м") + " " + (cmText || "0 см");
+
+      return "";
+    }
+
     function checkboxValue(name) {
       var boxes = qsa(
         page,
@@ -1618,17 +1646,10 @@ document.addEventListener("DOMContentLoaded", function () {
       return getValue(name) || getSelectedText(fieldName || name);
     }
 
-    function dim(name) {
-      return getValue(name) || "—";
-    }
-
-    function combined(a, b) {
-      var av = getValue(a);
-      var bv = getValue(b);
-
-      if (!av && !bv) return "";
-      if (av && bv) return av + " × " + bv;
-      return av || bv;
+    function combinedValues(a, b) {
+      if (!a && !b) return "";
+      if (a && b) return a + " × " + b;
+      return a || b;
     }
 
     function meetingCombined() {
@@ -1655,9 +1676,7 @@ document.addEventListener("DOMContentLoaded", function () {
         );
       });
 
-      if (active) {
-        return active.currentSrc || active.src || "";
-      }
+      if (active) return active.currentSrc || active.src || "";
 
       for (var i = 0; i < imgs.length; i++) {
         var img = imgs[i];
@@ -1682,14 +1701,42 @@ document.addEventListener("DOMContentLoaded", function () {
       target.appendChild(img);
     }
 
+    function forceShow(el) {
+      if (!el) return;
+
+      el.style.setProperty("display", "block", "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.style.setProperty("opacity", "1", "important");
+      el.style.setProperty("height", "auto", "important");
+      el.style.setProperty("min-height", "0", "important");
+      el.style.setProperty("overflow", "visible", "important");
+    }
+
     function renderCadPreview() {
       var target = qs(formBlock, ".success-cad-preview");
-      if (!target) return;
+      if (!target) {
+        console.log("CH11 CAD TARGET MISSING");
+        return;
+      }
+
+      forceShow(target);
+      forceShow(target.parentElement);
+      forceShow(target.closest(".title-cad"));
+      forceShow(target.closest(".success-preview-wrap"));
 
       target.innerHTML = "";
 
       var stage = document.createElement("div");
       stage.className = "success-cad-stage";
+
+      stage.style.setProperty("position", "relative", "important");
+      stage.style.setProperty("display", "block", "important");
+      stage.style.setProperty("width", "100%", "important");
+      stage.style.setProperty("height", "190px", "important");
+      stage.style.setProperty("min-height", "190px", "important");
+      stage.style.setProperty("overflow", "hidden", "important");
+      stage.style.setProperty("border-radius", "14px", "important");
+      stage.style.setProperty("background", "#f4f1ee", "important");
 
       var kitchenSrc =
         getVisibleImageSrc(".cad-stage .cad-img-kitchen") ||
@@ -1710,6 +1757,15 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       target.appendChild(stage);
+
+      qsa(stage, "img").forEach(function (img) {
+        img.style.setProperty("position", "absolute", "important");
+        img.style.setProperty("inset", "0", "important");
+        img.style.setProperty("width", "100%", "important");
+        img.style.setProperty("height", "100%", "important");
+        img.style.setProperty("object-fit", "contain", "important");
+        img.style.setProperty("display", "block", "important");
+      });
 
       console.log("CH11 CAD SRC:", kitchenSrc);
       console.log("CH11 ISLAND SRC:", islandSrc);
@@ -1777,6 +1833,9 @@ document.addEventListener("DOMContentLoaded", function () {
         img.removeAttribute("sizes");
         img.style.setProperty("display", "block", "important");
         img.style.setProperty("visibility", "visible", "important");
+        img.style.setProperty("width", "100%", "important");
+        img.style.setProperty("height", "100%", "important");
+        img.style.setProperty("object-fit", "cover", "important");
       });
     }
 
@@ -1808,17 +1867,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
       setMany(
         ["len_prava_3", "wall_1", "stena1_len_aglova"],
-        dim("len_prava_3") !== "—" ? dim("len_prava_3") : dim("wall_1")
+        getDimValue("len_prava_3") || getValue("wall_1")
       );
 
       setMany(
         ["height_prava_3", "room_height", "visochina_aglova"],
-        dim("height_prava_3") !== "—" ? dim("height_prava_3") : dim("room_height")
+        getDimValue("height_prava_3") || getValue("room_height")
       );
 
-      setMany(["island_len_3a"], dim("island_len_3a"));
-      setMany(["island_width_3a"], dim("island_width_3a"));
-      setText("island_combined", combined("island_len_3a", "island_width_3a"));
+      var islandLen = getDimValue("island_len_3a") || getValue("island_len");
+      var islandWidth = getDimValue("island_width_3a") || getValue("island_width");
+
+      setMany(["island_len_3a", "island_len"], islandLen);
+      setMany(["island_width_3a", "island_width"], islandWidth);
+      setText("island_combined", combinedValues(islandLen, islandWidth));
 
       setText("bar_combined", "—");
       setText("chimney_exists", "—");
@@ -1860,6 +1922,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       setText("custom_date", getValue("custom_date"));
       setText("meeting_combined", meetingCombined());
+
+      console.log("CH11 ISLAND LEN:", islandLen);
+      console.log("CH11 ISLAND WIDTH:", islandWidth);
     }
 
     function fillImages() {
@@ -1882,7 +1947,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderCadPreview();
       fillImages();
 
-      console.log("CH11 PRAVA SUCCESS RENDERED v3");
+      console.log("CH11 PRAVA SUCCESS RENDERED v4");
     }
 
     form.addEventListener("submit", function () {
