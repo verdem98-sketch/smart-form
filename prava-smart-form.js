@@ -968,7 +968,8 @@ document.addEventListener("DOMContentLoaded", function () {
   var DAYS_TO_SHOW = 7;
   var START_OFFSET = 2;
   var SLOTS = ["10:00–12:00", "14:00–16:00"];
-  var STORAGE_KEY = "smartFormSelectedSlotState_prava_v2";\n  var LEGACY_STORAGE_KEY = "smartFormSelectedSlotState_prava";
+  var STORAGE_KEY = "smartFormSelectedSlotState_prava_v2";
+  var LEGACY_STORAGE_KEY = "smartFormSelectedSlotState_prava";
 
   function saveSlotState(data) {
     try {
