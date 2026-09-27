@@ -968,7 +968,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var DAYS_TO_SHOW = 7;
   var START_OFFSET = 2;
   var SLOTS = ["10:00–12:00", "14:00–16:00"];
-  var STORAGE_KEY = "smartFormSelectedSlotState_prava";
+  var STORAGE_KEY = "smartFormSelectedSlotState_prava_v2";\n  var LEGACY_STORAGE_KEY = "smartFormSelectedSlotState_prava";
 
   function saveSlotState(data) {
     try {
@@ -1256,9 +1256,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
-    form.addEventListener("submit", function () {
-      if (!isVisible(phase)) return;
+    var formBlock = form.closest(".w-form");
+    var successEl = formBlock ? qs(formBlock, ".w-form-done") : null;
+
+    function markSubmittedAfterSuccess() {
       if (!selectedSlotState) return;
+      if (!successEl || !isVisible(successEl)) return;
 
       saveSlotState({
         date: selectedSlotState.date,
@@ -1267,11 +1270,42 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       lockCalendarUI();
+    }
+
+    if (successEl) {
+      new MutationObserver(function () {
+        markSubmittedAfterSuccess();
+      }).observe(successEl, {
+        attributes: true,
+        attributeFilter: ["style", "class"]
+      });
+    }
+
+    form.addEventListener("submit", function () {
+      if (!isVisible(phase)) return;
+      if (!selectedSlotState) return;
+
+      var current = loadSlotState() || {};
+      saveSlotState({
+        date: selectedSlotState.date,
+        slot: selectedSlotState.slot,
+        submitted: false
+      });
+
+      if (successEl) {
+        setTimeout(markSubmittedAfterSuccess, 250);
+        setTimeout(markSubmittedAfterSuccess, 700);
+        setTimeout(markSubmittedAfterSuccess, 1500);
+      }
     });
 
     generateCalendarDays();
 
     if (lockedHelp) hide(lockedHelp);
+
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch (e) {}
 
     restoreFromStorage();
   }
