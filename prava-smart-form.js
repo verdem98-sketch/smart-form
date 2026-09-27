@@ -121,6 +121,11 @@ document.addEventListener("DOMContentLoaded", function () {
     showQuestion(index);
   }
 
+  window.pravaRewindToQuestion = function (index) {
+    const target = Number.isInteger(index) ? index : questions.length - 1;
+    rewindTo(target);
+  };
+
   function showHint(question) {
     if (!question) return;
 
