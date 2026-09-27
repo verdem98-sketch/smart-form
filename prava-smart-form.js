@@ -76,8 +76,49 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!question) return;
 
     question.querySelectorAll(".option-pill").forEach(function (pill) {
-      pill.classList.remove("active", "is-selected");
+      pill.classList.remove("active", "is-selected", "vm-selected");
     });
+  }
+
+  function clearHiddenForField(field) {
+    if (!field) return;
+
+    const names = [field];
+
+    if (field === "water_position_prava") names.push("water_position");
+    if (field === "island") names.push("island_enabled");
+
+    names.forEach(function (name) {
+      flow.querySelectorAll('[name="' + name + '"]').forEach(function (input) {
+        input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+  }
+
+  function clearQuestionAnswer(question) {
+    if (!question) return;
+
+    const field = fieldOf(question);
+
+    clearActive(question);
+    hideHint(question);
+
+    if (field) {
+      delete state[field];
+      clearHiddenForField(field);
+    }
+  }
+
+  function rewindTo(index) {
+    if (index < 0 || index >= questions.length) return;
+
+    for (let i = index; i < questions.length; i++) {
+      clearQuestionAnswer(questions[i]);
+    }
+
+    showQuestion(index);
   }
 
   function showHint(question) {
@@ -191,8 +232,17 @@ document.addEventListener("DOMContentLoaded", function () {
     syncCurrentIndexFromDom();
 
     if (currentIndex > 0) {
-      showQuestion(currentIndex - 1);
+      rewindTo(currentIndex - 1);
     }
+  });
+
+  flow.addEventListener("prava:rewind-to-question", function (e) {
+    const requested =
+      e && e.detail && Number.isInteger(e.detail.index)
+        ? e.detail.index
+        : questions.length - 1;
+
+    rewindTo(requested);
   });
 
   flow.addEventListener("click", function (e) {
