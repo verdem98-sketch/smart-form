@@ -968,8 +968,8 @@ document.addEventListener("DOMContentLoaded", function () {
   var DAYS_TO_SHOW = 7;
   var START_OFFSET = 2;
   var SLOTS = ["10:00–12:00", "14:00–16:00"];
-  var STORAGE_KEY = "smartFormSelectedSlotState_prava_v2";
-  var LEGACY_STORAGE_KEY = "smartFormSelectedSlotState_prava";
+  var STORAGE_KEY = "smartFormSelectedSlotState_prava_v3";
+  var LEGACY_STORAGE_KEYS = ["smartFormSelectedSlotState_prava", "smartFormSelectedSlotState_prava_v2"];
 
   function saveSlotState(data) {
     try {
@@ -1305,7 +1305,9 @@ document.addEventListener("DOMContentLoaded", function () {
     if (lockedHelp) hide(lockedHelp);
 
     try {
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      LEGACY_STORAGE_KEYS.forEach(function (key) {
+        localStorage.removeItem(key);
+      });
     } catch (e) {}
 
     restoreFromStorage();
