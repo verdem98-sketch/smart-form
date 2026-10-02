@@ -503,6 +503,7 @@ console.log("SMART FORM JS LOADED");
         hideAllHints();
         renderAll();
 
+        if (stepName === "chimney") goToStep("water");
       });
     });
 
