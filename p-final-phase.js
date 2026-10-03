@@ -599,11 +599,187 @@ document.addEventListener("DOMContentLoaded", function () {
       window.scrollTo(0,0);
     }
 
+    function selectedValue(field){
+      var q=qs(page,'.combo-phase-wrap .question-wrap[data-field="'+field+'"]');
+      var selected=q && qs(q,'.option-pill.is-selected, .option-pill.vm-selected, .option-pill.active');
+      return selected ? String(selected.getAttribute("data-value") || selected.textContent || "").trim() : "";
+    }
+
+    function clearGateHints(){
+      qsa(page,'.question-hint, .dimension-hint').forEach(function(hint){
+        hint.classList.remove('is-visible');
+        hint.style.setProperty('display','none','important');
+      });
+      qsa(page,'.question-wrap.choice-warning').forEach(function(q){
+        q.classList.remove('choice-warning');
+      });
+    }
+
+    function showQuestionHint(q){
+      if(!q) return;
+      var hint=qs(q,'.question-hint');
+      if(!hint){
+        hint=document.createElement('div');
+        hint.className='question-hint';
+        hint.textContent='Изберете вариант, за да продължим.';
+        q.appendChild(hint);
+      }
+      q.classList.remove('choice-warning');
+      void q.offsetWidth;
+      q.classList.add('choice-warning');
+      hint.classList.add('is-visible');
+      hint.style.setProperty('display','block','important');
+      setTimeout(function(){
+        q.classList.remove('choice-warning');
+      },350);
+    }
+
+    function firstMissingQuestion(){
+      var required=[
+        'chimney_position_p',
+        'water_position_p',
+        'oven_tall_unit_p',
+        'fridge_type_p'
+      ];
+
+      for(var i=0;i<required.length;i++){
+        var q=qs(page,'.combo-phase-wrap .question-wrap[data-field="'+required[i]+'"]');
+        if(!q) continue;
+        if(!qs(q,'.option-pill.is-selected, .option-pill.vm-selected, .option-pill.active')){
+          return q;
+        }
+      }
+      return null;
+    }
+
+    function numericPickerValue(control){
+      if(!control) return 0;
+      var box=qs(control,'.picker-value');
+      if(!box) return 0;
+      var text=qs(box,'.picker-value-text') || box;
+      var n=parseInt(String(text.textContent || '0').trim(),10);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function rowHasDimension(row){
+      var meters=numericPickerValue(qs(row,'.meters-control'));
+      var centimeters=numericPickerValue(qs(row,'.centimeters-control'));
+      return meters>0 || centimeters>0;
+    }
+
+    function rowIsRequired(row){
+      if(!row) return false;
+
+      if(row.closest('.dimensions-group-chimney')){
+        var chimney=selectedValue('chimney_position_p');
+        return !!chimney && chimney!=='none';
+      }
+
+      if(row.closest('.dimensions-group-island')){
+        return selectedValue('island_enabled_p')==='yes';
+      }
+
+      return true;
+    }
+
+    function firstMissingDimension(){
+      var rows=qsa(page,'.dimensions-phase-wrap .dimension-row');
+      for(var i=0;i<rows.length;i++){
+        if(!rowIsRequired(rows[i])) continue;
+        if(!rowHasDimension(rows[i])) return rows[i];
+      }
+      return null;
+    }
+
+    function showDimensionHint(row){
+      if(!row) return;
+      var hint=qs(row,'.dimension-hint');
+      if(!hint){
+        hint=document.createElement('div');
+        hint.className='dimension-hint';
+        hint.textContent='Попълнете размера, за да продължим.';
+        row.appendChild(hint);
+      }
+      hint.classList.add('is-visible');
+      hint.style.setProperty('display','block','important');
+      hint.style.setProperty('margin-top','10px','important');
+      hint.style.setProperty('color','#9a3b00','important');
+      hint.style.setProperty('font-size','14px','important');
+      hint.style.setProperty('font-weight','500','important');
+    }
+
+    function openComboToQuestion(q){
+      var combo=qs(page,'.combo-phase-wrap');
+      var dims=qs(page,'.dimensions-phase-wrap');
+
+      finalPhase.style.setProperty('display','none','important');
+      if(dims) dims.style.setProperty('display','none','important');
+      if(combo) combo.style.setProperty('display','block','important');
+
+      qsa(page,'.combo-phase-wrap .question-wrap[data-field]').forEach(function(item){
+        if(item===q){
+          item.classList.remove('is-hidden');
+          item.style.setProperty('display','block','important');
+        }else{
+          item.classList.add('is-hidden');
+          item.style.setProperty('display','none','important');
+        }
+      });
+
+      showQuestionHint(q);
+      setTimeout(function(){
+        q.scrollIntoView({behavior:'smooth',block:'center'});
+      },60);
+    }
+
+    function openDimensionsToRow(row){
+      var combo=qs(page,'.combo-phase-wrap');
+      var dims=qs(page,'.dimensions-phase-wrap');
+      var chimneyDims=qs(page,'.dimensions-group-chimney');
+      var islandDims=qs(page,'.dimensions-group-island');
+
+      finalPhase.style.setProperty('display','none','important');
+      if(combo) combo.style.setProperty('display','none','important');
+      if(dims) dims.style.setProperty('display','block','important');
+
+      if(chimneyDims){
+        var chimney=selectedValue('chimney_position_p');
+        chimneyDims.style.setProperty('display',chimney && chimney!=='none' ? 'block' : 'none','important');
+      }
+
+      if(islandDims){
+        islandDims.style.setProperty('display',selectedValue('island_enabled_p')==='yes' ? 'block' : 'none','important');
+      }
+
+      showDimensionHint(row);
+      setTimeout(function(){
+        row.scrollIntoView({behavior:'smooth',block:'center'});
+      },60);
+    }
+
     page.addEventListener("click",function(e){
       var btn=e.target.closest('.phase-next-btn[data-next-phase="final-phase"]');
       if(!btn || !page.contains(btn)) return;
+
       e.preventDefault();
-      setTimeout(openFinal,0);
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+      clearGateHints();
+
+      var missingQuestion=firstMissingQuestion();
+      if(missingQuestion){
+        openComboToQuestion(missingQuestion);
+        return;
+      }
+
+      var missingDimension=firstMissingDimension();
+      if(missingDimension){
+        openDimensionsToRow(missingDimension);
+        return;
+      }
+
+      openFinal();
     },true);
 
     if(back){
