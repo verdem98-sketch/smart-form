@@ -613,6 +613,19 @@ document.addEventListener("DOMContentLoaded", function () {
       qsa(page,'.question-wrap.choice-warning').forEach(function(q){
         q.classList.remove('choice-warning');
       });
+      qsa(page,'.p-card-shake').forEach(function(card){
+        card.classList.remove('p-card-shake');
+      });
+    }
+
+    function shakeWholeCard(card){
+      if(!card) return;
+      card.classList.remove('p-card-shake');
+      void card.offsetWidth;
+      card.classList.add('p-card-shake');
+      setTimeout(function(){
+        card.classList.remove('p-card-shake');
+      },420);
     }
 
     function showQuestionHint(q){
@@ -624,14 +637,12 @@ document.addEventListener("DOMContentLoaded", function () {
         hint.textContent='Изберете вариант, за да продължим.';
         q.appendChild(hint);
       }
+
       q.classList.remove('choice-warning');
-      void q.offsetWidth;
-      q.classList.add('choice-warning');
       hint.classList.add('is-visible');
       hint.style.setProperty('display','block','important');
-      setTimeout(function(){
-        q.classList.remove('choice-warning');
-      },350);
+
+      shakeWholeCard(q.closest('.combo-phase-wrap.p-config-card') || qs(page,'.combo-phase-wrap.p-config-card'));
     }
 
     function firstMissingQuestion(){
@@ -706,6 +717,8 @@ document.addEventListener("DOMContentLoaded", function () {
       hint.style.setProperty('color','#9a3b00','important');
       hint.style.setProperty('font-size','14px','important');
       hint.style.setProperty('font-weight','500','important');
+
+      shakeWholeCard(row.closest('.dimensions-phase-wrap') || qs(page,'.dimensions-phase-wrap'));
     }
 
     function openComboToQuestion(q){
