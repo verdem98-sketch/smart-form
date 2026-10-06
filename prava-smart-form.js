@@ -7,6 +7,136 @@
 
 
 
+/* PRAVA critical pipeline state: scoped events, no observers. */
+(function () {
+  "use strict";
+  var fields = ["upper_finish", "lower_finish", "countertop_finish", "backsplash_finish"];
+  var selections = Object.create(null);
+  var catalogs = Object.create(null);
+
+  function clean(value) { return String(value || "").replace(/\s+/g, " ").trim(); }
+  function fieldWrap(page, field) {
+    return page.querySelector('.question-wrap-vision[data-field="' + field + '"]');
+  }
+  function catalogFor(page, field) {
+    if (catalogs[field]) return catalogs[field];
+    var wrap = fieldWrap(page, field);
+    var scripts = wrap ? wrap.querySelectorAll("script") : [];
+    for (var s = 0; s < scripts.length; s++) {
+      var source = scripts[s].textContent || "";
+      var match = /(?:const|let)\s+D\s*=\s*\[/.exec(source);
+      if (!match) continue;
+      var start = source.indexOf("[", match.index);
+      var depth = 0, quote = "", escaped = false;
+      for (var i = start; i < source.length; i++) {
+        var ch = source[i];
+        if (quote) {
+          if (escaped) escaped = false;
+          else if (ch === "\\") escaped = true;
+          else if (ch === quote) quote = "";
+          continue;
+        }
+        if (ch === '"' || ch === "'") { quote = ch; continue; }
+        if (ch === "[") depth++;
+        if (ch === "]" && --depth === 0) {
+          try {
+            var base = /\bBASE\s*=\s*['"]([^'"]+)['"]/.exec(source);
+            catalogs[field] = { items: JSON.parse(source.slice(start, i + 1)), base: base ? base[1] : "" };
+            return catalogs[field];
+          } catch (_) { break; }
+        }
+      }
+    }
+    return null;
+  }
+  function fromCatalog(page, field, id) {
+    var catalog = catalogFor(page, field);
+    var row = catalog && catalog.items.find(function (item) { return item[0] === id; });
+    if (!row) return null;
+    var cabinet = field === "upper_finish" || field === "lower_finish";
+    return {
+      value: row[0], id: row[0],
+      manufacturer: row[1] || null,
+      decorCode: row[cabinet ? 3 : 2] || null,
+      decorName: cabinet ? row[4] || null : null,
+      surfaceCode: cabinet ? null : row[3] || null,
+      category: row[cabinet ? 2 : 6] || null,
+      family: field === "countertop_finish" ? row[7] || null : null,
+      label: cabinet ? clean(row[4]) : clean(row[2] + (row[3] ? " · " + row[3] : "")),
+      sampleImageUrl: cabinet ? catalog.base + encodeURIComponent(row[5] || "") : row[4] || null
+    };
+  }
+  function fromCard(page, field, card) {
+    var label = card.querySelector(".vision-card-label");
+    var image = card.querySelector("img");
+    var value = clean(card.getAttribute("data-value") || card.getAttribute("data-decor-id"));
+    var record = fromCatalog(page, field, value);
+    if (!record) {
+      record = {
+        value: value, id: value,
+        label: clean(label ? label.textContent : card.textContent),
+        manufacturer: clean(card.getAttribute("data-manufacturer")) || null,
+        category: clean(card.getAttribute("data-category")) || null
+      };
+    }
+    var url = image && (image.currentSrc || image.src);
+    if (url) record.sampleImageUrl = url;
+    return record;
+  }
+  function get(page, field) {
+    if (!page || fields.indexOf(field) < 0) return null;
+    var input = page.querySelector('input[name="' + field + '"]');
+    var id = input ? clean(input.value) : "";
+    if (input && !id) { delete selections[field]; return null; }
+    var record = selections[field];
+    if (!record || record.value !== id) record = fromCatalog(page, field, id);
+    if (!record) {
+      var wrap = fieldWrap(page, field);
+      var cards = wrap ? wrap.querySelectorAll(".material-card,.vision-card") : [];
+      for (var i = 0; i < cards.length; i++) {
+        if (clean(cards[i].getAttribute("data-value")) === id && id) {
+          record = fromCard(page, field, cards[i]); break;
+        }
+      }
+    }
+    if (!record) return null;
+    selections[field] = record;
+    return Object.assign({}, record);
+  }
+  function init() {
+    var page = document.querySelector(".sf-page-prava");
+    if (!page || page.__pravaPipelineStateBound) return;
+    page.__pravaPipelineStateBound = true;
+
+    // Repair only these two existing Step 8 controls; Step 1 is untouched.
+    var handleless = page.querySelector('[data-field="deep_cabinets"] input[type="checkbox"]');
+    if (handleless) handleless.closest("[data-field]").setAttribute("data-field", "handleless");
+    var panel = page.querySelector("#prava-panel-doors-checkbox");
+    if (panel) panel.closest(".w-checkbox").setAttribute("data-field", "panel_doors");
+
+    // Capture before gallery target handlers replace the clicked card/grid.
+    page.addEventListener("click", function (event) {
+      var card = event.target.closest && event.target.closest(".material-card,.vision-card");
+      var wrap = card && card.closest(".question-wrap-vision[data-field]");
+      var field = wrap && wrap.getAttribute("data-field");
+      if (fields.indexOf(field) >= 0) selections[field] = fromCard(page, field, card);
+    }, true);
+    function sync(event) {
+      var name = event.target && event.target.name;
+      if (fields.indexOf(name) >= 0) get(page, name);
+    }
+    page.addEventListener("input", sync, true);
+    page.addEventListener("change", sync, true);
+  }
+
+  window.pravaMaterialSelections = {
+    get: function (field) { return get(document.querySelector(".sf-page-prava"), field); }
+  };
+  // The external script is at the page footer; wire before inline DOM-ready callbacks.
+  init();
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
+})();
+
 /* =========================================================
    CHAPTER 1
    PRAVA FLOW ENGINE

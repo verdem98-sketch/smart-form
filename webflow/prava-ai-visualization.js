@@ -30,6 +30,7 @@
     }
 
     function selectedVision(field){
+      if(window.pravaMaterialSelections)return window.pravaMaterialSelections.get(field);
       var wrap=page.querySelector('.question-wrap-vision[data-field="'+field+'"]');
       if(!wrap)return null;
       var el=wrap.querySelector('.vision-card.vm-selected,.vision-card.is-selected,.vision-card.active,[aria-pressed="true"]');
@@ -88,22 +89,6 @@
         });
       });
       return out;
-    }
-
-    function activeSketch(){
-      var stage=page.querySelector('.cad-stage-prava,.cad-stage');
-      if(!stage)return [];
-      return Array.from(stage.querySelectorAll('img')).filter(function(img){
-        var st=getComputedStyle(img);
-        var r=img.getBoundingClientRect();
-        return st.display!=='none'&&st.visibility!=='hidden'&&Number(st.opacity||1)>0&&r.width>0&&r.height>0;
-      }).map(function(img){
-        return {
-          src:img.currentSrc||img.src||'',
-          alt:clean(img.alt),
-          classes:clean(img.className)
-        };
-      }).filter(function(x){return /^https:\/\//i.test(x.src)});
     }
 
     function choiceIsYes(choice){
@@ -167,7 +152,7 @@
       }
 
       var dishwasherWidth=dishwasherWidthMm(appliances);
-      var deepUpper=choiceIsYes(config.deepCabinets)||hasExtra(extras,'deep_cabinets');
+      var deepUpper=choiceIsYes(config.deepCabinets);
       var upperRowMode=deepUpper?'deep-reference-locked':(materials.upper?'standard':'none');
 
       return {
@@ -192,7 +177,6 @@
         materials:materials,
         appliances:appliances,
         extras:extras,
-        sketchLayers:activeSketch(),
         pagePath:location.pathname,
         collectedAt:new Date().toISOString()
       };
@@ -230,7 +214,6 @@
       if(!m.lower)missing.push('визия за долен ред');
       if(!m.countertop)missing.push('визия за плот');
       if(!m.backsplash)missing.push('визия за гръб');
-      if(!payload.sketchLayers||!payload.sketchLayers.length)missing.push('базова скица');
 
       return {valid:missing.length===0,missing:missing};
     }
