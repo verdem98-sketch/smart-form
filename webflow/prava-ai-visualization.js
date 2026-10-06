@@ -317,6 +317,44 @@
       );
     }
 
+    function mmToCmText(mm){
+      var n=Number(mm);
+      if(!isFinite(n)||n<=0)return '';
+      return Math.round(n/10)+' см';
+    }
+
+    function humanizePlannerError(message){
+      var text=clean(message);
+      var match=text.match(/Required fixed modules need\s+(\d+)\s*mm,\s*but the available run is only\s+(\d+)\s*mm/i);
+      if(match){
+        return 'Избраните уреди и задължителни модули изискват поне '+mmToCmText(match[1])+
+          ' дължина, а Вие сте задали '+mmToCmText(match[2])+'.';
+      }
+      match=text.match(/Resolved cabinet stack needs\s+(\d+)\s*mm,\s*but room height is only\s+(\d+)\s*mm/i);
+      if(match){
+        return 'За избраната конфигурация са нужни поне '+mmToCmText(match[1])+
+          ' височина, а Вие сте задали '+mmToCmText(match[2])+' за помещението.';
+      }
+      match=text.match(/Planner width mismatch:\s*requested\s+(\d+)\s*mm,\s*planned\s+(\d+)\s*mm/i);
+      if(match){
+        return 'Зададената дължина е '+mmToCmText(match[1])+
+          ', но избраните модули изискват '+mmToCmText(match[2])+'.';
+      }
+      return text;
+    }
+
+    function humanPlannerMessage(baseError,plannerDetails){
+      var readable=(plannerDetails||[]).map(humanizePlannerError).filter(Boolean);
+      // Width mismatch repeats the same problem as the fixed-module message; keep the clearer sentence.
+      if(readable.some(function(x){return x.indexOf('задължителни модули')>-1;})){
+        readable=readable.filter(function(x){return x.indexOf('Зададената дължина е')!==0;});
+      }
+      if(readable.length){
+        return 'Не можем да направим визуализация с тези размери. '+readable.join(' ');
+      }
+      return humanizePlannerError(baseError)||'Не можем да направим визуализация с тези настройки. Проверете размерите и опитайте отново.';
+    }
+
     async function requestVisual(){
       if(btn.dataset.aiBusy==='1')return;
       var payload=collect();
@@ -358,8 +396,8 @@
             ('HTTP '+startResponse.status+(startRaw?' — '+startRaw.slice(0,180):''));
           throw new Error(
             plannerDetails.length
-              ? baseError+' '+plannerDetails.join(' ')
-              : baseError
+              ? humanPlannerMessage(baseError,plannerDetails)
+              : humanPlannerMessage(baseError,[])
           );
         }
 
