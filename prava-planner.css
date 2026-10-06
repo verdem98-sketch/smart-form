@@ -11,9 +11,15 @@
 .sf-page-prava .combo-dim-phase{display:block;width:100%;min-width:0;max-width:none;margin:0;padding:0}
 .sf-page-prava .prava-preview-card{position:sticky;top:var(--prava-sticky-top,128px);width:100%;min-width:0;max-width:none;margin:0;padding:0;border:0;background:transparent;box-shadow:none}
 .sf-page-prava #prava-sketch-heading,.sf-page-prava .prava-step-heading{position:sticky;top:var(--prava-sticky-top,128px);z-index:4;background:#f7f7f5;color:var(--prava-ink);font-size:24px;line-height:1.25;font-weight:600;margin:0;padding:12px 0 20px;min-height:62px;text-align:left}
-.sf-page-prava .prava-progress{color:#697069;font-size:13px;line-height:20px;margin:0}
+.sf-page-prava .prava-global-progress{position:sticky;top:var(--prava-progress-top,112px);z-index:6;width:100%;margin:0 0 16px;padding:8px 14px 10px;background:#f2f1ed;border-radius:8px;pointer-events:none}
+.sf-page-prava .prava-global-progress-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:7px;font-size:12px;line-height:1.4;color:#3e4a42}
+.sf-page-prava .prava-global-progress-title{font-weight:600;color:#23442f;min-width:0;overflow-wrap:anywhere}
+.sf-page-prava .prava-global-progress-count{flex-shrink:0;white-space:nowrap}
+.sf-page-prava .prava-global-progress-track{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;width:100%}
+.sf-page-prava .prava-global-progress-seg{height:7px;border-radius:999px;background:#d9dfda}
+.sf-page-prava .prava-global-progress-seg:is(.is-done,.is-active){background:#23442f}
 .sf-page-prava #prava-sketch-heading{position:static;padding-top:32px;min-height:82px;width:100%;max-width:none}
-.sf-page-prava .prava-step-header{position:sticky;top:var(--prava-sticky-top,128px);z-index:4;background:#f7f7f5}
+.sf-page-prava .prava-step-header{padding-top:20px;position:sticky;top:var(--prava-sticky-top,128px);z-index:4;background:#f7f7f5}
 .sf-page-prava .prava-step-heading{position:static}
 .sf-page-prava .combo-dim-phase,.sf-page-prava .final-phase-prava{scroll-margin-top:var(--prava-sticky-top,128px)}
 .sf-page-prava .cad-stage-prava{position:relative;inset:auto;transform:none;width:100%;height:auto;aspect-ratio:4/3;min-height:0;max-height:none;overflow:hidden;border:1px solid var(--prava-line);border-radius:var(--prava-radius);background:var(--prava-bg);margin:0;padding:0}

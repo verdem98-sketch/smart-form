@@ -23,10 +23,19 @@
     const heading = document.createElement('h2');
     heading.className = 'prava-step-heading'; heading.id = 'prava-step-heading';
     right.prepend(heading);
-    const progress = document.createElement('div');
-    progress.className = 'prava-progress'; progress.setAttribute('aria-live','polite');
-    right.prepend(progress);
-    const header=document.createElement('div');header.className='prava-step-header';header.append(progress,heading);right.prepend(header);
+    // Restore the archived segmented presentation; the existing step owns every update.
+    const progress = page.querySelector('.prava-global-progress') || document.createElement('div');
+    progress.className = 'prava-global-progress'; progress.hidden = false; progress.inert = false;
+    progress.setAttribute('role','progressbar'); progress.setAttribute('aria-label','Напредък на конфигуратора');
+    progress.setAttribute('aria-valuemin','0'); progress.setAttribute('aria-valuemax',String(titles.length));
+    const progressHead=document.createElement('div');progressHead.className='prava-global-progress-head';
+    const progressTitle=document.createElement('div');progressTitle.className='prava-global-progress-title';
+    const progressCount=document.createElement('div');progressCount.className='prava-global-progress-count';progressCount.setAttribute('aria-live','polite');
+    progressHead.append(progressTitle,progressCount);
+    const progressTrack=document.createElement('div');progressTrack.className='prava-global-progress-track';progressTrack.setAttribute('aria-hidden','true');
+    const segments=titles.map((_,index)=>{const segment=document.createElement('div');segment.className='prava-global-progress-seg';segment.dataset.step=String(index+1);progressTrack.append(segment);return segment;});
+    progress.replaceChildren(progressHead,progressTrack);columns.before(progress);
+    const header=document.createElement('div');header.className='prava-step-header';header.append(heading);right.prepend(header);
     const nav = document.createElement('div'); nav.className = 'prava-navigation';
     const back = document.createElement('button'), next = document.createElement('button');
     back.type = next.type = 'button'; back.textContent = '← Назад'; next.textContent = 'Напред →';
@@ -47,8 +56,12 @@
       if(!n)return; ['display','visibility','opacity','transform'].forEach(p=>n.style.removeProperty(p));
     });
     let step = 1;
-    function stickyOffset(){const navbar=document.querySelector('[role="banner"],.navbar');page.style.setProperty('--prava-sticky-top',((navbar?.getBoundingClientRect().height||0)+16)+'px');}
-    stickyOffset();window.addEventListener('resize',stickyOffset,{passive:true});
+    function stickyOffset(){
+      const navbar=document.querySelector('[role="banner"],.navbar'),navbarHeight=navbar?.getBoundingClientRect().height||0;
+      page.style.setProperty('--prava-progress-top',navbarHeight+'px');
+      page.style.setProperty('--prava-sticky-top',(navbarHeight+Math.ceil(progress.getBoundingClientRect().height)+16)+'px');
+    }
+    window.addEventListener('resize',stickyOffset,{passive:true});
     function visible(node,on) { if(!node)return; node.hidden=!on; node.inert=!on; }
     function islandEnabled() {
       const pill=page.querySelector('[data-field="island"] .is-selected,[data-field="island"] .active');
@@ -72,12 +85,16 @@
     }
     function render(scroll) {
       phases.forEach((node,i)=>visible(node,i===step-1));
-      visible(columns,step!==10); visible(aiParent,step===9); visible(nav,step!==10); visible(heading,step!==10); visible(progress,step!==10);
+      visible(columns,step!==10); visible(aiParent,step===9); visible(nav,step!==10); visible(heading,step!==10);
       const standard=page.querySelector('.sf-header-center'), final=page.querySelector('.final-title-subtitle');
       visible(standard,step!==10); visible(final,step===10);
       page.dataset.pravaStep=String(step); page.dataset.pravaFlow=step===10?'final':step===1?'config':step===2?'dimensions':'vision';
       page.dataset.pravaMaterialStep=String(Math.max(0,step-3));
-      heading.textContent=titles[step-1]; progress.textContent='Стъпка '+step+' от 10';
+      heading.textContent=titles[step-1];
+      progressTitle.textContent=titles[step-1];progressCount.textContent='Стъпка '+step+' от '+titles.length;
+      progress.setAttribute('aria-valuenow',String(step));progress.setAttribute('aria-valuetext',progressCount.textContent+' — '+titles[step-1]);
+      segments.forEach((segment,index)=>{segment.classList.toggle('is-done',index<step-1);segment.classList.toggle('is-active',index===step-1);});
+      stickyOffset();
       back.disabled=step===1; error.hidden=true; error.textContent='';
       const headerBack=page.querySelector('.prava-back-control-v3'); if(headerBack) headerBack.hidden=step===1;
       page.dispatchEvent(new CustomEvent('prava:phase-changed',{detail:{step}}));
