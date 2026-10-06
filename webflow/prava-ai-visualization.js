@@ -126,6 +126,15 @@
       return 0;
     }
 
+    function backsplashMaterialRule(){
+      var input=page.querySelector('[name="backsplash_orientation"]');
+      var value=clean((input&&input.value)||page.dataset.backsplashOrientation);
+      return {
+        orientation:value==='horizontal'||value==='vertical'?value:null,
+        source:input&&input.value?'backsplash_orientation input':page.dataset.backsplashOrientation?'page.dataset.backsplashOrientation':null
+      };
+    }
+
     function collect(){
       var config={
         waterPosition:selectedChoice('water_position_prava'),
@@ -174,6 +183,7 @@
           preserveCamera:true,
           preserveWallGeometry:true
         },
+        materialRules:{backsplash:backsplashMaterialRule()},
         materials:materials,
         appliances:appliances,
         extras:extras,

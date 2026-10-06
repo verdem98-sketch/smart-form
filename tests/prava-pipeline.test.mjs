@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { JSDOM, VirtualConsole } from "jsdom";
-import { buildStraightKitchenScene } from "../../backend/src/lib/kitchen-modular-planner.ts";
+import { buildStraightKitchenScene } from "../../backend/tests/scene-runtime.mjs";
 
 const fixture = fs.readFileSync(new URL("./fixtures/prava-published-2026-10-06.html", import.meta.url), "utf8");
 const frontend = fs.readFileSync(new URL("../prava-smart-form.js", import.meta.url), "utf8");
@@ -219,4 +219,118 @@ test("helper adds no MutationObserver and touches only the straight page", () =>
     assert.ok(dom.window.document.querySelector('[data-field="deep_cabinets"]'));
     assert.equal(dom.window.document.querySelector('[data-field="handleless"]'), null);
   } finally { dom.window.close(); }
+});
+
+test("UI upper selections produce independent enriched standard/deep schedules", async t => {
+  const env = await setup(t);
+  let data = env.scene().structuredData;
+  assert.equal(data.upperSchedules.standard.enabled, true);
+  assert.equal(data.upperSchedules.deep.enabled, false);
+  assert.ok(data.upperSchedules.standard.modules.every(m => m.bottomMm === 1450 && m.topMm === 2170 && m.depthMm === 350));
+  env.choice("deep_cabinets", "yes");
+  data = env.scene().structuredData;
+  assert.ok(data.upperSchedules.deep.modules.every(m => m.bottomMm === 2170 && m.topMm === 2600 && m.depthMm === 600));
+  assert.deepEqual(data.upperSchedules.deep.modules.map(m => m.sourceBaseModuleId), data.upperSchedules.standard.modules.map(m => m.sourceBaseModuleId));
+});
+
+test("all UI front extras become actions with resolved scopes or explicit unresolved targets", async t => {
+  const env = await setup(t);
+  env.choice("deep_cabinets", "yes");
+  for (const field of ["handleless", "more_drawers", "panel_doors", "glass_display", "lift_mechanisms", "counter_lighting"]) env.extra(field);
+  const data = env.scene().structuredData;
+  for (const key of ["handleless", "more_drawers", "panel_doors", "glass_display", "lift_mechanisms"]) {
+    const action = data.frontActions.find(a => a.key === key);
+    assert.equal(action.selected, true);
+    assert.ok(data.extras.selected.some(e => e.field === key && e.actionKey === key));
+    assert.equal(action.resolution, ["more_drawers", "glass_display"].includes(key) ? "unresolved" : "resolved_scope");
+  }
+  const lift = data.frontActions.find(a => a.key === "lift_mechanisms");
+  assert.deepEqual(lift.targetModuleIds, data.upperSchedules.standard.modules.map(m => m.moduleId));
+  assert.equal(data.upperSchedules.deep.modules.some(m => m.treatments.includes("lift_mechanisms")), false);
+  assert.equal(data.extras.actions.find(a => a.key === "counter_lighting").selected, true);
+  for (const field of ["handleless", "more_drawers", "panel_doors", "glass_display", "lift_mechanisms", "counter_lighting"]) env.extra(field, false);
+  assert.ok(env.scene().structuredData.frontActions.every(a => a.selected === false && a.targetModuleIds.length === 0));
+  assert.deepEqual(env.scene().structuredData.extras.selected, []);
+});
+
+test("island UI dimensions enter existing placement without fabricated height/material assignments", async t => {
+  const env = await setup(t);
+  assert.equal(env.scene().structuredData.island.enabled, false);
+  env.choice("island", "yes");
+  env.dimension("island_len_3a", 180); env.dimension("island_width_3a", 90);
+  const island = env.scene().structuredData.island;
+  assert.equal(island.lengthMm, 1800); assert.equal(island.widthMm, 900);
+  assert.equal(island.centerXMm, 3750); assert.equal(island.distanceFromWallMm, 1600); assert.equal(island.rotationDeg, 0);
+  assert.equal(island.heightMm, null);
+  assert.deepEqual(island.materialAssignments, { cabinet: null, countertop: null });
+  env.choice("island", "no");
+  assert.equal(env.scene().structuredData.island.centerXMm, null);
+});
+
+test("four gallery identities and role/index mapping reach scene without interpreting asset filenames", async t => {
+  const env = await setup(t), p = env.payload(), s = env.scene();
+  for (const role of ["lower", "upper", "countertop", "backsplash"]) {
+    const selected = p.materials[role], material = s.materials[role];
+    for (const key of ["id", "manufacturer", "decorCode", "decorName", "surfaceCode", "category", "family", "displayName"]) assert.equal(material[key], selected[key] ?? null);
+    assert.equal(material.profile, null);
+    assert.equal(material.thicknessMm, null);
+    assert.equal(material.productCode, null);
+    const reference = s.structuredData.materialReferences.find(r => r.role === role);
+    assert.equal(reference.materialId, selected.id);
+    assert.equal(reference.sourceImageUrl, selected.sampleImageUrl);
+  }
+  assert.deepEqual(s.structuredData.materialReferences.map(r => [r.role, r.attachmentIndex]), [["lower", 1], ["upper", 2], ["countertop", 3], ["backsplash", 4]]);
+});
+
+test("explicit source-card metadata survives paging and filtering alongside the canonical record", async t => {
+  const env = await setup(t);
+  const wrap = env.doc.querySelector('[data-field="countertop_finish"]');
+  const card = [...wrap.querySelectorAll(".material-card")][1];
+  card.setAttribute("data-product-code", "SOURCE-PRODUCT");
+  card.setAttribute("data-surface", "Source surface");
+  card.setAttribute("data-finish", "Source finish");
+  card.setAttribute("data-profile", "Source profile");
+  card.setAttribute("data-thickness-mm", "12");
+  card.click();
+  const before = env.payload().materials.countertop;
+  assert.equal(before.productCode, "SOURCE-PRODUCT");
+  assert.equal(before.thicknessMm, 12);
+  [...wrap.querySelectorAll(".page-btn")].find(x => x.textContent === "2").click();
+  assert.deepEqual(env.payload().materials.countertop, before);
+  const material = env.scene().materials.countertop;
+  assert.equal(material.surface, "Source surface"); assert.equal(material.finish, "Source finish");
+  assert.equal(material.profile, "Source profile"); assert.equal(material.thicknessMm, 12);
+});
+
+test("existing UI horizontal backsplash rule travels through payload to structured mapping", async t => {
+  const env = await setup(t);
+  assert.equal(env.payload().materialRules.backsplash.orientation, "horizontal");
+  assert.deepEqual(env.scene().structuredData.backsplash, {
+    enabled: true, orientation: "horizontal", source: "backsplash_orientation input",
+    rotateMappingIfSourceVerticalDeg: 90, rotateSourceFile: false, unavailable: []
+  });
+  env.doc.querySelector('[name="backsplash_orientation"]').remove();
+  delete env.doc.querySelector(".sf-page-prava").dataset.backsplashOrientation;
+  assert.equal(env.payload().materialRules.backsplash.orientation, null);
+  assert.match(env.scene().structuredData.backsplash.unavailable.join(" "), /not supplied/);
+});
+
+test("appliance UI enums retain exact structured variants and no unselected optional appliance is added", async t => {
+  const env = await setup(t);
+  for (const name of ["dishwasher", "washingMachine", "microwave", "coffeeMachine"]) assert.equal(env.scene().structuredData.appliancePresence[name].enabled, false);
+  for (const kind of ["built_in", "free_standing"]) {
+    for (const width of ["45", "60"]) {
+      env.appliance("dishwasher_type", kind + "_" + width);
+      const presence = env.scene().structuredData.appliancePresence.dishwasher;
+      assert.equal(presence.variant, kind + "_" + width);
+      assert.equal(presence.installation, kind);
+    }
+    for (const [field, name] of [["washing_machine_type", "washingMachine"], ["microwave_type", "microwave"], ["coffee_machine_type", "coffeeMachine"]]) {
+      env.appliance(field, kind);
+      const presence = env.scene().structuredData.appliancePresence[name];
+      assert.equal(presence.enabled, true); assert.equal(presence.variant, kind);
+      assert.equal(presence.installation, kind);
+      if (name !== "washingMachine") assert.equal(presence.placementScope, kind === "built_in" ? "module" : "countertop");
+    }
+  }
 });

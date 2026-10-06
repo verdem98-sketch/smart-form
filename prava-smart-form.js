@@ -59,6 +59,8 @@
       manufacturer: row[1] || null,
       decorCode: row[cabinet ? 3 : 2] || null,
       decorName: cabinet ? row[4] || null : null,
+      displayName: cabinet ? clean(row[4]) || null : clean(row[2] + (row[3] ? " · " + row[3] : "")) || null,
+      productCode: null, surface: null, finish: null, profile: null, thicknessMm: null,
       surfaceCode: cabinet ? null : row[3] || null,
       category: row[cabinet ? 2 : 6] || null,
       family: field === "countertop_finish" ? row[7] || null : null,
@@ -79,6 +81,21 @@
         category: clean(card.getAttribute("data-category")) || null
       };
     }
+    // Preserve explicit source metadata only. Never decode IDs or filenames.
+    var attributes = {
+      manufacturer: "data-manufacturer", decorCode: "data-decor-code",
+      decorName: "data-decor-name", displayName: "data-display-name",
+      productCode: "data-product-code", surfaceCode: "data-surface-code",
+      surface: "data-surface", finish: "data-finish", category: "data-category",
+      family: "data-family", profile: "data-profile"
+    };
+    Object.keys(attributes).forEach(function (key) {
+      var supplied = clean(card.getAttribute(attributes[key]));
+      if (record[key] == null && supplied) record[key] = supplied;
+    });
+    if (record.displayName == null) record.displayName = record.decorName || record.label || null;
+    var thickness = Number(card.getAttribute("data-thickness-mm"));
+    if (record.thicknessMm == null && isFinite(thickness) && thickness > 0) record.thicknessMm = thickness;
     var url = image && (image.currentSrc || image.src);
     if (url) record.sampleImageUrl = url;
     return record;
