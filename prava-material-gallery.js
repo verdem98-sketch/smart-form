@@ -6,6 +6,18 @@
     page.querySelectorAll('script[data-prava-catalog]').forEach(script=>{
       const wrap=script.closest('.question-wrap-vision'),field=wrap.dataset.field,role=field.replace('_finish',''),cabinet=role==='upper'||role==='lower';
       const source=JSON.parse(script.textContent),items=source.items,host=script.parentElement;
+      // Material steps no longer use the optional free-text idea field.
+      wrap.querySelectorAll('textarea').forEach(textarea=>{
+        textarea.hidden=true;textarea.inert=true;
+        let node=textarea.previousElementSibling;
+        while(node&&node.nodeType===1){
+          if((node.textContent||'').trim()==='Опишете, ако имате идея'){node.hidden=true;node.inert=true;break;}
+          node=node.previousElementSibling;
+        }
+      });
+      [...wrap.querySelectorAll('label,p,div')].forEach(node=>{
+        if((node.textContent||'').trim()==='Опишете, ако имате идея'){node.hidden=true;node.inert=true;}
+      });
       const grid=host.querySelector('.material-gallery-grid,.worktop-gallery-grid'),pages=host.querySelector('[id$="-pages"]'),count=host.querySelector('[id$="-count"]'),status=host.querySelector('[id$="-page-status"]'),more=host.querySelector('[id$="-more"]');
       const controls=document.createElement('div');controls.className='prava-material-controls';host.prepend(controls);
       const filters={manufacturer:'all',category:'all',substrate:'all',family:role==='countertop'?'thermal':'all'};
