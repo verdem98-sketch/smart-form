@@ -6,12 +6,16 @@
 .sf-page-prava .sf-shell-prava{width:min(1280px,100%);max-width:1280px;margin:0 auto;padding:24px}
 .sf-page-prava .sf-panel-prava,.sf-page-prava .sf-body-prava,.sf-page-prava .sf-right-prava,.sf-page-prava .sf-form-wrap,.sf-page-prava .smart-form-block-prava,.sf-page-prava .sf-form-prava,.sf-page-prava form{width:100%;max-width:none;min-width:0;margin:0}
 .sf-page-prava .sf-panel-prava{border-radius:var(--prava-radius);background:#f7f7f5;padding:24px;border:1px solid var(--prava-line)}
-.sf-page-prava form{display:block}
-.sf-page-prava .sf-header-left.sf-left-prava{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;width:100%;align-items:start;margin:0;min-width:0}
+.sf-page-prava form{display:block;position:relative;isolation:isolate}
+.sf-page-prava .sf-header-left.sf-left-prava{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px;width:100%;align-items:start;margin:0;min-width:0}
 .sf-page-prava .combo-dim-phase{display:block;width:100%;min-width:0;max-width:none;margin:0;padding:0}
-.sf-page-prava .prava-preview-card{position:sticky;top:var(--prava-sticky-top,128px);width:100%;min-width:0;max-width:none;margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+.sf-page-prava .prava-preview-card{position:sticky;top:var(--prava-sticky-top,128px);width:100%;min-width:0;max-width:none;margin:0;padding:0;border:0;background:transparent;box-shadow:none;z-index:2}
 .sf-page-prava #prava-sketch-heading,.sf-page-prava .prava-step-heading{position:sticky;top:var(--prava-sticky-top,128px);z-index:4;background:#f7f7f5;color:var(--prava-ink);font-size:24px;line-height:1.25;font-weight:600;margin:0;padding:12px 0 20px;min-height:62px;text-align:left}
 .sf-page-prava .prava-global-progress{position:sticky;top:var(--prava-progress-top,112px);z-index:6;width:100%;margin:0 0 16px;padding:8px 14px 10px;background:#f2f1ed;border-radius:8px;pointer-events:none}
+/* Opaque backing covers the sticky spacing and rounded corners without changing flow. */
+.sf-page-prava .prava-global-progress::before{content:"";position:absolute;inset:-1px -24px -17px;z-index:-1;background:#f7f7f5;pointer-events:none}
+.sf-page-prava .prava-global-progress::after{content:"";position:absolute;inset:0;z-index:-1;background:inherit;border-radius:inherit;pointer-events:none}
+.sf-page-prava .prava-step-header::before{content:"";position:absolute;inset:-17px -1px 0;z-index:-1;background:#f7f7f5;pointer-events:none}
 .sf-page-prava .prava-global-progress-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:7px;font-size:12px;line-height:1.4;color:#3e4a42}
 .sf-page-prava .prava-global-progress-title{font-weight:600;color:#23442f;min-width:0;overflow-wrap:anywhere}
 .sf-page-prava .prava-global-progress-count{flex-shrink:0;white-space:nowrap}
@@ -22,15 +26,16 @@
 .sf-page-prava .prava-step-header{padding-top:20px;position:sticky;top:var(--prava-sticky-top,128px);z-index:4;background:#f7f7f5}
 .sf-page-prava .prava-step-heading{position:static}
 .sf-page-prava .combo-dim-phase,.sf-page-prava .final-phase-prava{scroll-margin-top:var(--prava-sticky-top,128px)}
-.sf-page-prava .cad-stage-prava{position:relative;inset:auto;transform:none;width:100%;height:auto;aspect-ratio:4/3;min-height:0;max-height:none;overflow:hidden;border:1px solid var(--prava-line);border-radius:var(--prava-radius);background:var(--prava-bg);margin:0;padding:0}
+.sf-page-prava .cad-stage-prava{position:relative;inset:auto;transform:none;width:100%;height:auto;aspect-ratio:1280/606;min-height:382px;max-height:none;overflow:hidden;border:1px solid var(--prava-line);border-radius:var(--prava-radius);background:var(--prava-bg);margin:0;padding:0;z-index:0;isolation:isolate}
 .sf-page-prava .cad-stage-prava .cad-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .sf-page-prava .cad-stage-prava .prava-generated-image{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:inherit;background:var(--prava-bg);z-index:10}
 .sf-page-prava .prava-cad-replaced{display:none!important}
 .sf-page-prava .prava-preview-status{position:absolute;inset:0;z-index:11;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:24px;background:rgba(247,247,245,.88);text-align:center}
 .sf-page-prava [data-preview-state="error"] .prava-preview-status{inset:auto 12px 12px;border:1px solid #bc7b65;border-radius:10px;background:#fff9f5;padding:12px}
-.sf-page-prava .prava-material-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
-.sf-page-prava .prava-material-summary>div{display:flex;align-items:center;gap:10px;border:1px solid var(--prava-line);border-radius:10px;padding:10px;background:var(--prava-bg);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
-.sf-page-prava .prava-material-summary img{width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.sf-page-prava .prava-material-summary{position:absolute;top:12px;left:12px;z-index:9;display:grid;grid-template-columns:85px;grid-auto-rows:85px;gap:6px;margin:0;pointer-events:none}
+.sf-page-prava .prava-material-summary>div{position:relative;width:85px;height:85px;overflow:hidden;border:1px solid var(--prava-line);border-radius:8px;padding:0;background:var(--prava-bg);font-size:10px;line-height:1.25;overflow-wrap:anywhere;pointer-events:auto}
+.sf-page-prava .prava-material-summary span{position:absolute;inset:auto 0 0;padding:4px;background:#333533e6;color:#fff;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.sf-page-prava .prava-material-summary img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .sf-page-prava [data-prava-phase],.sf-page-prava .final-content,.sf-page-prava .contact-block,.sf-page-prava .prava-plan-card,.sf-page-prava .prava-inspiration-block-card{width:100%;max-width:none;min-width:0;height:auto;min-height:0;max-height:none;margin:0;padding:24px;border:1px solid var(--prava-line);border-radius:var(--prava-radius);background:var(--prava-bg);box-shadow:0 2px 8px #33333308;opacity:1!important;transform:none!important}
 .sf-page-prava [data-action="reset-prava"]{background:transparent;color:#697069;border:0;box-shadow:none;font-size:12px;padding:8px 0}
 .sf-page-prava .question-wrap.question-wrap-prava{display:block;width:100%;height:auto;min-height:0;max-height:none;margin:0 0 24px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;opacity:1;visibility:visible}
@@ -120,7 +125,5 @@
 .sf-page-prava .success-cad-stage{position:relative;aspect-ratio:4/3;overflow:hidden;border-radius:var(--prava-radius);background:var(--prava-bg)}
 .sf-page-prava .success-cad-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 @media(max-width:991px){.sf-page-prava .sf-shell-prava{padding:16px}.sf-page-prava .sf-panel-prava{padding:18px}.sf-page-prava .sf-header-left.sf-left-prava{gap:20px}.sf-page-prava .final-grid{grid-template-columns:1fr}.sf-page-prava .booking-days{grid-template-columns:repeat(3,minmax(0,1fr))}.sf-page-prava .prava-step-heading,.sf-page-prava #prava-sketch-heading{font-size:21px}.sf-page-prava [data-prava-phase]{padding:18px}}
-@media(max-width:767px){.sf-page-prava .sf-header-left.sf-left-prava{grid-template-columns:1fr}.sf-page-prava .prava-preview-card{position:static}.sf-page-prava .cad-stage-prava{max-height:320px}.sf-page-prava #prava-sketch-heading{position:static;min-height:0;padding:0 0 16px}.sf-page-prava .prava-step-heading{top:0;padding:12px 0}.sf-page-prava .booking-days{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-page-prava .success-preview-wrap,.sf-page-prava .contact-block{grid-template-columns:1fr}.sf-page-prava .prava-final-inspiration-grid-v2{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-page-prava .sf-shell-prava{padding:12px}.sf-page-prava .sf-panel-prava{padding:14px}.sf-page-prava .prava-material-summary{margin-bottom:8px}}
+@media(max-width:767px){.sf-page-prava .sf-header-left.sf-left-prava{grid-template-columns:1fr}.sf-page-prava .prava-preview-card{position:static}.sf-page-prava .cad-stage-prava{min-height:382px}.sf-page-prava #prava-sketch-heading{position:static;min-height:0;padding:0 0 16px}.sf-page-prava .prava-step-heading{top:0;padding:12px 0}.sf-page-prava .booking-days{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-page-prava .success-preview-wrap,.sf-page-prava .contact-block{grid-template-columns:1fr}.sf-page-prava .prava-final-inspiration-grid-v2{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-page-prava .sf-shell-prava{padding:12px}.sf-page-prava .sf-panel-prava{padding:14px}.sf-page-prava .prava-global-progress::before{inset-inline:-14px}}
 @media(prefers-reduced-motion:reduce){.sf-page-prava *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
-
-@media(min-width:768px){.sf-page-prava .cad-stage-prava{max-height:max(120px,calc(100dvh - var(--prava-sticky-top,128px) - 280px))}.sf-page-prava .prava-preview-card:has(.prava-material-summary[hidden]) .cad-stage-prava{max-height:max(120px,calc(100dvh - var(--prava-sticky-top,128px) - 110px))}}

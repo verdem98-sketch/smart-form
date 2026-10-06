@@ -10,8 +10,8 @@
     stage.append(image);
     const status=document.createElement('div');status.className='prava-preview-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.hidden=true;
     const text=document.createElement('p'),retry=document.createElement('button');retry.type='button';retry.textContent='Опитайте отново';retry.hidden=true;status.append(text,retry);stage.append(status);
-    const summaries=document.createElement('div');summaries.className='prava-material-summary';card.append(summaries);
-    const roles=[['upper','Горен ред'],['lower','Долен ред'],['countertop','Плот'],['backsplash','Гръб']];
+    const summaries=document.createElement('div');summaries.className='prava-material-summary';stage.append(summaries);
+    const roles=[['upper','Горен ред'],['backsplash','Гръб'],['countertop','Плот'],['lower','Долен ред']];
     roles.forEach(([role,label])=>{const item=document.createElement('div');item.dataset.role=role;const img=document.createElement('img'),name=document.createElement('span');img.alt=label;img.hidden=true;name.textContent=label;item.append(img,name);summaries.append(item);});
     let hasImage=false,revision=0;
     function state(value,message){
@@ -35,7 +35,8 @@
     function materials(){roles.forEach(([role,label])=>{
       const value=window.pravaMaterialSelections?.get(role+'_finish'),item=summaries.querySelector('[data-role="'+role+'"]'),img=item.querySelector('img');
       img.hidden=!value?.sampleImageUrl;if(value?.sampleImageUrl)img.src=value.sampleImageUrl;
-      item.querySelector('span').textContent=label+(value?' · '+(value.displayName||value.label||value.id):'');
+      const caption=label+(value?' · '+(value.displayName||value.label||value.id):'');
+      item.querySelector('span').textContent=caption;item.title=caption;
     });}
     page.addEventListener('change',event=>{if(roles.some(([role])=>event.target.name===role+'_finish'))materials();});
     retry.addEventListener('click',()=>document.getElementById('prava-ai-generate-button')?.click());

@@ -120,3 +120,20 @@ test('an existing segmented bar is reused and reconnected rather than duplicated
  assert.equal(e.page.querySelector('.prava-global-progress'),previous);assert.equal(previous.hidden,false);assert.equal(previous.inert,false);assert.equal(previous.parentElement,e.page.querySelector('form'));assert.equal(previous.querySelectorAll('.prava-global-progress-seg').length,10);
  e.w.pravaGoToStep(10);assert.equal(previous.getAttribute('aria-valuenow'),'10');assert.equal(e.page.querySelectorAll('.prava-global-progress').length,1);
 });
+
+
+test('material overlay keeps canonical role order and CAD fallback through first loading/error',async t=>{
+ const e=await setup(t);e.config();e.dimensions();e.materials();
+ const card=e.page.querySelector('.prava-preview-card'),stage=card.querySelector('.cad-stage'),summary=card.querySelector('.prava-material-summary');
+ assert.equal(summary.parentElement,stage,'overlay belongs inside the existing CAD stage');
+ assert.deepEqual([...summary.children].map(n=>n.dataset.role),['upper','backsplash','countertop','lower']);
+ const before=e.payload();
+ for(const role of ['upper','backsplash','countertop','lower']){
+  const tile=summary.querySelector('[data-role="'+role+'"]');assert.equal(tile.querySelector('img').src,before.materials[role].sampleImageUrl);assert.equal(tile.title,tile.querySelector('span').textContent);
+ }
+ e.w.pravaPreview.setState('loading');assert.equal(summary.hidden,false);assert.equal(stage.querySelectorAll('.prava-cad-replaced').length,0);
+ e.w.pravaPreview.setState('error','Fixture failure');assert.equal(summary.hidden,false);assert.equal(stage.querySelectorAll('.prava-cad-replaced').length,0);assert.equal(card.querySelector('.prava-preview-status button').hidden,false);
+ const after=e.payload();delete after.collectedAt;const expected={...before};delete expected.collectedAt;assert.deepEqual(after,expected,'presentation does not change selection data');
+ const wrap=e.page.querySelector('[data-field="upper_finish"]');wrap.querySelectorAll('.page-btn')[1].click();assert.equal(wrap.querySelector('.vm-selected'),null);assert.equal(summary.querySelector('[data-role="upper"] img').src,before.materials.upper.sampleImageUrl);
+ assert.equal(card.querySelectorAll('.prava-material-summary').length,1);
+});
