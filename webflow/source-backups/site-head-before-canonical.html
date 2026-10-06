@@ -1,0 +1,171 @@
+<script>
+(function () {
+
+  var KEY = "cookieConsent";
+  var consent = null;
+
+  try {
+    consent = localStorage.getItem(KEY);
+  } catch (e) {}
+
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  window.gtag = window.gtag || gtag;
+
+  gtag('consent', 'default', {
+    analytics_storage: consent === 'accepted' ? 'granted' : 'denied',
+    ad_storage: consent === 'accepted' ? 'granted' : 'denied',
+    ad_user_data: consent === 'accepted' ? 'granted' : 'denied',
+    ad_personalization: consent === 'accepted' ? 'granted' : 'denied',
+    functionality_storage: 'granted',
+    security_storage: 'granted',
+    wait_for_update: 500
+  });
+
+  if (consent) {
+    document.documentElement.classList.add("cookie-ok");
+  }
+
+  /* CONTENTSQUARE LOADER */
+  window.loadContentsquare = function () {
+    if (window.__cs_loaded) return;
+    window.__cs_loaded = true;
+
+    var s = document.createElement("script");
+    s.src = "https://t.contentsquare.net/uxa/5f9fde79a0a1d.js";
+    s.async = true;
+    document.head.appendChild(s);
+  };
+
+  /* CLARITY LOADER */
+  window.loadClarity = function () {
+    if (window.__clarity_loaded) return;
+    window.__clarity_loaded = true;
+
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t = l.createElement(r);
+      t.async = 1;
+      t.src = "https://www.clarity.ms/tag/" + i;
+      y = l.getElementsByTagName(r)[0];
+      y.parentNode.insertBefore(t, y);
+    })(window, document, "clarity", "script", "vwko8rno78");
+  };
+
+  /* AHREFS LOADER */
+  window.loadAhrefs = function () {
+    if (window.__ahrefs_loaded) return;
+    window.__ahrefs_loaded = true;
+
+    var s = document.createElement("script");
+    s.src = "https://analytics.ahrefs.com/analytics.js";
+    s.setAttribute("data-key", "/Ado1+zUtdMeafHON7RwgA");
+    s.async = true;
+    document.head.appendChild(s);
+  };
+
+  /* LOAD TRACKING ONLY AFTER CONSENT */
+  if (consent === "accepted") {
+    window.loadContentsquare();
+    window.loadClarity();
+    window.loadAhrefs();
+  }
+
+})();
+</script>
+
+<style>
+html.cookie-ok [data-cookie-banner="1"] {
+  display: none !important;
+}
+</style>
+
+<style>
+@keyframes widget-bounce-soft {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-14px) scale(1.06); }
+  40% { transform: translateY(0) scale(1); }
+  60% { transform: translateY(-8px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.widget-bounce-soft {
+  animation: widget-bounce-soft 1s ease;
+}
+</style>
+
+<style>
+[data-widget-ready="false"] [data-widget="card"],
+[data-widget-ready="false"] [data-widget="bubble"] {
+  display: none !important;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  const wrap = document.querySelector('[data-widget-ready]');
+  const card = document.querySelector('[data-widget="card"]');
+  const bubble = document.querySelector('[data-widget="bubble"]');
+  const minimize = document.querySelector('[data-widget-action="minimize"]');
+  const open = document.querySelector('[data-widget-action="open"]');
+
+  const KEY = "verde_widget_minimized";
+
+  if (!wrap || !card || !bubble) return;
+
+  /* INITIAL STATE */
+  if (sessionStorage.getItem(KEY)) {
+    card.style.display = "none";
+    bubble.style.display = "flex";
+  } else {
+    card.style.display = "flex";
+    bubble.style.display = "none";
+  }
+
+  wrap.setAttribute("data-widget-ready", "true");
+
+  /* MINIMIZE */
+  if (minimize) {
+    minimize.addEventListener("click", function(e) {
+      e.preventDefault();
+      card.style.display = "none";
+      bubble.style.display = "flex";
+      sessionStorage.setItem(KEY, "1");
+    });
+  }
+
+  /* OPEN */
+  if (open) {
+    open.addEventListener("click", function(e) {
+      e.preventDefault();
+      card.style.display = "flex";
+      bubble.style.display = "none";
+      sessionStorage.removeItem(KEY);
+    });
+  }
+
+  /* SOFT BOUNCE */
+  let lastBounce = 0;
+
+  window.addEventListener("scroll", function() {
+    const now = Date.now();
+
+    if (bubble.style.display !== "none") {
+      if (now - lastBounce > 5000) {
+        bubble.classList.add("widget-bounce-soft");
+
+        setTimeout(function() {
+          bubble.classList.remove("widget-bounce-soft");
+        }, 1000);
+
+        lastBounce = now;
+      }
+    }
+  });
+
+});
+</script>
+
+
+

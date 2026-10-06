@@ -6,12 +6,12 @@
 
     var btn=document.getElementById('prava-ai-generate-button');
     var modal=document.getElementById('prava-ai-modal-v1');
-    if(!btn||!modal)return;
+    if(!btn)return;
 
-    var loading=modal.querySelector('.prava-ai-loading');
-    var success=modal.querySelector('.prava-ai-success');
-    var error=modal.querySelector('.prava-ai-error');
-    var resultImg=modal.querySelector('.prava-ai-result');
+    var loading=modal&&modal.querySelector('.prava-ai-loading');
+    var success=modal&&modal.querySelector('.prava-ai-success');
+    var error=modal&&modal.querySelector('.prava-ai-error');
+    var resultImg=modal&&modal.querySelector('.prava-ai-result');
     var costLine=document.getElementById('prava-ai-cost-v1');
     var debugCost=new URLSearchParams(location.search).get('ai-debug')==='1';
     var debugStatus=document.getElementById('prava-ai-debug-status-v1');
@@ -229,6 +229,7 @@
     }
 
     function showState(name,message){
+      if(window.pravaPreview)window.pravaPreview.setState(name==='success'?'generated':name==='loading'?'loading':'error',message);
       [loading,success,error].forEach(function(el){if(el)el.classList.remove('is-active')});
       if(name==='loading'&&loading)loading.classList.add('is-active');
       if(name==='success'&&success)success.classList.add('is-active');
@@ -317,6 +318,7 @@
     }
 
     async function requestVisual(){
+      if(btn.dataset.aiBusy==='1')return;
       var payload=collect();
       var check=validate(payload);
       window.__pravaAiPayload=payload;
@@ -367,6 +369,7 @@
 
         var data=await pollVisual(endpoint,startData.responseId);
 
+        if(window.pravaPreview)await window.pravaPreview.showImage(data.imageDataUrl);
         if(resultImg)resultImg.src=data.imageDataUrl;
 
         if(costLine){
@@ -388,9 +391,9 @@
         window.__pravaAiLastMeta=data.generationMeta||null;
         showState('success');
 
-        modal.dispatchEvent(new CustomEvent('prava-ai-generated',{
+        page.dispatchEvent(new CustomEvent('prava-ai-generated',{
           bubbles:true,
-          detail:{revisedPrompt:data.revisedPrompt||null}
+          detail:{imageDataUrl:data.imageDataUrl,revisedPrompt:data.revisedPrompt||null}
         }));
       }catch(err){
         showState('error',err&&err.message?err.message:'Визуализацията не можа да бъде създадена.');
@@ -413,7 +416,8 @@
       if(typeof window.pravaGoToStep==='function')window.pravaGoToStep(step);
     },true);
 
-    modal.addEventListener('prava-ai-requested',requestVisual);
+    btn.addEventListener('click',requestVisual);
+    if(modal)modal.addEventListener('prava-ai-requested',requestVisual);
 
     page.addEventListener('click',function(){setTimeout(syncButton,0)},true);
     page.addEventListener('change',function(){setTimeout(syncButton,0)},true);

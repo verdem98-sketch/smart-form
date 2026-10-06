@@ -21,6 +21,11 @@
   function catalogFor(page, field) {
     if (catalogs[field]) return catalogs[field];
     var wrap = fieldWrap(page, field);
+    var structured = wrap && wrap.querySelector('script[data-prava-catalog]');
+    if (structured) {
+      try { catalogs[field] = JSON.parse(structured.textContent); return catalogs[field]; }
+      catch (_) { return null; }
+    }
     var scripts = wrap ? wrap.querySelectorAll("script") : [];
     for (var s = 0; s < scripts.length; s++) {
       var source = scripts[s].textContent || "";
@@ -156,277 +161,27 @@
 
 /* =========================================================
    CHAPTER 1
-   PRAVA FLOW ENGINE
-   DOM SYNC SAFE v2
-   hard hide inactive questions
+   PRAVA CONFIGURATION SELECTION (phase visibility belongs to prava-flow.js)
    ========================================================= */
-
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("PRAVA CH1 DOM SYNC SAFE v2 START");
-
-  const flow = document.querySelector(".sf-page-prava");
-  if (!flow) return;
-
-  const questions = Array.from(flow.querySelectorAll(".question-wrap-prava"));
-  console.log("QUESTIONS FOUND:", questions.length);
-
-  let state = {};
-  let currentIndex = 0;
-
-  function hardShow(el) {
-    if (!el) return;
-    el.style.setProperty("display", "block", "important");
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
+  const page=document.querySelector('.sf-page-prava'); if(!page)return;
+  function write(name,value) {
+    let input=page.querySelector('input[name="'+name+'"]');
+    if(!input){input=document.createElement('input');input.type='hidden';input.name=name;page.querySelector('form').append(input);}
+    input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));
   }
-
-  function hardHide(el) {
-    if (!el) return;
-    el.style.setProperty("display", "none", "important");
-    el.style.setProperty("visibility", "hidden", "important");
-    el.style.setProperty("opacity", "0", "important");
-  }
-
-  function syncCurrentIndexFromDom() {
-    const activeIndex = questions.findIndex(function (q) {
-      return q.classList.contains("active-question");
-    });
-
-    if (activeIndex >= 0) currentIndex = activeIndex;
-  }
-
-  function showQuestion(index) {
-    questions.forEach(function (q, i) {
-      if (i === index) {
-        q.classList.add("active-question");
-        hardShow(q);
-      } else {
-        q.classList.remove("active-question");
-        hardHide(q);
-      }
-    });
-
-    currentIndex = index;
-    console.log("CURRENT QUESTION:", currentIndex + 1);
-  }
-
-  function currentQuestion() {
-    syncCurrentIndexFromDom();
-    return questions[currentIndex];
-  }
-
-  function fieldOf(question) {
-    return question ? question.getAttribute("data-field") : null;
-  }
-
-  function clearActive(question) {
-    if (!question) return;
-
-    question.querySelectorAll(".option-pill").forEach(function (pill) {
-      pill.classList.remove("active", "is-selected", "vm-selected");
-    });
-  }
-
-  function clearHiddenForField(field) {
-    if (!field) return;
-
-    const names = [field];
-
-    if (field === "water_position_prava") names.push("water_position");
-    if (field === "island") names.push("island_enabled");
-
-    names.forEach(function (name) {
-      flow.querySelectorAll('[name="' + name + '"]').forEach(function (input) {
-        input.value = "";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-    });
-  }
-
-  function clearQuestionAnswer(question) {
-    if (!question) return;
-
-    const field = fieldOf(question);
-
-    clearActive(question);
-    hideHint(question);
-
-    if (field) {
-      delete state[field];
-      clearHiddenForField(field);
+  page.addEventListener('click',function(event){
+    if(event.target.closest('[data-action="reset-prava"]')) {
+      event.preventDefault();page.querySelectorAll('.question-wrap-prava').forEach(function(q){q.querySelectorAll('.option-pill').forEach(function(p){p.classList.remove('active','is-selected','vm-selected');p.setAttribute('aria-pressed','false');});write(q.dataset.field,'');});write('water_position','');write('island_enabled','');return;
     }
-  }
-
-  function rewindTo(index) {
-    if (index < 0 || index >= questions.length) return;
-
-    for (let i = index; i < questions.length; i++) {
-      clearQuestionAnswer(questions[i]);
-    }
-
-    showQuestion(index);
-  }
-
-  window.pravaRewindToQuestion = function (index) {
-    const target = Number.isInteger(index) ? index : questions.length - 1;
-    rewindTo(target);
-  };
-
-  function showHint(question) {
-    if (!question) return;
-
-    let hint = question.querySelector(".question-hint");
-
-    if (!hint) {
-      hint = document.createElement("div");
-      hint.className = "question-hint";
-      hint.textContent = "Избери вариант, за да продължим.";
-      question.appendChild(hint);
-    }
-
-    hint.classList.add("is-visible");
-    hint.style.setProperty("display", "block", "important");
-    hint.style.setProperty("visibility", "visible", "important");
-    hint.style.setProperty("opacity", "1", "important");
-    hint.style.setProperty("margin-top", "12px", "important");
-    hint.style.setProperty("color", "#9a3b00", "important");
-    hint.style.setProperty("font-size", "14px", "important");
-
-    question.classList.remove("choice-warning");
-    void question.offsetWidth;
-    question.classList.add("choice-warning");
-
-    setTimeout(function () {
-      question.classList.remove("choice-warning");
-    }, 350);
-
-    question.scrollIntoView({
-      behavior: "smooth",
-      block: "center"
-    });
-  }
-
-  function hideHint(question) {
-    if (!question) return;
-
-    const hint = question.querySelector(".question-hint");
-
-    if (hint) {
-      hint.classList.remove("is-visible");
-      hint.style.setProperty("display", "none", "important");
-    }
-
-    question.classList.remove("choice-warning");
-  }
-
-  function selectPill(pill) {
-    const question = pill.closest(".question-wrap-prava");
-    if (!question) return;
-
-    const field = fieldOf(question);
-    const value = pill.getAttribute("data-value");
-
-    clearActive(question);
-
-    pill.classList.add("active", "is-selected");
-
-    state[field] = value;
-
-    const realIndex = questions.indexOf(question);
-    if (realIndex >= 0) currentIndex = realIndex;
-
-    hideHint(question);
-
-    console.log("STATE:", state);
-  }
-
-  flow.addEventListener("click", function (e) {
-    const pill = e.target.closest(".option-pill");
-    if (!pill) return;
-
-    e.preventDefault();
-    selectPill(pill);
+    const pill=event.target.closest('.question-wrap-prava .option-pill');if(!pill)return;
+    event.preventDefault();const question=pill.closest('.question-wrap-prava'),field=question.dataset.field;
+    question.querySelectorAll('.option-pill').forEach(function(node){node.classList.remove('active','is-selected','vm-selected');node.setAttribute('aria-pressed','false');});
+    pill.classList.add('active','is-selected');pill.setAttribute('aria-pressed','true');write(field,pill.dataset.value||'');
+    if(field==='water_position_prava')write('water_position',pill.dataset.value||'');
+    if(field==='island')write('island_enabled',pill.dataset.value||'');
   });
-
-  flow.addEventListener("click", function (e) {
-    const next = e.target.closest(".nav-next");
-    if (!next) return;
-
-    if (next.classList.contains("phase-next-btn")) return;
-    if (next.hasAttribute("data-next-phase")) return;
-
-    e.preventDefault();
-
-    const question = currentQuestion();
-    const field = fieldOf(question);
-
-    console.log("CH1 QUESTION NEXT:", field, state[field]);
-
-    if (field && !state[field]) {
-      showHint(question);
-      return;
-    }
-
-    if (currentIndex < questions.length - 1) {
-      showQuestion(currentIndex + 1);
-    } else {
-      console.log("END OF QUESTIONS");
-    }
-  });
-
-  flow.addEventListener("click", function (e) {
-    const back = e.target.closest(".nav-back");
-    if (!back) return;
-
-    e.preventDefault();
-
-    syncCurrentIndexFromDom();
-
-    if (currentIndex > 0) {
-      rewindTo(currentIndex - 1);
-    }
-  });
-
-  flow.addEventListener("prava:rewind-to-question", function (e) {
-    const requested =
-      e && e.detail && Number.isInteger(e.detail.index)
-        ? e.detail.index
-        : questions.length - 1;
-
-    rewindTo(requested);
-  });
-
-  flow.addEventListener("click", function (e) {
-    const reset = e.target.closest('[data-action="reset-prava"]');
-    if (!reset) return;
-
-    e.preventDefault();
-
-    state = {};
-
-    flow.querySelectorAll(".option-pill").forEach(function (pill) {
-      pill.classList.remove("active", "is-selected");
-    });
-
-    flow.querySelectorAll(".question-hint").forEach(function (hint) {
-      hint.classList.remove("is-visible");
-      hint.style.setProperty("display", "none", "important");
-    });
-
-    flow.querySelectorAll(".question-wrap-prava").forEach(function (q) {
-      q.classList.remove("choice-warning");
-    });
-
-    showQuestion(0);
-
-    console.log("RESET PRAVA");
-  });
-
-  showQuestion(0);
 });
-
-
 
 /* =========================================================
    CHAPTER 2
@@ -563,137 +318,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-
-
-
-
-
-/* =========================================================
-   CHAPTER 3
-   OPEN DIMENSIONS PHASE
-   After last combo question
-   ========================================================= */
-
-document.addEventListener("DOMContentLoaded", function () {
-  const page = document.querySelector(".sf-page-prava");
-  if (!page) return;
-
-  const questionsWrap =
-    page.querySelector(".combo-phase") ||
-    page.querySelector(".combo-phase-wrap") ||
-    page;
-
-  const dimensionsPhase =
-    page.querySelector(".dimensions-phase") ||
-    page.querySelector(".dimensions-phase-wrap");
-
-  if (!questionsWrap || !dimensionsPhase) return;
-
-  const questions = Array.from(
-    page.querySelectorAll(".question-wrap-prava")
-  );
-
-  if (!questions.length) return;
-
-  const lastQuestion = questions[questions.length - 1];
-
-  function show(el, displayType) {
-    if (!el) return;
-
-    el.style.setProperty(
-      "display",
-      displayType || "block",
-      "important"
-    );
-
-    el.style.setProperty("visibility", "visible", "important");
-    el.style.setProperty("opacity", "1", "important");
-  }
-
-  function hide(el) {
-    if (!el) return;
-
-    el.style.setProperty("display", "none", "important");
-    el.style.setProperty("visibility", "hidden", "important");
-    el.style.setProperty("opacity", "0", "important");
-  }
-
-  function hasAnswer(question) {
-    if (!question) return true;
-
-    return !!question.querySelector(
-      ".option-pill.active, .option-pill.is-selected"
-    );
-  }
-
-  function warn(question) {
-    if (!question) return;
-
-    question.classList.remove("choice-warning");
-
-    void question.offsetWidth;
-
-    question.classList.add("choice-warning");
-
-    let hint = question.querySelector(".question-hint");
-
-    if (!hint) {
-      hint = document.createElement("div");
-
-      hint.className = "question-hint";
-      hint.textContent = "Избери вариант, за да продължим.";
-
-      question.appendChild(hint);
-    }
-
-    hint.classList.add("is-visible");
-
-    setTimeout(function () {
-      question.classList.remove("choice-warning");
-    }, 350);
-  }
-
-  function openDimensions() {
-    questions.forEach(function (q) {
-      hide(q);
-      q.classList.remove("active-question");
-    });
-
-    hide(questionsWrap);
-
-    show(dimensionsPhase, "block");
-
-    setTimeout(function () {
-      dimensionsPhase.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }, 50);
-  }
-
-  page.addEventListener(
-    "click",
-    function (e) {
-      const next = e.target.closest(".nav-next");
-
-      if (!next) return;
-      if (!lastQuestion.contains(next)) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      if (!hasAnswer(lastQuestion)) {
-        warn(lastQuestion);
-        return;
-      }
-
-      openDimensions();
-    },
-    true
-  );
-hide(dimensionsPhase);
-});
 
 
 
@@ -1014,90 +638,6 @@ hide(dimensionsPhase);
 })();
 
 /* =========================================================
-   CHAPTER 7
-   PRAVA VISION CARDS — HARD OVERRIDE
-   toggle on/off fixed
-   ========================================================= */
-
-console.log("CHAPTER 7 PRAVA VISION HARD OVERRIDE START");
-
-(function () {
-  "use strict";
-
-  function qsa(scope, sel) {
-    return Array.from((scope || document).querySelectorAll(sel));
-  }
-
-  function clean(v) {
-    return String(v || "").trim();
-  }
-
-  function valFrom(el) {
-    if (!el) return "";
-    var label = el.querySelector(".vision-card-label");
-    return clean(el.getAttribute("data-value") || (label && label.textContent) || el.textContent);
-  }
-
-  function setAll(name, value) {
-    if (!name) return;
-
-    document
-      .querySelectorAll('input[name="' + name + '"], textarea[name="' + name + '"]')
-      .forEach(function (el) {
-        el.value = clean(value);
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    var page = document.querySelector(".sf-page-prava");
-    if (!page) return;
-
-    qsa(page, ".vision-cards-row").forEach(function (row) {
-      var cards = qsa(row, ".vision-card");
-
-      cards.forEach(function (card) {
-        card.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          var wasActive = card.classList.contains("vm-selected");
-
-          cards.forEach(function (c) {
-            c.classList.remove("vm-selected", "is-selected", "active");
-            c.querySelectorAll(".vm-check").forEach(function (x) {
-              x.remove();
-            });
-          });
-
-          var wrap = card.closest("[data-field]");
-          var field = wrap ? wrap.getAttribute("data-field") : "";
-
-          if (wasActive) {
-            setAll(field, "");
-            console.log("CH7 PRAVA unselected:", field);
-            return;
-          }
-
-          card.classList.add("vm-selected", "is-selected", "active");
-          card.insertAdjacentHTML("beforeend", '<div class="vm-check">✓</div>');
-
-          setAll(field, valFrom(card));
-
-          console.log("CH7 PRAVA selected:", field, valFrom(card));
-        }, true);
-      });
-    });
-  });
-})();
-
-
-
-
-
-/* =========================================================
    CHAPTER 8
    PRAVA BOOKING CALENDAR
    ========================================================= */
@@ -1251,6 +791,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function lockCalendarUI() {
       submittedLocked = true;
+      if (customDateInput) customDateInput.disabled = true;
 
       if (lockedHelp) {
         show(lockedHelp);
@@ -1281,6 +822,7 @@ document.addEventListener("DOMContentLoaded", function () {
           !el.classList.contains("is-pending")
         ) {
           el.classList.add("is-local-locked");
+          el.setAttribute("aria-disabled", "true"); el.tabIndex = -1;
         }
       });
     }
@@ -1288,6 +830,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function clearActiveSlots() {
       qsa(flow, ".booking-slot").forEach(function (el) {
         el.classList.remove("active");
+        el.setAttribute("aria-pressed", "false");
       });
     }
 
@@ -1295,6 +838,7 @@ document.addEventListener("DOMContentLoaded", function () {
       clearActiveSlots();
 
       slotEl.classList.add("active");
+      slotEl.setAttribute("aria-pressed", "true");
 
       selectedSlotState = {
         date: dateISO,
@@ -1322,6 +866,8 @@ document.addEventListener("DOMContentLoaded", function () {
     function createSlot(dateISO, slotText) {
       var slot = document.createElement("div");
       slot.className = "booking-slot";
+      slot.setAttribute("role", "button");
+      slot.setAttribute("aria-pressed", "false");
       slot.textContent = slotText;
       slot.setAttribute("data-date", dateISO);
       slot.setAttribute("data-slot", slotText);
@@ -1341,6 +887,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return slot;
       }
 
+      slot.tabIndex = 0;
+      slot.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); slot.click(); }
+      });
       slot.addEventListener("click", function () {
         if (submittedLocked) return;
         setSelectedSlot(slot, dateISO, slotText, true);
@@ -1417,6 +967,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function restoreFromStorage() {
       var saved = loadSlotState();
+      if (saved && saved.customDate && customDateInput) {
+        customDateInput.value = saved.customDate; setHidden("custom_date", saved.customDate); return;
+      }
       if (!saved || !saved.date || !saved.slot) return;
 
       var slotEl = qs(
@@ -1453,7 +1006,9 @@ document.addEventListener("DOMContentLoaded", function () {
           setHidden("meeting_date", "");
           setHidden("meeting_slot", "");
           setHidden("custom_date", value);
+          saveSlotState({ date: "", slot: "", customDate: value, submitted: false });
         } else {
+          saveSlotState({ date: "", slot: "", customDate: "", submitted: false });
           setHidden("custom_date", "");
         }
       });
@@ -1462,9 +1017,11 @@ document.addEventListener("DOMContentLoaded", function () {
     var formBlock = form.closest(".w-form");
     var successEl = formBlock ? qs(formBlock, ".w-form-done") : null;
 
+    var successDelivered = false;
     function markSubmittedAfterSuccess() {
-      if (!selectedSlotState) return;
       if (!successEl || !isVisible(successEl)) return;
+      if (!successDelivered) { successDelivered = true; flow.dispatchEvent(new CustomEvent("prava:form-success")); }
+      if (!selectedSlotState) return;
 
       saveSlotState({
         date: selectedSlotState.date,
@@ -1495,11 +1052,7 @@ document.addEventListener("DOMContentLoaded", function () {
         submitted: false
       });
 
-      if (successEl) {
-        setTimeout(markSubmittedAfterSuccess, 250);
-        setTimeout(markSubmittedAfterSuccess, 700);
-        setTimeout(markSubmittedAfterSuccess, 1500);
-      }
+
     });
 
     generateCalendarDays();
@@ -1602,6 +1155,10 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("CH9 inspiration cards found:", cards.length);
 
     cards.forEach(function (card) {
+      var label = card.querySelector('.inspiration-label');
+      if (label) card.setAttribute('data-value', label.textContent.trim());
+      card.setAttribute('role', 'button'); card.tabIndex = 0;
+      card.addEventListener('keydown', function(event) { if(event.key === 'Enter' || event.key === ' ') {event.preventDefault();card.click();} });
       ensureCheck(card);
 
       card.addEventListener("click", function (e) {
@@ -1619,6 +1176,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (alreadySelected) {
           setHidden("inspiration_card_prava", "");
           setHidden("inspiration_card", "");
+          setHidden("vision_prava_3", "");
           return;
         }
 
@@ -1628,6 +1186,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         setHidden("inspiration_card_prava", value);
         setHidden("inspiration_card", value);
+        setHidden("vision_prava_3", value);
 
         console.log("CH9 inspiration selected:", value);
       });
@@ -1965,16 +1524,7 @@ document.addEventListener("DOMContentLoaded", function () {
       el.style.setProperty("overflow", "hidden", "important");
     }
 
-    function forceGrid(el) {
-      if (!el) return;
-
-      el.style.setProperty("display", "grid", "important");
-      el.style.setProperty("grid-template-columns", "repeat(3, minmax(0, 1fr))", "important");
-      el.style.setProperty("gap", "18px", "important");
-      el.style.setProperty("align-items", "stretch", "important");
-      el.style.setProperty("visibility", "visible", "important");
-      el.style.setProperty("opacity", "1", "important");
-    }
+    function forceGrid(el) { if (el) el.classList.add('success-preview-wrap'); }
 
     function renderCadPreview() {
       var target = qs(formBlock, ".success-cad-preview");
@@ -1995,14 +1545,6 @@ document.addEventListener("DOMContentLoaded", function () {
       var stage = document.createElement("div");
       stage.className = "success-cad-stage";
 
-      stage.style.setProperty("position", "relative", "important");
-      stage.style.setProperty("display", "block", "important");
-      stage.style.setProperty("width", "100%", "important");
-      stage.style.setProperty("height", "185px", "important");
-      stage.style.setProperty("min-height", "185px", "important");
-      stage.style.setProperty("overflow", "hidden", "important");
-      stage.style.setProperty("border-radius", "14px", "important");
-      stage.style.setProperty("background", "#f4f1ee", "important");
 
       var kitchenSrc =
         getVisibleImageSrc(".cad-stage .cad-img-kitchen") ||
@@ -2047,6 +1589,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function selectedImgInField(fieldName, cardSelector) {
+      var material = window.pravaMaterialSelections && window.pravaMaterialSelections.get(fieldName);
+      if (material) return material.sampleImageUrl || "";
       var wrap = qs(page, '[data-field="' + fieldName + '"]');
       if (!wrap) return "";
 
@@ -2223,300 +1767,9 @@ document.addEventListener("DOMContentLoaded", function () {
       console.log("CH11 PRAVA SUCCESS RENDERED v6");
     }
 
-    form.addEventListener("submit", function () {
-      setTimeout(renderSuccess, 400);
-      setTimeout(renderSuccess, 1000);
-      setTimeout(renderSuccess, 1800);
-      setTimeout(renderSuccess, 2600);
-    });
+    form.addEventListener("submit", renderSuccess);
+    page.addEventListener("prava:form-success", renderSuccess);
   });
 })();
-
-
-/* =========================================================
-   CHAPTER 6
-   PRAVA FINAL GATE — CLEAN QUESTION RESTORE
-   final button only
-   ========================================================= */
-
-(function () {
-  function ready(fn) {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", fn);
-    } else {
-      fn();
-    }
-  }
-
-  ready(function () {
-    console.log("CHAPTER 6 FINAL GATE CLEAN RESTORE START");
-
-    const page = document.querySelector(".sf-page-prava");
-    if (!page) return;
-
-    const finalPhase = page.querySelector(".final-phase");
-    const comboPhase = page.querySelector(".combo-phase, .combo-phase-wrap");
-    const dimensionsPhase = page.querySelector(".dimensions-phase, .dimensions-phase-wrap");
-
-    function qs(scope, sel) {
-      return (scope || document).querySelector(sel);
-    }
-
-    function qsa(scope, sel) {
-      return Array.from((scope || document).querySelectorAll(sel));
-    }
-
-    function isVisible(el) {
-      if (!el) return false;
-      return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-    }
-
-    function show(el, displayType) {
-      if (!el) return;
-      el.style.setProperty("display", displayType || "block", "important");
-      el.style.setProperty("visibility", "visible", "important");
-      el.style.setProperty("opacity", "1", "important");
-    }
-
-    function hide(el) {
-      if (!el) return;
-      el.style.setProperty("display", "none", "important");
-      el.style.setProperty("visibility", "hidden", "important");
-      el.style.setProperty("opacity", "0", "important");
-    }
-
-    if (finalPhase) hide(finalPhase);
-
-    function clearHints() {
-      qsa(page, ".question-hint, .dimension-hint").forEach(function (hint) {
-        hint.classList.remove("is-visible");
-        hint.style.setProperty("display", "none", "important");
-      });
-    }
-
-    function showQuestionHint(question) {
-      if (!question) return;
-
-      let hint = qs(question, ".question-hint");
-
-      if (!hint) {
-        hint = document.createElement("div");
-        hint.className = "question-hint";
-        hint.textContent = "Избери вариант, за да продължим.";
-        question.appendChild(hint);
-      }
-
-      hint.classList.add("is-visible");
-      hint.style.setProperty("display", "block", "important");
-      hint.style.setProperty("visibility", "visible", "important");
-      hint.style.setProperty("opacity", "1", "important");
-      hint.style.setProperty("margin-top", "12px", "important");
-      hint.style.setProperty("color", "#9a3b00", "important");
-      hint.style.setProperty("font-size", "14px", "important");
-
-      question.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    }
-
-    function showDimensionHint(row) {
-      if (!row) return;
-
-      let hint = qs(row, ".dimension-hint");
-
-      if (!hint) {
-        hint = document.createElement("div");
-        hint.className = "dimension-hint";
-        hint.textContent = "Попълни размера, за да продължим.";
-        row.appendChild(hint);
-      }
-
-      hint.classList.add("is-visible");
-      hint.style.setProperty("display", "block", "important");
-      hint.style.setProperty("visibility", "visible", "important");
-      hint.style.setProperty("opacity", "1", "important");
-      hint.style.setProperty("margin-top", "10px", "important");
-      hint.style.setProperty("color", "#9a3b00", "important");
-      hint.style.setProperty("font-size", "14px", "important");
-
-      row.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-    }
-
-    function hasAnsweredQuestion(question) {
-      return !!qs(question, ".option-pill.active, .option-pill.is-selected, .option-pill.vm-selected");
-    }
-
-    function findFirstUnansweredQuestion() {
-      const questions = qsa(page, ".question-wrap-prava");
-
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-        if (!qsa(question, ".option-pill").length) continue;
-
-        if (!hasAnsweredQuestion(question)) {
-          return question;
-        }
-      }
-
-      return null;
-    }
-
-    function markRowTouched(row) {
-      if (!row) return;
-      row.classList.add("is-touched");
-      row.setAttribute("data-touched", "true");
-    }
-
-    page.addEventListener("click", function (e) {
-      const btn = e.target.closest(".dimension-row .picker-btn");
-      if (!btn) return;
-
-      markRowTouched(btn.closest(".dimension-row"));
-    }, true);
-
-    function rowHasValue(row) {
-      if (!row) return false;
-
-      return (
-        row.classList.contains("is-touched") ||
-        row.getAttribute("data-touched") === "true"
-      );
-    }
-
-    function findFirstEmptyVisibleDimension() {
-      const rows = qsa(
-        page,
-        ".dimensions-phase .dimension-row, .dimensions-phase-wrap .dimension-row"
-      );
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-
-        if (!isVisible(row)) continue;
-
-        const group = row.closest(".dimensions-group, [data-owner]");
-        if (group && !isVisible(group)) continue;
-
-        if (!rowHasValue(row)) return row;
-      }
-
-      return null;
-    }
-
-    function openComboToQuestion(question) {
-      if (!question) return;
-
-      if (finalPhase) hide(finalPhase);
-      if (dimensionsPhase) hide(dimensionsPhase);
-      if (comboPhase) show(comboPhase, "block");
-
-      qsa(page, ".question-wrap-prava").forEach(function (q) {
-        q.classList.remove("active-question");
-        hide(q);
-      });
-
-      show(question, "block");
-      question.classList.add("active-question");
-
-      console.log("CH6 RESTORE QUESTION:", question.getAttribute("data-field"));
-
-      setTimeout(function () {
-        showQuestionHint(question);
-      }, 80);
-    }
-
-    function openDimensionsToRow(row) {
-      if (finalPhase) hide(finalPhase);
-      if (comboPhase) hide(comboPhase);
-      if (dimensionsPhase) show(dimensionsPhase, "block");
-
-      setTimeout(function () {
-        showDimensionHint(row);
-      }, 80);
-    }
-
-    function openFinal() {
-      qsa(
-        page,
-        ".combo-phase, .combo-phase-wrap, .dimensions-phase, .dimensions-phase-wrap, .extras-phase, .vision-phase, .extras-vision-phase"
-      ).forEach(function (el) {
-        hide(el);
-      });
-
-      qsa(page, ".prava-left, .sticky-cad-wrap, .cad-stage").forEach(function (el) {
-        hide(el);
-      });
-
-      show(finalPhase, "block");
-
-      setTimeout(function () {
-        finalPhase.scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      }, 80);
-
-      window.dispatchEvent(new Event("resize"));
-    }
-
-    const finalBtns = qsa(page, ".phase-next-btn").filter(function (btn) {
-      return btn.getAttribute("data-next-phase") === "final-phase";
-    });
-
-    console.log("CH6 FINAL BUTTONS FOUND:", finalBtns.length);
-
-    finalBtns.forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        console.log("CH6 FINAL CLICK");
-
-        clearHints();
-
-        const unanswered = findFirstUnansweredQuestion();
-
-        if (unanswered) {
-          console.log("CH6 BLOCKED QUESTION:", unanswered.getAttribute("data-field"));
-          openComboToQuestion(unanswered);
-          return;
-        }
-
-        const emptyDim = findFirstEmptyVisibleDimension();
-
-        if (emptyDim) {
-          console.log("CH6 BLOCKED DIM:", emptyDim.getAttribute("data-dim"));
-          openDimensionsToRow(emptyDim);
-          return;
-        }
-
-        console.log("CH6 OPEN FINAL");
-        openFinal();
-      }, true);
-    });
-  });
-})();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

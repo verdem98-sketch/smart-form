@@ -1,0 +1,803 @@
+<script src="https://raw.githack.com/verdem98-sketch/smart-form/d330a92b883ffe2a30a2b79edde3e4694566be92/prava-smart-form.js"></script>
+
+<script>
+/* =========================================================
+   PRAVA TEXT FIELDS LOCK v3
+   Reads real fields first, ignores hidden inputs.
+========================================================= */
+
+(function () {
+  function clean(v) {
+    return String(v || "").replace(/\s+/g, " ").trim();
+  }
+
+  function ensureHidden(form, name) {
+    var input = form.querySelector('input[type="hidden"][name="' + name + '"]');
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      form.appendChild(input);
+    }
+    return input;
+  }
+
+  function fieldValue(selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (!el) continue;
+      if (el.type === "hidden") continue;
+
+      var value = clean(el.value || el.textContent);
+      if (value) return value;
+    }
+    return "";
+  }
+
+  function visionNoteByIndex(index) {
+    var fields = Array.from(document.querySelectorAll(
+      '.extras-vision-phase textarea, ' +
+      '.extras-vision-phase input:not([type="hidden"]), ' +
+      '.vision-phase textarea, ' +
+      '.vision-phase input:not([type="hidden"])'
+    )).filter(function (el) {
+      return !el.closest(".success-card") && !el.closest(".success-message");
+    });
+
+    return clean(fields[index] && fields[index].value);
+  }
+
+  function sync(form) {
+    var data = {
+      upper_finish_note:
+        fieldValue([
+          'textarea[name="upper_finish_note"]',
+          'input:not([type="hidden"])[name="upper_finish_note"]',
+          'textarea[data-field="upper_finish_note"]',
+          'input:not([type="hidden"])[data-field="upper_finish_note"]',
+          '[data-field="upper_finish_note"] textarea',
+          '[data-field="upper_finish_note"] input:not([type="hidden"])'
+        ]) || visionNoteByIndex(0),
+
+      lower_finish_note:
+        fieldValue([
+          'textarea[name="lower_finish_note"]',
+          'input:not([type="hidden"])[name="lower_finish_note"]',
+          'textarea[data-field="lower_finish_note"]',
+          'input:not([type="hidden"])[data-field="lower_finish_note"]',
+          '[data-field="lower_finish_note"] textarea',
+          '[data-field="lower_finish_note"] input:not([type="hidden"])'
+        ]) || visionNoteByIndex(1),
+
+      countertop_finish_note:
+        fieldValue([
+          'textarea[name="countertop_finish_note"]',
+          'input:not([type="hidden"])[name="countertop_finish_note"]',
+          'textarea[name="countertop_note_prava"]',
+          'input:not([type="hidden"])[name="countertop_note_prava"]',
+          'textarea[data-field="countertop_finish_note"]',
+          'input:not([type="hidden"])[data-field="countertop_finish_note"]',
+          'textarea[data-field="countertop_note_prava"]',
+          'input:not([type="hidden"])[data-field="countertop_note_prava"]',
+          '[data-field="countertop_finish_note"] textarea',
+          '[data-field="countertop_finish_note"] input:not([type="hidden"])',
+          '[data-field="countertop_note_prava"] textarea',
+          '[data-field="countertop_note_prava"] input:not([type="hidden"])'
+        ]) || visionNoteByIndex(2),
+
+      backsplash_finish_note:
+        fieldValue([
+          'textarea[name="backsplash_finish_note"]',
+          'input:not([type="hidden"])[name="backsplash_finish_note"]',
+          'textarea[name="backsplash_note_prava"]',
+          'input:not([type="hidden"])[name="backsplash_note_prava"]',
+          'textarea[data-field="backsplash_finish_note"]',
+          'input:not([type="hidden"])[data-field="backsplash_finish_note"]',
+          'textarea[data-field="backsplash_note_prava"]',
+          'input:not([type="hidden"])[data-field="backsplash_note_prava"]',
+          '[data-field="backsplash_finish_note"] textarea',
+          '[data-field="backsplash_finish_note"] input:not([type="hidden"])',
+          '[data-field="backsplash_note_prava"] textarea',
+          '[data-field="backsplash_note_prava"] input:not([type="hidden"])'
+        ]) || visionNoteByIndex(3),
+
+      final_note:
+        fieldValue([
+          'textarea[name="final_note"]',
+          'input:not([type="hidden"])[name="final_note"]',
+          'textarea[data-field="final_note"]',
+          'input:not([type="hidden"])[data-field="final_note"]',
+          '[data-field="final_note"] textarea',
+          '[data-field="final_note"] input:not([type="hidden"])',
+          '.booking-note textarea',
+          '.booking-note input:not([type="hidden"])'
+        ]),
+
+      custom_date:
+        fieldValue([
+          'textarea[name="custom_date"]',
+          'input:not([type="hidden"])[name="custom_date"]',
+          'textarea[data-field="custom_date"]',
+          'input:not([type="hidden"])[data-field="custom_date"]',
+          '[data-field="custom_date"] textarea',
+          '[data-field="custom_date"] input:not([type="hidden"])',
+          '.booking-custom-date'
+        ])
+    };
+
+    Object.keys(data).forEach(function (key) {
+      ensureHidden(form, key).value = data[key];
+
+      document
+        .querySelectorAll('[data-success="' + key + '"], [data-preview="' + key + '"]')
+        .forEach(function (el) {
+          el.textContent = data[key] || "";
+        });
+    });
+
+    console.log("PRAVA TEXT FIELDS LOCK v3:", data);
+  }
+
+  document.addEventListener("input", function (e) {
+    var form = e.target.closest("form");
+    if (!form || !form.querySelector('[name="preview_link"]')) return;
+    sync(form);
+  }, true);
+
+  document.addEventListener("change", function (e) {
+    var form = e.target.closest("form");
+    if (!form || !form.querySelector('[name="preview_link"]')) return;
+    sync(form);
+  }, true);
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.querySelector('[name="preview_link"]')) return;
+    sync(form);
+  }, true);
+})();
+</script>
+
+
+<<script>
+/* =========================================================
+   PRAVA PREVIEW BUILDER v20 — SAFE CORE + NOTES
+========================================================= */
+
+document.addEventListener("submit", function (e) {
+  var form = e.target;
+  if (!form || !form.querySelector('[name="preview_link"]')) return;
+
+  var page = document.querySelector(".sf-page-prava") || document;
+
+  function clean(v) {
+    return String(v || "").replace(/\s+/g, " ").trim();
+  }
+
+  function get(name) {
+    var el =
+      form.querySelector('[name="' + name + '"]') ||
+      document.querySelector('[name="' + name + '"]');
+
+    return clean(el && el.value);
+  }
+
+  function getNote(keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+
+      var el =
+        form.querySelector('textarea[name="' + key + '"], input[name="' + key + '"]') ||
+        form.querySelector('[data-field="' + key + '"] textarea, [data-field="' + key + '"] input') ||
+        form.querySelector('textarea[data-field="' + key + '"], input[data-field="' + key + '"]') ||
+        document.querySelector('textarea[name="' + key + '"], input[name="' + key + '"]') ||
+        document.querySelector('[data-field="' + key + '"] textarea, [data-field="' + key + '"] input') ||
+        document.querySelector('textarea[data-field="' + key + '"], input[data-field="' + key + '"]');
+
+      if (el && clean(el.value)) return clean(el.value);
+    }
+
+    return "";
+  }
+
+  function add(params, key, value) {
+    value = clean(value);
+    if (value) params.set(key, value);
+  }
+
+  function imgSrc(img) {
+    return img ? clean(img.currentSrc || img.src || img.getAttribute("src")) : "";
+  }
+
+  function selectedCard(field) {
+    var wrap = page.querySelector('[data-field="' + field + '"]');
+    if (!wrap) return null;
+    return wrap.querySelector(".vm-selected") || wrap.querySelector(".is-selected") || wrap.querySelector(".active");
+  }
+
+  function selectedText(field) {
+    var card = selectedCard(field);
+    return clean(card && (card.getAttribute("data-value") || card.textContent));
+  }
+
+  function selectedImg(field) {
+    var card = selectedCard(field);
+    return imgSrc(card && card.querySelector("img"));
+  }
+
+  function firstImg(selector) {
+    return imgSrc(page.querySelector(selector));
+  }
+
+  function yesNo(name) {
+    var v = clean(get(name)).toLowerCase();
+
+    if (["да", "yes", "true", "1"].indexOf(v) > -1) return "Да";
+    if (["не", "no", "false", "0"].indexOf(v) > -1) return "Не";
+
+    var cb = page.querySelector('[data-field="' + name + '"] input[type="checkbox"], [data-checkbox-field="' + name + '"]');
+    return cb && cb.checked ? "Да" : "Не";
+  }
+
+  function cadKey() {
+    var water = clean(get("water_position_prava") || selectedText("water_position_prava")).toLowerCase();
+    var oven = clean(get("oven_tall_unit") || selectedText("oven_tall_unit")).toLowerCase();
+    var fridge = clean(get("fridge_type") || selectedText("fridge_type")).toLowerCase();
+
+    var side = water.indexOf("right") > -1 || water.indexOf("дяс") > -1 ? "right" : "left";
+    var hasOven = oven.indexOf("yes") > -1 || oven.indexOf("да") > -1;
+    var hasFridge = fridge.indexOf("вгра") > -1 || fridge.indexOf("built") > -1 || fridge.indexOf("yes") > -1;
+
+    if (hasOven && hasFridge) return "kitchen-" + side + "-oven-fridge-built";
+    if (hasOven) return "kitchen-" + side + "-oven";
+    if (hasFridge) return "kitchen-" + side + "-fridge-built";
+    return "kitchen-" + side + "-base";
+  }
+
+  function cadImgByKey(key) {
+    return firstImg(".cad-img-kitchen." + key + ", .cad-kitchen ." + key + ", img." + key);
+  }
+
+  var params = new URLSearchParams();
+
+  var water = get("water_position_prava") || selectedText("water_position_prava");
+  var oven = get("oven_tall_unit") || selectedText("oven_tall_unit");
+  var fridge = get("fridge_type") || selectedText("fridge_type");
+  var deep = get("deep_cabinets") || selectedText("deep_cabinets");
+  var island = get("island") || selectedText("island");
+
+  var wall1 = get("len_prava_3") || get("wall_1");
+  var height = get("height_prava_3") || get("room_height");
+  var islandLen = get("island_len_3a") || get("island_len");
+  var islandWidth = get("island_width_3a") || get("island_width");
+  var islandCombined = get("island_combined") || (islandLen && islandWidth ? islandLen + " × " + islandWidth : "");
+
+  add(params, "water_position_prava", water);
+  add(params, "water_position", water);
+  add(params, "oven_tall_unit", oven);
+  add(params, "fridge_type", fridge);
+  add(params, "deep_cabinets", deep);
+  add(params, "island", island);
+  add(params, "island_enabled", island);
+
+  add(params, "len_prava_3", wall1);
+  add(params, "wall_1", wall1);
+  add(params, "height_prava_3", height);
+  add(params, "room_height", height);
+  add(params, "island_len_3a", islandLen);
+  add(params, "island_len", islandLen);
+  add(params, "island_width_3a", islandWidth);
+  add(params, "island_width", islandWidth);
+  add(params, "island_combined", islandCombined);
+
+  ["upper_finish", "lower_finish", "countertop_finish", "backsplash_finish"].forEach(function (key) {
+    add(params, key, get(key) || selectedText(key));
+    add(params, key + "_img", get(key + "_img") || selectedImg(key));
+  });
+
+  add(params, "upper_finish_note", getNote(["upper_finish_note", "upper_finish_note_prava", "upper_note_prava", "upper_note"]));
+  add(params, "lower_finish_note", getNote(["lower_finish_note", "lower_finish_note_prava", "lower_note_prava", "lower_note"]));
+  add(params, "countertop_finish_note", getNote(["countertop_finish_note", "countertop_note_prava", "countertop_note", "countertop_finish_note_prava"]));
+  add(params, "backsplash_finish_note", getNote(["backsplash_finish_note", "backsplash_note_prava", "backsplash_note", "backsplash_finish_note_prava"]));
+
+  add(params, "final_note", getNote([
+    "final_note",
+    "final_note_prava",
+    "client_note",
+    "client_note_prava",
+    "project_note",
+    "project_note_prava",
+    "additional_note",
+    "additional_notes",
+    "message",
+    "notes"
+  ]));
+
+  [
+    "dishwasher",
+    "washing_machine",
+    "microwave",
+    "coffee_machine",
+    "glass_display",
+    "more_drawers",
+    "lift_mechanisms",
+    "counter_lighting",
+    "bottle_rack"
+  ].forEach(function (key) {
+    add(params, key, yesNo(key));
+  });
+
+  var inspText =
+    get("inspiration_card_prava") ||
+    get("inspiration_card") ||
+    selectedText("inspiration_card_prava") ||
+    selectedText("inspiration");
+
+  var inspImg =
+    selectedImg("inspiration_card_prava") ||
+    selectedImg("inspiration_card") ||
+    selectedImg("inspiration") ||
+    firstImg(".inspiration-card.vm-selected img, .inspiration-card.is-selected img, .inspiration-card.active img");
+
+  add(params, "inspiration_card_prava", inspText);
+  add(params, "inspiration_card", inspText);
+  add(params, "inspiration_card_prava_img", inspImg);
+  add(params, "inspiration_card_img", inspImg);
+
+  var plan = get("plan_prava_3") || get("plan") || selectedText("plan_prava_3");
+  var meetingDate = get("meeting_date");
+  var meetingSlot = get("meeting_slot");
+  var customDate = get("custom_date");
+
+  add(params, "plan_prava_3", plan);
+  add(params, "plan", plan);
+  add(params, "meeting_date", meetingDate);
+  add(params, "meeting_slot", meetingSlot);
+  add(params, "custom_date", customDate);
+  add(params, "meeting_combined", meetingDate && meetingSlot ? meetingDate + " / " + meetingSlot : customDate);
+
+  var key = cadKey();
+
+  add(params, "cad_key", key);
+  add(params, "cad_img", cadImgByKey(key));
+  add(params, "cad_island_img", firstImg(".cad-img-island, .cad-island img, .cad-prava-island img"));
+  add(params, "cad_deep_img", firstImg(".cad-img-deep, .cad-img-deep_cabinets, .cad-img-deep-cabinets, .cad-deep_cabinets img, .cad-deep-cabinets img"));
+
+  var finalLink = window.location.origin + "/prava-preview?" + params.toString();
+
+  form.querySelector('[name="preview_link"]').value =
+    "=== НАЧАЛО НА ЛИНКА ===\n" +
+    finalLink +
+    "\n=== КРАЙ НА ЛИНКА ===";
+
+  console.log("PRAVA PREVIEW BUILDER v20:", finalLink);
+});
+</script>
+
+
+
+
+
+
+<script>
+/* PRAVA FINAL NOTE + CUSTOM DATE PATCH v21 */
+
+document.addEventListener("submit", function (e) {
+  setTimeout(function () {
+    var form = e.target;
+    if (!form || !form.querySelector('[name="preview_link"]')) return;
+
+    function clean(v) {
+      return String(v || "").replace(/\s+/g, " ").trim();
+    }
+
+    function get(selectors) {
+      for (var i = 0; i < selectors.length; i++) {
+        var el = document.querySelector(selectors[i]);
+        if (!el) continue;
+        var v = clean(el.value || el.textContent);
+        if (v) return v;
+      }
+      return "";
+    }
+
+    var customDate = get([
+      '[name="custom_date"]',
+      '[data-field="custom_date"] input',
+      '[data-field="custom_date"] textarea',
+      'input[data-field="custom_date"]',
+      'textarea[data-field="custom_date"]',
+      '.booking-custom-date'
+    ]);
+
+    var finalNote = get([
+      '[name="final_note"]',
+      '[data-field="final_note"] input',
+      '[data-field="final_note"] textarea',
+      'input[data-field="final_note"]',
+      'textarea[data-field="final_note"]',
+      '.booking-note input',
+      '.booking-note textarea'
+    ]);
+
+    var input = form.querySelector('[name="preview_link"]');
+    var match = String(input.value || "").match(/https?:\/\/[^\s]+/);
+    if (!match) return;
+
+    var url = new URL(match[0]);
+
+    if (customDate) {
+      url.searchParams.set("custom_date", customDate);
+      url.searchParams.set("meeting_combined", customDate);
+    }
+
+    if (finalNote) {
+      url.searchParams.set("final_note", finalNote);
+    }
+
+    input.value =
+      "=== НАЧАЛО НА ЛИНКА ===\n" +
+      url.toString() +
+      "\n=== КРАЙ НА ЛИНКА ===";
+
+    console.log("PRAVA PATCH v21:", { customDate: customDate, finalNote: finalNote });
+  }, 120);
+}, true);
+</script>
+
+
+<script id="prava-card-side-reveal-v3">
+(function(){
+  function init(){
+    var root=document.querySelector('.sf-page-prava');
+    if(!root) return;
+
+    var topCards=[];
+    var lowerCards=[];
+
+    var sketch=root.querySelector('.sticky-cad-wrap');
+    if(sketch){
+      sketch.classList.remove('prava-reveal-pending','prava-reveal-in');
+      sketch.classList.add('prava-side-reveal','from-left');
+      topCards.push(sketch);
+    }
+
+    var config=root.querySelector('.active-question-wrap');
+    if(config){
+      config.classList.remove('prava-reveal-pending','prava-reveal-in');
+      config.classList.add('prava-side-reveal','from-right');
+      topCards.push(config);
+    }
+
+    var vision=Array.from(root.querySelectorAll('.vision-group .question-wrap-vision'));
+    var extras=Array.from(root.querySelectorAll('.extras-phase.extras-phase-prava .prava-extras-card'));
+    lowerCards=vision.concat(extras);
+
+    lowerCards.forEach(function(card,index){
+      card.classList.remove('prava-reveal-pending','prava-reveal-in');
+      card.classList.add('prava-side-reveal');
+      if(index % 2 === 0) card.classList.add('from-left');
+      else card.classList.add('from-right');
+    });
+
+    var allCards=topCards.concat(lowerCards);
+
+    if(!('IntersectionObserver' in window)){
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          allCards.forEach(function(card){ card.classList.add('is-visible'); });
+        });
+      });
+      return;
+    }
+
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    },{
+      threshold:.18,
+      rootMargin:'0px 0px -4% 0px'
+    });
+
+    lowerCards.forEach(function(card){ observer.observe(card); });
+
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        topCards.forEach(function(card){ observer.observe(card); });
+      });
+    });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{once:true});
+  }else{
+    init();
+  }
+})();
+</script>
+<script id="prava-seo-up-reveal-v1">
+(function(){
+  function init(){
+    var root=document.querySelector('.sf-page-prava');
+    if(!root) return;
+
+    var wrap=root.querySelector('.seo-text');
+    if(!wrap) return;
+
+    var items=Array.from(wrap.children).filter(function(el){
+      return !el.classList.contains('phase-next-btn');
+    });
+    if(!items.length) return;
+
+    items.forEach(function(el){
+      el.classList.add('prava-up-reveal');
+    });
+
+    function showAll(){
+      items.forEach(function(el){
+        el.classList.add('is-visible');
+      });
+    }
+
+    if(!('IntersectionObserver' in window)){
+      requestAnimationFrame(function(){
+        requestAnimationFrame(showAll);
+      });
+      return;
+    }
+
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting) return;
+        showAll();
+        observer.disconnect();
+      });
+    },{
+      threshold:.18,
+      rootMargin:'0px 0px -4% 0px'
+    });
+
+    observer.observe(wrap);
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{once:true});
+  }else{
+    init();
+  }
+})();
+</script>
+
+<script id="prava-next-scale-reveal-v1">
+(function(){
+  function init(){
+    var root=document.querySelector('.sf-page-prava');
+    if(!root) return;
+
+    var btn=root.querySelector('.seo-text .phase-next-btn');
+    if(!btn) return;
+
+    btn.classList.add('prava-next-scale-reveal');
+
+    if(!('IntersectionObserver' in window)){
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          btn.classList.add('is-visible');
+        });
+      });
+      return;
+    }
+
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    },{
+      threshold:.18,
+      rootMargin:'0px 0px -4% 0px'
+    });
+
+    observer.observe(btn);
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{once:true});
+  }else{
+    init();
+  }
+})();
+</script>
+
+<script id="prava-dimensions-width-runtime-v2">
+(function(){
+  function apply(){
+    var root=document.querySelector('.sf-page-prava');
+    if(!root) return;
+    var title=root.querySelector('#prava-sizes-heading');
+    var card=root.querySelector('.dimensions-phase.dimensions-phase-prava');
+    [title,card].forEach(function(el){
+      if(!el) return;
+      el.style.setProperty('width','100%','important');
+      el.style.setProperty('min-width','0','important');
+      el.style.setProperty('max-width','100%','important');
+      el.style.setProperty('margin-left','0','important');
+      el.style.setProperty('margin-right','0','important');
+      el.style.setProperty('box-sizing','border-box','important');
+    });
+  }
+  function init(){
+    apply();
+    window.addEventListener('resize',apply,{passive:true});
+  }
+  document.readyState==='loading'
+    ? document.addEventListener('DOMContentLoaded',init,{once:true})
+    : init();
+})();
+</script>
+<style id="prava-final-gray-cards-v1">
+/* PRAVA FINAL PHASE — match previous card background */
+.sf-page-prava .booking-day,
+.sf-page-prava .booking-custom-card,
+.sf-page-prava .prava-inspiration-block-card,
+.sf-page-prava .prava-plan-card{
+  background-color:#e5e5e5!important;
+}
+</style>
+<script id="prava-step7-title-visibility-v3">
+(function(){
+  const H="#prava-appliance-heading-wrap";
+
+  function isStep7(){
+    return !!document.querySelector(
+      '[data-prava-flow-step="vision"][data-prava-material-step="4"]'
+    );
+  }
+
+  function setImportant(el,prop,value){
+    if(el.style.getPropertyValue(prop)!==value || el.style.getPropertyPriority(prop)!=="important"){
+      el.style.setProperty(prop,value,"important");
+    }
+  }
+
+  function sync(){
+    const h=document.querySelector(H);
+    if(!h) return;
+
+    const active=isStep7();
+    setImportant(h,"display",active?"flex":"none");
+
+    if(active){
+      setImportant(h,"position","sticky");
+      setImportant(h,"top","var(--prava-stage-title-top, 16px)");
+      setImportant(h,"z-index","30");
+    }
+  }
+
+  function scheduleSync(){
+    requestAnimationFrame(sync);
+    setTimeout(sync,60);
+    setTimeout(sync,180);
+  }
+
+  function init(){
+    sync();
+    document.addEventListener("click",scheduleSync,true);
+    document.addEventListener("change",scheduleSync,true);
+  }
+
+  document.readyState==="loading"
+    ? document.addEventListener("DOMContentLoaded",init,{once:true})
+    : init();
+})();
+</script>
+<script id="prava-step8-title-sticky-v2">
+(function(){
+  const H="#prava-extras-heading-wrap";
+  const STEP8_MARKER='[data-field="glass_display"]';
+
+  function isVisible(el){
+    if(!el) return false;
+    for(let n=el;n&&n!==document.body;n=n.parentElement){
+      const s=getComputedStyle(n);
+      if(s.display==="none"||s.visibility==="hidden") return false;
+    }
+    return !!el.getClientRects().length;
+  }
+
+  function setImportant(el,prop,value){
+    if(el.style.getPropertyValue(prop)!==value || el.style.getPropertyPriority(prop)!=="important"){
+      el.style.setProperty(prop,value,"important");
+    }
+  }
+
+  function sync(){
+    const h=document.querySelector(H);
+    const marker=document.querySelector(STEP8_MARKER);
+    if(!h) return;
+
+    const active=isVisible(marker);
+    setImportant(h,"display",active?"flex":"none");
+
+    if(active){
+      setImportant(h,"position","sticky");
+      setImportant(h,"top","var(--prava-stage-title-top, 16px)");
+      setImportant(h,"z-index","30");
+      setImportant(h,"width","100%");
+      setImportant(h,"box-sizing","border-box");
+    }
+  }
+
+  function scheduleSync(){
+    requestAnimationFrame(sync);
+    setTimeout(sync,60);
+    setTimeout(sync,180);
+  }
+
+  function init(){
+    sync();
+    document.addEventListener("click",scheduleSync,true);
+    document.addEventListener("change",scheduleSync,true);
+  }
+
+  document.readyState==="loading"
+    ? document.addEventListener("DOMContentLoaded",init,{once:true})
+    : init();
+})();
+</script>
+<style id="prava-step8-heading-style-v1">
+#prava-extras-heading-wrap{
+  background:#353535!important;
+  color:#fff!important;
+  border-radius:7px!important;
+  padding:0 16px!important;
+  margin:0 0 16px!important;
+}
+#prava-extras-heading-wrap .phase-title,
+#prava-extras-heading-wrap .phase-text{
+  color:#fff!important;
+}
+#prava-extras-heading-wrap .phase-title{
+  margin:0 0 4px!important;
+}
+#prava-extras-heading-wrap .phase-text{
+  margin:0!important;
+}
+</style>
+<style id="prava-step7-step8-vertical-center-v2">
+#prava-appliance-heading-wrap,
+#prava-extras-heading-wrap{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  align-items:center!important;
+  padding-top:0!important;
+  padding-bottom:0!important;
+}
+#prava-appliance-heading-wrap .phase-title,
+#prava-extras-heading-wrap .phase-title{
+  margin:0!important;
+  padding:0!important;
+  line-height:1!important;
+  transform:none!important;
+}
+</style>
+<style id="prava-step7-optical-center-v3">
+#prava-appliance-heading-wrap{
+  position:sticky!important;
+}
+#prava-appliance-heading-wrap .phase-title{
+  position:absolute!important;
+  top:50%!important;
+  left:50%!important;
+  transform:translate(-50%,-50%)!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1.25em!important;
+  white-space:nowrap!important;
+}
+</style>

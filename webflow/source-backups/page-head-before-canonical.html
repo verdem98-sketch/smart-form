@@ -1,0 +1,2104 @@
+<style>
+/* PRAVA CAD STABILITY PATCH */
+
+.sf-page-prava .cad-stage {
+  width: 600px !important;
+  height: 350px !important;
+  min-width: 600px !important;
+  min-height: 350px !important;
+  max-width: 600px !important;
+  max-height: 350px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  flex: 0 0 600px !important;
+  transform: none !important;
+}
+
+.sf-page-prava .cad-base,
+.sf-page-prava .cad-kitchen,
+.sf-page-prava .cad-deep_cabinets,
+.sf-page-prava .cad-deep-cabinets,
+.sf-page-prava .cad-island {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 600px !important;
+  height: 350px !important;
+  min-width: 600px !important;
+  min-height: 350px !important;
+  max-width: 600px !important;
+  max-height: 350px !important;
+  overflow: hidden !important;
+  transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.sf-page-prava .cad-stage img,
+.sf-page-prava .cad-base img,
+.sf-page-prava .cad-kitchen img,
+.sf-page-prava .cad-deep_cabinets img,
+.sf-page-prava .cad-deep-cabinets img,
+.sf-page-prava .cad-island img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 600px !important;
+  height: 350px !important;
+  min-width: 600px !important;
+  min-height: 350px !important;
+  max-width: 600px !important;
+  max-height: 350px !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* style the top back link as a real button without option-pill behavior */
+.sf-page-prava .sf-back-link{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:38px !important;
+  padding:0 16px !important;
+  border:1px solid rgba(31,81,50,.20) !important;
+  border-radius:10px !important;
+  background:#eef5ec !important;
+  color:#173b25 !important;
+  font-size:14px !important;
+  font-weight:600 !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+  box-shadow:0 4px 10px rgba(23,42,30,.06) !important;
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease !important;
+}
+.sf-page-prava .sf-back-link:hover{
+  background:#dfeedd !important;
+  border-color:rgba(31,81,50,.32) !important;
+  box-shadow:0 7px 16px rgba(23,42,30,.10) !important;
+  transform:translateY(-1px);
+}
+.sf-page-prava .sf-back-link:active{
+  transform:translateY(0) scale(.98);
+}
+</style>
+
+
+
+<style>
+.question-hint,
+.dimension-hint {
+  display: none;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #9a3b00;
+}
+
+.has-warning {
+  outline: 1px solid rgba(154, 59, 0, 0.35);
+  border-radius: 12px;
+}
+</style>
+
+
+
+<style>
+.booking-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.booking-days {
+  display: contents;
+}
+
+.booking-days .w-dyn-list,
+.booking-days .w-dyn-items,
+.booking-days .w-dyn-item {
+  display: contents;
+}
+
+.booking-day,
+.booking-custom-card {
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: 18px;
+  padding: 18px;
+  box-sizing: border-box;
+  min-height: 190px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-self: stretch;
+  width: 100%;
+  box-shadow: 5px 5px 5px rgba(0, 0, 0, 0.2);
+}
+
+.booking-date,
+.booking-custom-title {
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #2f2a26;
+  margin-bottom: 14px;
+}
+
+.booking-note {
+  font-size: 15px;
+  line-height: 1.45;
+  color: #6f655d;
+  margin-bottom: 14px;
+}
+
+.booking-slots {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.booking-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid #e7ddd2;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #3a332d;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+  box-sizing: border-box;
+}
+
+.booking-slot:hover {
+  border-color: #d6b48a;
+  background: #fbf6f0;
+}
+
+.booking-slot.active {
+  background: #f6de84;
+  border-color: #d6b24a;
+  color: #5a4512;
+}
+
+.booking-slot.is-pending {
+  background: #e7b086;
+  border-color: #c87433;
+  color: #5f3110;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.booking-slot.is-booked {
+  background: #f2d7db;
+  border-color: #cc8d97;
+  color: #8a4752;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.booking-slot.is-local-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.booking-day-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f5ede3;
+  color: #7b6a57;
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.booking-custom-card {
+  justify-content: space-between;
+  min-height: 190px;
+}
+
+.booking-custom-date {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid #e7ddd2;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #3a332d;
+  font-size: 16px;
+  line-height: 1.2;
+  box-sizing: border-box;
+  margin-top: auto;
+}
+
+.booking-custom-date::placeholder {
+  color: #a79b91;
+}
+
+.booking-custom-date:focus {
+  outline: none;
+  border-color: #c9a979;
+  box-shadow: 0 0 0 3px rgba(201, 169, 121, 0.12);
+}
+
+.booking-locked-help {
+  display: none;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #eadfce;
+  border-radius: 14px;
+  background: #faf6f1;
+}
+
+.booking-locked-text {
+  font-size: 15px;
+  line-height: 1.45;
+  color: #4a4038;
+  margin-bottom: 10px;
+}
+
+.booking-call-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #b98145;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 600;
+  transition: all 200ms ease;
+}
+
+.booking-call-button:hover {
+  background: #9f6f3d;
+  color: #ffffff;
+}
+
+.booking-call-button img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  margin-right: 8px;
+}
+
+@media screen and (max-width: 767px) {
+  .booking-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-day,
+  .booking-custom-card {
+    min-height: auto;
+    height: auto;
+  }
+
+  .booking-date,
+  .booking-custom-title {
+    font-size: 17px;
+  }
+}
+</style>
+
+
+
+
+
+
+
+<style>
+  .sf-page-prava .question-wrap-prava {
+    display: none;
+  }
+
+  .sf-page-prava .question-wrap-prava.active-question {
+    display: block;
+  }
+</style>
+
+
+
+
+
+
+
+
+
+
+<style>
+/* =========================================================
+   PRAVA STABILITY LOCK — CLEAN UI STYLE
+   Buttons / Pills / Warnings / Pickers
+   Scope: .sf-page-prava
+   ========================================================= */
+
+
+/* =========================
+   NAV BUTTONS
+   ========================= */
+
+.sf-page-prava .nav-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  height: 34px !important;
+  padding: 0 14px !important;
+
+  border-radius: 8px !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+
+  background: #ffffff !important;
+  color: #222 !important;
+
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.2px !important;
+
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+
+  box-shadow: none !important;
+}
+
+.sf-page-prava .nav-btn:hover {
+  background: #f5f5f5 !important;
+}
+
+.sf-page-prava .nav-btn:active {
+  transform: scale(0.97);
+}
+
+.sf-page-prava .question-next-btn,
+.sf-page-prava .question-back-btn {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.sf-page-prava .nav-next:hover {
+  border-color: rgba(0,0,0,0.25) !important;
+}
+
+.sf-page-prava .nav-reset {
+  opacity: 0.7;
+}
+
+.sf-page-prava .nav-reset:hover {
+  opacity: 1;
+}
+
+
+/* =========================
+   OPTION PILLS
+   ========================= */
+
+.sf-page-prava .options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.sf-page-prava .option-pill {
+  position: relative;
+  min-width: 130px;
+  height: 36px;
+  padding: 0 42px 0 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #f4f4f2;
+  color: #222;
+
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+
+  box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+.sf-page-prava .option-pill::after {
+  content: "";
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  width: 17px;
+  height: 17px;
+  transform: translateY(-50%);
+
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.35);
+  background: transparent;
+  box-sizing: border-box;
+
+  transition: all 0.18s ease;
+}
+
+.sf-page-prava .option-pill:hover {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(0,0,0,0.14);
+}
+
+.sf-page-prava .option-pill.active,
+.sf-page-prava .option-pill.is-selected {
+  background: #ffffff;
+  color: #111;
+  border-color: #111;
+  box-shadow:
+    0 0 0 3px rgba(0,0,0,0.08),
+    0 6px 14px rgba(0,0,0,0.14);
+}
+
+.sf-page-prava .option-pill.active::after,
+.sf-page-prava .option-pill.is-selected::after {
+  content: "✓";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-color: #2f7d4f;
+  background: #2f7d4f;
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sf-page-prava .option-pill:active {
+  transform: scale(0.97);
+}
+
+.sf-page-prava .option-pill[data-value="Да"],
+.sf-page-prava .option-pill[data-value="Не"] {
+  min-width: 95px;
+}
+
+
+/* =========================
+   WARNINGS / REQUIRED HINTS
+   ========================= */
+
+@keyframes pravaSoftShake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes pravaHintFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sf-page-prava .question-wrap.choice-warning,
+.sf-page-prava .dimension-row.dimension-warning {
+  animation: pravaSoftShake 0.28s ease;
+  box-shadow:
+    0 0 0 3px rgba(47,125,79,0.14),
+    5px 5px 18px rgba(0,0,0,0.12);
+}
+
+.sf-page-prava .question-hint,
+.sf-page-prava .dimension-hint {
+  display: none;
+  color: #2e7d32;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+
+  background: rgba(46,125,50,0.08);
+  border: 1px solid rgba(46,125,50,0.2);
+  border-radius: 8px;
+
+  padding: 6px 10px;
+  margin-top: 8px;
+
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.sf-page-prava .question-hint.is-visible,
+.sf-page-prava .dimension-hint.is-visible {
+  display: inline-block;
+  animation: pravaHintFade 0.18s ease;
+}
+
+.sf-page-prava .dimension-row {
+  position: relative;
+  overflow: visible;
+  margin-bottom: 34px;
+}
+
+.sf-page-prava .dimension-hint {
+  position: absolute;
+  bottom: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 90%;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+
+/* =========================
+   PICKERS
+   ========================= */
+
+.sf-page-prava .picker-btn {
+  background: #353535;
+  color: #ffffff;
+
+  width: 35px;
+  height: 28px;
+
+  border-radius: 6px;
+  border: none;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+
+  transition: all 0.15s ease;
+}
+
+.sf-page-prava .picker-btn:hover {
+  background: #444444;
+  transform: translateY(-1px);
+}
+
+.sf-page-prava .picker-btn:active {
+  background: #2b2b2b;
+  transform: scale(0.92);
+}
+
+.sf-page-prava .picker-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+
+  min-width: 35px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+
+  background: #ffffff;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.sf-page-prava .meters-control,
+.sf-page-prava .centimeters-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
+/* =========================
+   CHECKBOXES
+   ========================= */
+
+.sf-page-prava input[type="checkbox"] {
+  accent-color: #2f7d4f;
+}
+
+
+/* =========================
+   MOBILE
+   ========================= */
+
+@media (max-width: 767px) {
+  .sf-page-prava .option-pill {
+    min-width: 120px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .sf-page-prava .dimension-hint {
+    white-space: normal;
+  }
+}
+</style>
+
+
+<style>
+/* PRAVA REQUIRED CHOICE / DIMENSION HINT */
+
+.sf-page-prava .question-wrap.choice-warning,
+.sf-page-prava .dimension-row.dimension-warning {
+  animation: pravaSoftShake 0.28s ease;
+  box-shadow:
+    0 0 0 3px rgba(47, 125, 79, 0.14),
+    5px 5px 18px rgba(0,0,0,0.12);
+}
+
+.sf-page-prava .question-hint,
+.sf-page-prava .dimension-hint {
+  display: none;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(0,0,0,0.62);
+  text-align: center;
+}
+
+.sf-page-prava .question-hint.is-visible,
+.sf-page-prava .dimension-hint.is-visible {
+  display: block;
+  animation: pravaHintFade 0.18s ease;
+}
+
+@keyframes pravaSoftShake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes pravaHintFade {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>
+
+
+
+
+
+<style>
+/* PRAVA WARNING FIX — question-wrap-prava */
+
+.sf-page-prava .question-wrap-prava.choice-warning,
+.sf-page-prava .dimension-row.dimension-warning {
+  animation: pravaSoftShake 0.28s ease !important;
+  box-shadow:
+    0 0 0 3px rgba(47, 125, 79, 0.14),
+    5px 5px 18px rgba(0,0,0,0.12) !important;
+}
+
+.sf-page-prava .question-wrap-prava .question-hint.is-visible,
+.sf-page-prava .dimension-row .dimension-hint.is-visible {
+  display: block !important;
+  animation: pravaHintFade 0.18s ease !important;
+}
+</style>
+
+
+<style>
+/* =========================================================
+   PRAVA DIMENSIONS INNER SCROLL — BLACKBOX FIX
+   ========================================================= */
+
+/* лявата зона: CAD + размери един до друг */
+.sf-page-prava .prava-left {
+  display: flex !important;
+  gap: 36px !important;
+  align-items: flex-start !important;
+  flex-wrap: nowrap !important;
+}
+
+/* CAD размер като в ъглови */
+.sf-page-prava .cad-stage {
+  width: 600px !important;
+  height: 350px !important;
+  flex: 0 0 600px !important;
+}
+
+/* ХВАЩА И wrapper, И самата dimensions фаза */
+.sf-page-prava .dimensions-phase-wrap,
+.sf-page-prava .dimensions-phase {
+  width: 520px !important;
+  height: 350px !important;
+  max-height: 350px !important;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  padding: 16px !important;
+  box-sizing: border-box !important;
+
+  border: 1px solid #000000 !important;
+  border-radius: 5px !important;
+  background: #e5e5e5 !important;
+  box-shadow: 10px 10px 5px 0 rgba(0,0,0,0.2) !important;
+}
+
+/* редовете да не се раздуват */
+.sf-page-prava .dimension-row {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* мобилно */
+@media (max-width: 991px) {
+  .sf-page-prava .prava-left {
+    display: block !important;
+  }
+
+  .sf-page-prava .cad-stage {
+    width: 100% !important;
+    height: auto !important;
+    flex: none !important;
+  }
+
+  .sf-page-prava .dimensions-phase-wrap,
+  .sf-page-prava .dimensions-phase {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+</style>
+
+
+
+
+
+<style>
+/* =========================================================
+   PRAVA VISION CARDS — VERDE SELECT STATE
+   ========================================================= */
+
+.sf-page-prava .vision-card {
+  position: relative;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease,
+    background 0.18s ease;
+}
+
+.sf-page-prava .vision-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+}
+
+.sf-page-prava .vision-card.vm-selected,
+.sf-page-prava .vision-card.is-selected,
+.sf-page-prava .vision-card.active {
+  border-color: #2f7d4f !important;
+  box-shadow:
+    0 0 0 3px rgba(47,125,79,0.14),
+    0 6px 18px rgba(0,0,0,0.12) !important;
+}
+
+.sf-page-prava .vision-card.vm-selected::after,
+.sf-page-prava .vision-card.is-selected::after,
+.sf-page-prava .vision-card.active::after {
+  content: "✓";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+
+  background: #2f7d4f;
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 20;
+}
+
+.sf-page-prava .vision-card:focus,
+.sf-page-prava .vision-card:active,
+.sf-page-prava .vision-card:focus-visible {
+  outline: none !important;
+}
+</style>
+
+
+<style>
+/* PRAVA VISION — HIDE JS CHECK */
+.sf-page-prava .vision-card .vm-check {
+  display: none !important;
+}
+</style>
+
+
+<style>
+.sf-page-prava .inspiration-card,
+.sf-page-prava [data-field="inspiration_card_prava"] .vision-card,
+.sf-page-prava [data-field="inspiration_card_prava"] [data-value] {
+  position: relative;
+}
+
+.sf-page-prava .inspiration-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #2f7d4f;
+  color: #ffffff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+  z-index: 5;
+}
+
+.sf-page-prava .inspiration-card.vm-selected .inspiration-check,
+.sf-page-prava .inspiration-card.is-selected .inspiration-check,
+.sf-page-prava .inspiration-card.active .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] .vision-card.vm-selected .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] .vision-card.is-selected .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] .vision-card.active .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] [data-value].vm-selected .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] [data-value].is-selected .inspiration-check,
+.sf-page-prava [data-field="inspiration_card_prava"] [data-value].active .inspiration-check {
+  display: flex;
+}
+</style>
+
+
+
+
+
+
+
+
+<style>
+/* =========================================================
+   PRAVA SUCCESS — AGLOVA 1:1 LAYOUT LOCK
+   Row 1: CAD / Configuration / Sizes
+   Row 2: Inspiration / Vision / Extras
+   ========================================================= */
+
+.sf-page-prava .success-card {
+  width: 100% !important;
+  max-width: 1220px !important;
+  margin: 40px auto !important;
+  padding: 34px !important;
+  background: #ffffff !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(0,0,0,0.10) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.10) !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.sf-page-prava .success-kicker {
+  color: #2f7d4f !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+}
+
+.sf-page-prava .success-title {
+  font-size: 34px !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  margin: 0 0 12px !important;
+}
+
+.sf-page-prava .success-text {
+  max-width: 760px !important;
+  margin: 0 auto 28px !important;
+  font-size: 16px !important;
+  line-height: 1.45 !important;
+  color: rgba(0,0,0,0.68) !important;
+}
+
+/* hide old wrappers as layout objects */
+.sf-page-prava .success-preview-wrap,
+.sf-page-prava .success-summary-wrap {
+  display: contents !important;
+}
+
+/* MAIN GRID — force all cards into one 3-column system */
+.sf-page-prava .success-card {
+  display: block !important;
+}
+
+.sf-page-prava .success-preview-wrap,
+.sf-page-prava .success-summary-grid {
+  width: 100% !important;
+}
+
+/* make both groups behave as cards */
+.sf-page-prava .success-preview-wrap > *,
+.sf-page-prava .success-summary-grid > .success-section {
+  background: #ffffff !important;
+  border: 1px solid rgba(47,125,79,0.14) !important;
+  border-radius: 18px !important;
+  box-shadow: 5px 5px 18px rgba(0,0,0,0.10) !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* TOP ROW */
+.sf-page-prava .success-preview-wrap {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+  max-width: 1220px !important;
+  margin: 18px auto 24px !important;
+}
+
+.sf-page-prava .success-preview-wrap > * {
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 210px !important;
+  min-height: 210px !important;
+  max-height: 210px !important;
+}
+
+/* SECOND ROW */
+.sf-page-prava .success-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+  max-width: 1220px !important;
+  margin: 0 auto 24px !important;
+}
+
+.sf-page-prava .success-summary-grid > .success-section {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+/* Inspiration / Vision / Extras */
+.sf-page-prava .success-summary-grid > .success-section:nth-child(1),
+.sf-page-prava .success-summary-grid > .success-section:nth-child(2),
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) {
+  height: 380px !important;
+  min-height: 380px !important;
+  max-height: 380px !important;
+}
+
+/* Final card full width */
+.sf-page-prava .success-summary-grid > .success-section:nth-child(4) {
+  grid-column: 1 / -1 !important;
+  min-height: 120px !important;
+  height: auto !important;
+}
+
+/* Titles */
+.sf-page-prava .success-preview-title,
+.sf-page-prava .success-section-title,
+.sf-page-prava .success-summary-title {
+  font-size: 14px !important;
+  line-height: 1.1 !important;
+  font-weight: 700 !important;
+  color: #2f7d4f !important;
+  text-align: center !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+}
+
+.sf-page-prava .success-summary-title {
+  display: block !important;
+  margin: 0 auto 14px !important;
+}
+
+/* Rows */
+.sf-page-prava .success-row,
+.sf-page-prava .ag-success-line {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) max-content !important;
+  align-items: center !important;
+  gap: 10px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 6px !important;
+  margin: 0 0 3px !important;
+  box-sizing: border-box !important;
+  background: rgba(255,255,255,0.86) !important;
+  border: 1px solid rgba(47,125,79,0.12) !important;
+  border-radius: 7px !important;
+  overflow: hidden !important;
+}
+
+.sf-page-prava .success-row *,
+.sf-page-prava .ag-success-line * {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.sf-page-prava .success-label,
+.sf-page-prava .ag-success-label {
+  font-size: 10.5px !important;
+  color: #222 !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.sf-page-prava .success-value,
+.sf-page-prava .ag-success-value,
+.sf-page-prava [data-success] {
+  font-size: 10.5px !important;
+  color: #2f7d4f !important;
+  font-weight: 650 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+/* CAD */
+.sf-page-prava .title-cad {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.sf-page-prava .success-cad-preview {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.sf-page-prava .success-cad-stage {
+  position: relative !important;
+  width: 100% !important;
+  height: 185px !important;
+  min-height: 185px !important;
+  overflow: hidden !important;
+  border-radius: 14px !important;
+  background: #f4f1ee !important;
+}
+
+.sf-page-prava .success-cad-stage > img,
+.sf-page-prava .success-cad-layer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+/* Inspiration */
+.sf-page-prava .success-inspiration-card {
+  width: 100% !important;
+  height: 300px !important;
+  overflow: hidden !important;
+  border-radius: 12px !important;
+  background: #f6f2ed !important;
+}
+
+.sf-page-prava .success-inspiration-img {
+  width: 100% !important;
+  height: 280px !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  display: block !important;
+  border-radius: 12px !important;
+}
+
+/* Vision */
+.sf-page-prava .success-vision-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+.sf-page-prava .success-vision-card {
+  min-height: 135px !important;
+  padding: 8px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  border: 1px solid rgba(47,125,79,0.12) !important;
+}
+
+.sf-page-prava .success-vision-img {
+  width: 100% !important;
+  height: 72px !important;
+  object-fit: cover !important;
+  border-radius: 10px !important;
+  display: block !important;
+}
+
+.sf-page-prava .success-vision-label {
+  font-size: 13px !important;
+  margin-bottom: 6px !important;
+}
+
+.sf-page-prava .success-vision-value {
+  font-size: 12px !important;
+  margin-top: 6px !important;
+}
+
+/* Extras compact */
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .success-row,
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .ag-success-line {
+  height: 24px !important;
+  min-height: 24px !important;
+}
+
+/* Actions */
+.sf-page-prava .success-actions {
+  margin-top: 26px !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+
+.sf-page-prava .success-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 16px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(0,0,0,0.14) !important;
+  text-decoration: none !important;
+  color: #111 !important;
+  background: #fff !important;
+}
+
+.sf-page-prava .success-link-primary {
+  background: #2f7d4f !important;
+  color: #fff !important;
+  border-color: #2f7d4f !important;
+}
+
+@media (max-width: 991px) {
+  .sf-page-prava .success-preview-wrap,
+  .sf-page-prava .success-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sf-page-prava .success-preview-wrap > *,
+  .sf-page-prava .success-summary-grid > .success-section {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .sf-page-prava .success-summary-grid > .success-section:nth-child(4) {
+    grid-column: auto !important;
+  }
+
+  .sf-page-prava .success-card {
+    margin: 24px 12px !important;
+    padding: 22px !important;
+  }
+
+  .sf-page-prava .success-title {
+    font-size: 26px !important;
+  }
+}
+</style>
+
+
+<style>
+/* =========================================================
+   PRAVA SUCCESS — FINAL / BUTTONS FIX v3
+   ========================================================= */
+
+/* втори ред: Вдъхновение / Визия / Уреди да останат 3 карти */
+.sf-page-prava .success-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+}
+
+.sf-page-prava .success-summary-grid > .success-section {
+  min-width: 0 !important;
+}
+
+/* Визията да се побере */
+.sf-page-prava .success-vision-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.sf-page-prava .success-vision-card {
+  height: 142px !important;
+  min-height: 142px !important;
+  padding: 6px !important;
+}
+
+.sf-page-prava .success-vision-img {
+  height: 74px !important;
+}
+
+.sf-page-prava .success-vision-label {
+  font-size: 12px !important;
+  margin-bottom: 4px !important;
+}
+
+.sf-page-prava .success-vision-value {
+  font-size: 11.5px !important;
+  margin-top: 4px !important;
+}
+
+/* Финал + бутони: отделна зона под всички карти */
+.sf-page-prava .success-actions {
+  width: 100% !important;
+  max-width: 1220px !important;
+  margin: 18px auto 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, max-content) !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+/* ако финалната карта е вътре при бутоните — да мине на цял ред */
+.sf-page-prava .success-actions .success-section {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  min-width: 760px !important;
+  max-width: 1220px !important;
+  margin: 0 auto 8px !important;
+}
+
+/* бутоните малки долу */
+.sf-page-prava .success-actions .success-link {
+  width: auto !important;
+  min-width: 130px !important;
+  max-width: 180px !important;
+  min-height: 40px !important;
+  padding: 9px 14px !important;
+  font-size: 14px !important;
+  border-radius: 10px !important;
+}
+</style>
+
+
+
+<style>
+/* PRAVA SUCCESS — VISION 2x2 FINAL FIT */
+
+.sf-page-prava .success-summary-grid > .success-section:nth-child(2) {
+  height: 380px !important;
+  min-height: 380px !important;
+  max-height: 380px !important;
+  overflow: hidden !important;
+  padding: 14px !important;
+}
+
+.sf-page-prava .success-vision-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(2, 1fr) !important;
+  gap: 12px !important;
+  height: 310px !important;
+}
+
+.sf-page-prava .success-vision-card {
+  height: 145px !important;
+  min-height: 145px !important;
+  max-height: 145px !important;
+  padding: 7px !important;
+  box-sizing: border-box !important;
+}
+
+.sf-page-prava .success-vision-label {
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+  margin: 0 0 5px !important;
+}
+
+.sf-page-prava .success-vision-img {
+  height: 76px !important;
+  min-height: 76px !important;
+  max-height: 76px !important;
+  object-fit: cover !important;
+}
+
+.sf-page-prava .success-vision-value {
+  font-size: 11.5px !important;
+  line-height: 1.1 !important;
+  margin-top: 5px !important;
+}
+</style>
+
+
+
+<style>
+/* PRAVA SUCCESS — VISION LABELS + EXTRAS COMPACT POLISH */
+
+/* показва стойностите под material снимките */
+.sf-page-prava .success-vision-value,
+.sf-page-prava .success-vision-card [data-success] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  min-height: 14px !important;
+  margin-top: 4px !important;
+  font-size: 11px !important;
+  line-height: 1.05 !important;
+  color: #2f7d4f !important;
+  font-weight: 650 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* леко стягане във vision картата */
+.sf-page-prava .success-vision-grid {
+  gap: 7px 10px !important;
+}
+
+.sf-page-prava .success-vision-card {
+  padding: 5px 6px !important;
+}
+
+.sf-page-prava .success-vision-label {
+  margin-bottom: 3px !important;
+}
+
+.sf-page-prava .success-vision-img {
+  height: 70px !important;
+}
+
+/* стяга чекбокс картата, за да събере всички отговори */
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) {
+  padding: 10px !important;
+  overflow: hidden !important;
+}
+
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .success-row,
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .ag-success-line {
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  margin-bottom: 2px !important;
+  padding: 0 6px !important;
+}
+
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .success-label,
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) .success-value,
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) [data-success] {
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+
+/* общо леко намалява вертикалния въздух във втория ред */
+.sf-page-prava .success-summary-grid > .success-section:nth-child(1),
+.sf-page-prava .success-summary-grid > .success-section:nth-child(2),
+.sf-page-prava .success-summary-grid > .success-section:nth-child(3) {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+</style>
+
+
+
+
+<style>
+.success-vision-note {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(246, 222, 132, 0.22);
+  border: 1px solid rgba(214, 178, 74, 0.35);
+  color: #5a4512;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.success-vision-note:not(:empty) {
+  display: block;
+}
+
+.success-vision-note::before {
+  content: "Бележка: ";
+  font-weight: 600;
+}
+</style>
+
+
+
+
+<style>
+.success-row-note {
+  align-items: flex-start;
+}
+
+.success-note-value {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  max-width: 100%;
+  text-align: right;
+}
+
+.success-row-note .success-label {
+  padding-top: 2px;
+}
+
+.success-row-note:has(.success-note-value:empty) {
+  display: none;
+}
+</style>
+
+
+<style>
+/* =========================================================
+   PRAVA NOTES FULL TEXT FIX
+========================================================= */
+
+/* Vision note boxes */
+.success-vision-note {
+  display: block !important;
+  width: 100% !important;
+  max-height: 64px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  margin-top: 6px !important;
+  padding: 6px 8px !important;
+  box-sizing: border-box !important;
+
+  font-size: 10.5px !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+
+  background: rgba(246, 222, 132, 0.22) !important;
+  border: 1px solid rgba(214, 178, 74, 0.35) !important;
+  border-radius: 8px !important;
+  color: #5a4512 !important;
+  text-align: left !important;
+}
+
+.success-vision-note:empty {
+  display: none !important;
+}
+
+.success-vision-note::before {
+  content: "Бележка: " !important;
+  font-weight: 700 !important;
+}
+
+/* Final note row must grow */
+.success-row-note,
+.success-row-note.success-row {
+  height: auto !important;
+  min-height: 34px !important;
+  max-height: none !important;
+  align-items: flex-start !important;
+  overflow: visible !important;
+}
+
+/* Final note value */
+.success-note-value,
+.success-row-note .success-value {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  overflow-y: auto !important;
+  max-height: 90px !important;
+  line-height: 1.35 !important;
+  text-align: right !important;
+}
+</style>
+
+<style>
+/* =========================================================
+   PRAVA SUCCESS VISION NOTES — MATCH PREVIEW
+   Put LAST in styles.
+========================================================= */
+
+.success-message .success-vision-grid,
+.success-card .success-vision-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.success-message .success-vision-card,
+.success-card .success-vision-card {
+  display: grid !important;
+  grid-template-columns: 34px 1fr !important;
+  grid-template-areas:
+    "label label"
+    "img value"
+    "note note" !important;
+  gap: 5px 8px !important;
+  align-items: center !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.success-message .success-vision-label,
+.success-card .success-vision-label {
+  grid-area: label !important;
+  margin: 0 !important;
+}
+
+.success-message .success-vision-img,
+.success-card .success-vision-img {
+  grid-area: img !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+}
+
+.success-message .success-vision-value,
+.success-card .success-vision-value {
+  grid-area: value !important;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+.success-message .success-vision-note,
+.success-card .success-vision-note {
+  grid-area: note !important;
+  display: block !important;
+  width: 100% !important;
+  max-height: 64px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 7px 9px !important;
+  box-sizing: border-box !important;
+  border-radius: 10px !important;
+  background: rgba(246, 222, 132, 0.22) !important;
+  border: 1px solid rgba(214, 178, 74, 0.35) !important;
+  color: #5a4512 !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  text-align: left !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+.success-message .success-vision-note:empty,
+.success-card .success-vision-note:empty {
+  display: none !important;
+}
+
+.success-message .success-vision-note::before,
+.success-card .success-vision-note::before {
+  content: "Бележка: " !important;
+  font-weight: 700 !important;
+}
+</style>
+
+
+<style>
+/* =========================================================
+   PRAVA SUCCESS FORCE MINI VISION CARDS
+   Put ABSOLUTELY LAST on prava-kuhnya.
+========================================================= */
+
+.success-message .success-vision-card {
+  display: grid !important;
+  grid-template-columns: 34px 1fr !important;
+  grid-template-rows: auto auto auto !important;
+  grid-template-areas:
+    "label label"
+    "img value"
+    "note note" !important;
+  gap: 4px 8px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  align-items: center !important;
+}
+
+.success-message .success-vision-card .success-vision-img,
+.success-message img.success-vision-img,
+.success-message .success-vision-img {
+  grid-area: img !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 8px !important;
+}
+
+.success-message .success-vision-card .success-vision-value {
+  grid-area: value !important;
+  margin: 0 !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.success-message .success-vision-card .success-vision-note {
+  grid-area: note !important;
+  max-height: 58px !important;
+  overflow-y: auto !important;
+  padding: 6px 8px !important;
+  font-size: 10.5px !important;
+  line-height: 1.25 !important;
+}
+</style>
+
+
+
+
+<style>
+/* =========================================================
+   PRAVA SUCCESS — FINAL VISION AUTO HEIGHT
+   MUST BE LAST
+========================================================= */
+
+.success-message .success-summary-grid > .success-section:nth-child(2),
+.success-card .success-summary-grid > .success-section:nth-child(2) {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.success-message .success-vision-grid,
+.success-card .success-vision-grid {
+  height: auto !important;
+  grid-template-rows: auto auto !important;
+  align-items: start !important;
+}
+
+.success-message .success-vision-card,
+.success-card .success-vision-card {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  display: grid !important;
+  grid-template-columns: 34px 1fr !important;
+  grid-template-areas:
+    "label label"
+    "img value"
+    "note note" !important;
+
+  gap: 5px 8px !important;
+  align-items: start !important;
+}
+
+.success-message .success-vision-img,
+.success-card .success-vision-img {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  min-height: 30px !important;
+  max-width: 30px !important;
+  max-height: 30px !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+}
+
+.success-message .success-vision-note,
+.success-card .success-vision-note {
+  max-height: 58px !important;
+  overflow-y: auto !important;
+}
+</style>
+<style id="verde-vision-selected-v2">
+.sf-page-prava .question-wrap-vision .vision-card{
+  position:relative!important;
+  background:transparent!important;
+  cursor:pointer!important;
+  transition:box-shadow .18s ease,transform .12s ease!important;
+}
+.sf-page-prava .question-wrap-vision .vision-card:hover{
+  transform:translateY(-1px)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.10)!important;
+}
+.sf-page-prava .question-wrap-vision .vision-card.vm-selected,
+.sf-page-prava .question-wrap-vision .vision-card.is-selected,
+.sf-page-prava .question-wrap-vision .vision-card.active{
+  box-shadow:0 0 0 3px rgba(47,125,79,.14),0 6px 18px rgba(0,0,0,.12)!important;
+}
+.sf-page-prava .question-wrap-vision .vision-card.vm-selected::after,
+.sf-page-prava .question-wrap-vision .vision-card.is-selected::after,
+.sf-page-prava .question-wrap-vision .vision-card.active::after{
+  content:"✓"!important;
+  position:absolute!important;
+  top:-6px!important;
+  right:-6px!important;
+  width:24px!important;
+  height:24px!important;
+  border-radius:50%!important;
+  background:#2f7d4f!important;
+  color:#fff!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  line-height:1!important;
+  z-index:20!important;
+}
+.sf-page-prava .question-wrap-vision .vision-card .vm-check{
+  display:none!important;
+}
+</style>
+<style id="extras-bold-labels-v1">
+.sf-page-prava .prava-extras-card .w-form-label,
+.sf-page-prava .prava-extras-card label{
+  font-weight:700!important;
+}
+</style>
+<style id="extras-row-spacing-v1">
+.sf-page-prava .prava-extras-card .w-checkbox{
+  margin-top:12px!important;
+  margin-bottom:12px!important;
+}
+</style>
+
+
+<style id="prava-card-side-reveal-v3">
+.sf-page-prava .prava-side-reveal{
+  opacity:0;
+  transition:
+    opacity 1.1s ease,
+    transform 1.1s cubic-bezier(.22,.61,.36,1);
+  will-change:opacity,transform;
+}
+.sf-page-prava .prava-side-reveal.from-left{
+  transform:translateX(-60px);
+}
+.sf-page-prava .prava-side-reveal.from-right{
+  transform:translateX(60px);
+}
+.sf-page-prava .prava-side-reveal.is-visible{
+  opacity:1;
+  transform:translateX(0);
+}
+@media(prefers-reduced-motion:reduce){
+  .sf-page-prava .prava-side-reveal{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+}
+</style>
+<style id="prava-seo-up-reveal-v1">
+.sf-page-prava .prava-up-reveal{
+  opacity:0;
+  transform:translateY(60px);
+  transition:
+    opacity 1.1s ease,
+    transform 1.1s cubic-bezier(.22,.61,.36,1);
+  will-change:opacity,transform;
+}
+.sf-page-prava .prava-up-reveal.is-visible{
+  opacity:1;
+  transform:translateY(0);
+}
+@media(prefers-reduced-motion:reduce){
+  .sf-page-prava .prava-up-reveal{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+}
+</style>
+
+<style id="prava-next-scale-reveal-v1">
+.sf-page-prava .prava-next-scale-reveal{
+  opacity:0;
+  transform:scale(.65);
+  transform-origin:center center;
+  transition:
+    opacity 1.1s ease,
+    transform 1.1s cubic-bezier(.22,.61,.36,1);
+  will-change:opacity,transform;
+}
+.sf-page-prava .prava-next-scale-reveal.is-visible{
+  opacity:1;
+  transform:scale(1);
+}
+@media(prefers-reduced-motion:reduce){
+  .sf-page-prava .prava-next-scale-reveal{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+  }
+}
+</style>
+
+<style id="prava-six-cards-bg-match">
+/* PRAVA SIX CARDS BG MATCH */
+.sf-page-prava .question-wrap.question-wrap-vision,
+.sf-page-prava .checkbox-wrap.prava-extras-card {
+  background-color: #e5e5e5 !important;
+}
+</style>
+
+<style id="prava-sizes-heading-width-match">
+/* PRAVA SIZES HEADING WIDTH MATCH */
+.sf-page-prava #prava-sizes-heading {
+  width: 520px !important;
+  max-width: 520px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+@media (max-width: 991px) {
+  .sf-page-prava #prava-sizes-heading {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+</style>
+
+<style id="prava-top-cards-equal-width-v1">
+/* PRAVA TOP CARDS — EQUAL WIDTH */
+.sf-page-prava .sticky-cad-wrap,
+.sf-page-prava .combo-dim-phase{
+  width:520px!important;
+  flex:0 0 520px!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .cad-stage{
+  width:520px!important;
+  min-width:520px!important;
+  max-width:520px!important;
+  flex:0 0 520px!important;
+  margin-left:0!important;
+  margin-right:0!important;
+}
+.sf-page-prava .cad-base,
+.sf-page-prava .cad-kitchen,
+.sf-page-prava .cad-deep_cabinets,
+.sf-page-prava .cad-deep-cabinets,
+.sf-page-prava .cad-island,
+.sf-page-prava .cad-stage img,
+.sf-page-prava .cad-base img,
+.sf-page-prava .cad-kitchen img,
+.sf-page-prava .cad-deep_cabinets img,
+.sf-page-prava .cad-deep-cabinets img,
+.sf-page-prava .cad-island img{
+  width:520px!important;
+  min-width:520px!important;
+  max-width:520px!important;
+}
+.sf-page-prava .active-question-wrap,
+.sf-page-prava .question-wrap.question-wrap-prava{
+  width:520px!important;
+  max-width:520px!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .sticky-cad-wrap > :first-child,
+.sf-page-prava .combo-head{
+  width:520px!important;
+  max-width:520px!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:991px){
+  .sf-page-prava .sticky-cad-wrap,
+  .sf-page-prava .combo-dim-phase,
+  .sf-page-prava .cad-stage,
+  .sf-page-prava .cad-base,
+  .sf-page-prava .cad-kitchen,
+  .sf-page-prava .cad-deep_cabinets,
+  .sf-page-prava .cad-deep-cabinets,
+  .sf-page-prava .cad-island,
+  .sf-page-prava .cad-stage img,
+  .sf-page-prava .cad-base img,
+  .sf-page-prava .cad-kitchen img,
+  .sf-page-prava .cad-deep_cabinets img,
+  .sf-page-prava .cad-deep-cabinets img,
+  .sf-page-prava .cad-island img,
+  .sf-page-prava .active-question-wrap,
+  .sf-page-prava .question-wrap.question-wrap-prava,
+  .sf-page-prava .sticky-cad-wrap > :first-child,
+  .sf-page-prava .combo-head{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex:0 0 auto!important;
+  }
+}
+</style>
+<style id="prava-top-cards-gap-v1">
+.sf-page-prava .sf-header-left.sf-left-prava{
+  column-gap:40px!important;
+  gap:40px!important;
+}
+@media(max-width:991px){
+  .sf-page-prava .sf-header-left.sf-left-prava{
+    gap:20px!important;
+  }
+}
+</style>
+<style id="prava-sketch-title-align-v1">
+.sf-page-prava .sticky-cad-wrap > .text-block-46{
+  width:520px!important;
+  max-width:520px!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  margin-bottom:12px!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:991px){
+  .sf-page-prava .sticky-cad-wrap > .text-block-46{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+}
+</style>
+<style id="prava-top-align-to-lower-columns-v1">
+/* PRAVA TOP ROW — MATCH VISION-GROUP 1:1 */
+.sf-page-prava .sf-header-left.sf-left-prava{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  column-gap:16px!important;
+  row-gap:16px!important;
+  width:auto!important;
+  margin-left:40px!important;
+  margin-right:40px!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .sticky-cad-wrap,
+.sf-page-prava .combo-dim-phase{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .sticky-cad-wrap > .text-block-46,
+.sf-page-prava .sticky-cad-wrap > :first-child,
+.sf-page-prava .combo-head,
+.sf-page-prava .active-question-wrap,
+.sf-page-prava .question-wrap.question-wrap-prava,
+.sf-page-prava .cad-stage,
+.sf-page-prava .cad-base,
+.sf-page-prava .cad-kitchen,
+.sf-page-prava .cad-deep_cabinets,
+.sf-page-prava .cad-deep-cabinets,
+.sf-page-prava .cad-island,
+.sf-page-prava .cad-stage img,
+.sf-page-prava .cad-base img,
+.sf-page-prava .cad-kitchen img,
+.sf-page-prava .cad-deep_cabinets img,
+.sf-page-prava .cad-deep-cabinets img,
+.sf-page-prava .cad-island img{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .cad-stage{
+  flex:none!important;
+}
+@media(max-width:991px){
+  .sf-page-prava .sf-header-left.sf-left-prava{
+    display:block!important;
+    width:auto!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+  .sf-page-prava .sticky-cad-wrap,
+  .sf-page-prava .combo-dim-phase{
+    width:100%!important;
+  }
+}
+</style>
+<style id="prava-right-column-inner-margin-fix-v1">
+/* PRAVA RIGHT COLUMN — remove inner narrowing so it matches lower grid column */
+.sf-page-prava .combo-phase.combo-phase-prava{
+  width:100%!important;
+  max-width:100%!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  box-sizing:border-box!important;
+}
+.sf-page-prava .combo-phase.combo-phase-prava .combo-head,
+.sf-page-prava .combo-phase.combo-phase-prava .active-question-wrap,
+.sf-page-prava .combo-phase.combo-phase-prava .question-wrap.question-wrap-prava{
+  width:100%!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+</style>

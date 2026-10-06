@@ -1,0 +1,128 @@
+<script>
+(function () {
+  const KEY = "cookieConsent";
+  const banner = document.querySelector('[data-cookie-banner="1"]');
+  if (!banner) return;
+
+  function applyConsent(state) {
+    try {
+      localStorage.setItem(KEY, state);
+    } catch (e) {}
+
+    if (window.gtag) {
+      gtag('consent', 'update', {
+        analytics_storage: state === 'accepted' ? 'granted' : 'denied',
+        ad_storage: state === 'accepted' ? 'granted' : 'denied',
+        ad_user_data: state === 'accepted' ? 'granted' : 'denied',
+        ad_personalization: state === 'accepted' ? 'granted' : 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted'
+      });
+    }
+
+    if (state === 'accepted') {
+      if (window.loadContentsquare) window.loadContentsquare();
+      if (window.loadClarity) window.loadClarity();
+      if (window.loadAhrefs) window.loadAhrefs();
+    }
+
+    document.documentElement.classList.add("cookie-ok");
+  }
+
+  document.addEventListener("click", function (e) {
+    const btn = e.target.closest("[data-cookie-action]");
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const action = btn.getAttribute("data-cookie-action");
+    if (action === "accepted" || action === "declined") {
+      applyConsent(action);
+    }
+  }, true);
+
+  window.openCookieBanner = function () {
+    document.documentElement.classList.remove("cookie-ok");
+  };
+})();
+</script>
+
+<script>
+(function () {
+  const KEY = "contactWidgetState";
+  const card = document.querySelector('[data-widget="card"]');
+  const bubble = document.querySelector('[data-widget="bubble"]');
+  const minimizeBtn = document.querySelector('[data-widget-action="minimize"]');
+  const openBtn = document.querySelector('[data-widget-action="open"]');
+
+  if (!card || !bubble || !minimizeBtn || !openBtn) return;
+
+  function showCard() {
+    card.style.display = "flex";
+    bubble.style.display = "none";
+    try {
+      sessionStorage.setItem(KEY, "open");
+    } catch (e) {}
+  }
+
+  function showBubble() {
+    card.style.display = "none";
+    bubble.style.display = "flex";
+    try {
+      sessionStorage.setItem(KEY, "minimized");
+    } catch (e) {}
+  }
+
+  let savedState = null;
+  try {
+    savedState = sessionStorage.getItem(KEY);
+  } catch (e) {}
+
+  if (savedState === "minimized") {
+    showBubble();
+  } else {
+    showCard();
+  }
+
+  minimizeBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    showBubble();
+  });
+
+  openBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    showCard();
+  });
+})();
+</script>
+
+<script>
+(function () {
+  function fixPravaDimensionHint() {
+    document.querySelectorAll('.sf-page-prava .dimension-hint').forEach(function (el) {
+      if (String(el.textContent || '').trim() === 'Попълни размера, за да продължим.') {
+        el.textContent = 'Попълнете размера, за да продължим.';
+      }
+    });
+  }
+
+  function start() {
+    fixPravaDimensionHint();
+    if (!document.body) return;
+
+    new MutationObserver(function () {
+      fixPravaDimensionHint();
+    }).observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>

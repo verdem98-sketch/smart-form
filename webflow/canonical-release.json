@@ -1,0 +1,19 @@
+{
+  "site_id": "693adf9a8c0d92c4c72f9155",
+  "page_id": "69d08360f6dadea0d7eb3c72",
+  "runtime_order": [
+    "prava-smart-form.js",
+    "prava-material-gallery.js",
+    "prava-flow.js",
+    "prava-preview.js",
+    "prava-submit.js",
+    "webflow/prava-ai-visualization.js"
+  ],
+  "head_template": "canonical-page-head.template.html",
+  "footer_template": "canonical-page-footer.template.html",
+  "site_footer": "canonical-site-footer.html",
+  "pin": "Replace {{COMMIT}} with the tested full frontend commit hash",
+  "backend_changed": false,
+  "backend_prompt_prerequisite_commit": "aaa0890752f868f934e1188d2af2ae92c1c96790",
+  "paid_generation_tested": false
+}

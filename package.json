@@ -2,7 +2,8 @@
   "name": "verde-prava-pipeline-tests",
   "private": true,
   "scripts": {
-    "test:prava": "node --test tests/prava-pipeline.test.mjs"
+    "test:prava": "node --test tests/prava-pipeline.test.mjs tests/prava-canonical.test.mjs",
+    "lint:prava": "node ../backend/node_modules/eslint/bin/eslint.js --config eslint.config.mjs prava-smart-form.js prava-flow.js prava-preview.js prava-material-gallery.js prava-submit.js webflow/prava-ai-visualization.js"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
