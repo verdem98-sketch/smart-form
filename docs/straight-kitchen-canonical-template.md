@@ -81,7 +81,7 @@ Attachments remain **lower → upper → countertop → backsplash**. No CAD/ske
 | `generated` | One successfully decoded image in the same area; CAD hidden and four summaries hidden |
 | `error` | Existing preview preserved, scoped error/retry overlay |
 
-The stage keeps a 4:3 area; generated image uses `object-fit:contain` and the same radius. It does not stretch, overflow or open a primary modal. The image is decoded before replacement; a failed image load preserves the last successful preview. A revision token prevents an obsolete load callback from replacing a newer result. Repeated generations reuse one image/status/summary DOM, never inject another overlay.
+The stage starts with a 4:3 area and caps its height against the available desktop viewport, with more room once material summaries are hidden; generated image uses `object-fit:contain` and the same radius. It does not stretch, overflow or open a primary modal. The image is decoded before replacement; a failed image load preserves the last successful preview. A revision token prevents an obsolete load callback from replacing a newer result. Repeated generations reuse one image/status/summary DOM, never inject another overlay.
 
 Success emits `prava-ai-generated` from the page with `imageDataUrl` and existing revisedPrompt metadata. Debug cost remains query-controlled metadata, separate from normal presentation. No observer detects generation state. Do not intentionally call the real image API in automated tests. A local fixture mock uses an existing inspiration asset solely for presentation testing and never ships to production.
 
