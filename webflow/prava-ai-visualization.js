@@ -317,6 +317,33 @@
       );
     }
 
+    async function waitForCorrectionReady(endpoint,responseId){
+      for(var attempt=0;attempt<20;attempt++){
+        await wait(1500);
+        try{
+          var response=await fetch(
+            endpoint+'?responseId='+encodeURIComponent(responseId),
+            {method:'GET',headers:{'Accept':'application/json'}}
+          );
+          var parsed=await readJson(response);
+          var data=parsed.data;
+          if(response.ok&&data&&data.ok&&data.done&&data.correctionReady){
+            page.dispatchEvent(new CustomEvent('prava-ai-correction-ready',{
+              bubbles:true,
+              detail:{
+                responseId:responseId,
+                correctionIndex:Number(data.correctionIndex||0),
+                remainingCorrections:Number.isFinite(Number(data.remainingCorrections))
+                  ?Number(data.remainingCorrections)
+                  :3
+              }
+            }));
+            return;
+          }
+        }catch(_e){}
+      }
+    }
+
     function mmToCmText(mm){
       var n=Number(mm);
       if(!isFinite(n)||n<=0)return '';
@@ -437,9 +464,13 @@
             responseId:window.__pravaAiLastResponseId,
             revisedPrompt:data.revisedPrompt||null,
             correctionIndex:Number(data.correctionIndex||0),
-            remainingCorrections:Number.isFinite(Number(data.remainingCorrections))?Number(data.remainingCorrections):3
+            remainingCorrections:Number.isFinite(Number(data.remainingCorrections))?Number(data.remainingCorrections):3,
+            correctionReady:data.correctionReady===true
           }
         }));
+        if(data.correctionReady!==true){
+          waitForCorrectionReady(endpoint,window.__pravaAiLastResponseId);
+        }
       }catch(err){
         showState('error',err&&err.message?err.message:'Визуализацията не можа да бъде създадена.');
       }finally{
