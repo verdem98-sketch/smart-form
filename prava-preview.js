@@ -40,7 +40,7 @@
       if(!item){item=document.createElement('div');item.dataset.role=role;const img=document.createElement('img'),name=document.createElement('span');img.alt=label;item.append(img,name);}
       const img=item.querySelector('img');
       img.hidden=!value?.sampleImageUrl;if(value?.sampleImageUrl)img.src=value.sampleImageUrl;
-      const caption=label+(value?' · '+(value.displayName||value.label||value.id):'');
+      const caption=label;
       item.querySelector('span').textContent=caption;item.title=caption;summaries.append(item);
     });summaries.hidden=hasImage||!summaries.children.length;}
     page.addEventListener('change',event=>{if(roles.some(([role])=>event.target.name===role+'_finish'))materials();});
