@@ -427,17 +427,110 @@
         }
 
         window.__pravaAiLastMeta=data.generationMeta||null;
+        window.__pravaAiLastResponseId=data.responseId||startData.responseId||null;
         showState('success');
 
         page.dispatchEvent(new CustomEvent('prava-ai-generated',{
           bubbles:true,
-          detail:{imageDataUrl:data.imageDataUrl,revisedPrompt:data.revisedPrompt||null}
+          detail:{
+            imageDataUrl:data.imageDataUrl,
+            responseId:window.__pravaAiLastResponseId,
+            revisedPrompt:data.revisedPrompt||null,
+            correctionIndex:Number(data.correctionIndex||0),
+            remainingCorrections:Number.isFinite(Number(data.remainingCorrections))?Number(data.remainingCorrections):3
+          }
         }));
       }catch(err){
         showState('error',err&&err.message?err.message:'Визуализацията не можа да бъде създадена.');
       }finally{
         btn.dataset.aiBusy='0';
         syncButton();
+      }
+    }
+
+    async function requestCorrection(detail){
+      if(page.dataset.aiCorrectionBusy==='1')return;
+      var instruction=clean(detail&&detail.instruction);
+      var parentResponseId=clean(
+        (detail&&detail.parentResponseId)||
+        window.__pravaAiLastResponseId||
+        ''
+      );
+      if(!instruction){
+        showState('error','Опишете какво искате да се промени.');
+        return;
+      }
+      if(!parentResponseId){
+        showState('error','Първо създайте AI визуализация.');
+        return;
+      }
+
+      page.dataset.aiCorrectionBusy='1';
+      showState('loading');
+      try{
+        var endpoint=location.origin+'/contract-automation/api/kitchen-visual';
+        var startResponse=await fetch(endpoint,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            correction:{
+              parentResponseId:parentResponseId,
+              instruction:instruction
+            }
+          })
+        });
+        var startParsed=await readJson(startResponse);
+        var startData=startParsed.data;
+        var startRaw=startParsed.raw;
+        if(!startResponse.ok||!startData.ok){
+          throw new Error(
+            (startData&&startData.error)||
+            ('HTTP '+startResponse.status+(startRaw?' — '+startRaw.slice(0,180):''))
+          );
+        }
+        if(!startData.responseId){
+          throw new Error('AI корекцията не върна идентификатор на задачата.');
+        }
+
+        var data=await pollVisual(endpoint,startData.responseId);
+        if(window.pravaPreview)await window.pravaPreview.showImage(data.imageDataUrl);
+        if(resultImg)resultImg.src=data.imageDataUrl;
+
+        window.__pravaAiLastMeta=data.generationMeta||null;
+        window.__pravaAiLastResponseId=data.responseId||startData.responseId;
+        if(window.pravaAiCorrectionUI&&typeof window.pravaAiCorrectionUI.setRemaining==='function'){
+          window.pravaAiCorrectionUI.setRemaining(
+            Number.isFinite(Number(data.remainingCorrections))
+              ?Number(data.remainingCorrections)
+              :Math.max(0,3-Number(data.correctionIndex||0))
+          );
+        }
+        showState('success');
+
+        page.dispatchEvent(new CustomEvent('prava-ai-generated',{
+          bubbles:true,
+          detail:{
+            imageDataUrl:data.imageDataUrl,
+            responseId:window.__pravaAiLastResponseId,
+            revisedPrompt:data.revisedPrompt||null,
+            correctionIndex:Number(data.correctionIndex||0),
+            remainingCorrections:Number.isFinite(Number(data.remainingCorrections))
+              ?Number(data.remainingCorrections)
+              :Math.max(0,3-Number(data.correctionIndex||0))
+          }
+        }));
+        page.dispatchEvent(new CustomEvent('prava-ai-corrected',{
+          bubbles:true,
+          detail:{
+            responseId:window.__pravaAiLastResponseId,
+            correctionIndex:Number(data.correctionIndex||0),
+            remainingCorrections:Number(data.remainingCorrections||0)
+          }
+        }));
+      }catch(err){
+        showState('error',err&&err.message?err.message:'Корекцията не можа да бъде направена.');
+      }finally{
+        page.dataset.aiCorrectionBusy='0';
       }
     }
 
@@ -456,6 +549,9 @@
 
     btn.addEventListener('click',requestVisual);
     if(modal)modal.addEventListener('prava-ai-requested',requestVisual);
+    page.addEventListener('prava-ai-correction-requested',function(event){
+      requestCorrection(event.detail||{});
+    });
 
     page.addEventListener('click',function(){setTimeout(syncButton,0)},true);
     page.addEventListener('change',function(){setTimeout(syncButton,0)},true);
