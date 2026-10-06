@@ -275,7 +275,7 @@
     }
 
     async function pollVisual(endpoint,responseId){
-      var maxAttempts=40;
+      var maxAttempts=100;
       var startedAt=Date.now();
 
       for(var attempt=0;attempt<maxAttempts;attempt++){
@@ -312,8 +312,8 @@
 
       throw new Error(
         debugCost
-          ?'DEBUG: генерацията остана queued/in_progress повече от 120 секунди.'
-          :'Генерацията отнема повече време от очакваното. Опитайте отново.'
+          ?'DEBUG: генерацията остана queued/in_progress повече от 300 секунди.'
+          :'Генерацията все още се обработва. Не стартирайте нова визуализация; опитайте отново след малко.'
       );
     }
 
