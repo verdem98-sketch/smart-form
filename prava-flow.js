@@ -36,6 +36,21 @@
     const segments=titles.map((_,index)=>{const segment=document.createElement('div');segment.className='prava-global-progress-seg';segment.dataset.step=String(index+1);progressTrack.append(segment);return segment;});
     progress.replaceChildren(progressHead,progressTrack);columns.before(progress);
     const header=document.createElement('div');header.className='prava-step-header';header.append(heading);right.prepend(header);
+    const configQuestions=[...phases[0].querySelectorAll('.question-wrap-prava[data-field]')];
+    configQuestions.forEach(question=>{
+      question.querySelectorAll('[data-action="reset-prava"]').forEach(node=>node.remove());
+      question.querySelectorAll('.question-head').forEach(node=>{node.hidden=true;node.inert=true;});
+      question.querySelectorAll('.question-text').forEach(node=>{if(!node.textContent.trim())node.hidden=true;});
+      let hint=question.querySelector('.question-hint');
+      if(!hint){hint=document.createElement('p');hint.className='question-hint';question.append(hint);}
+      hint.id=hint.id||'prava-config-hint-'+question.dataset.field;hint.setAttribute('role','alert');hint.hidden=true;
+      question.tabIndex=-1;question.setAttribute('role','group');
+      const title=question.querySelector('.question-title');if(title){title.id=title.id||'prava-config-title-'+question.dataset.field;question.setAttribute('aria-labelledby',title.id);}
+    });
+    const configTools=document.createElement('div');configTools.className='prava-config-tools';
+    const reset=document.createElement('button');reset.type='button';reset.className='prava-config-reset';reset.dataset.action='reset-prava';reset.textContent='Нулиране';reset.setAttribute('aria-label','Нулиране на конфигурацията');
+    configTools.append(reset);phases[0].prepend(configTools);
+
     const nav = document.createElement('div'); nav.className = 'prava-navigation';
     const back = document.createElement('button'), next = document.createElement('button');
     back.type = next.type = 'button'; back.textContent = '← Назад'; next.textContent = 'Напред →';
@@ -67,9 +82,32 @@
       const pill=page.querySelector('[data-field="island"] .is-selected,[data-field="island"] .active');
       return pill && /^(yes|да)$/i.test(pill.dataset.value||'');
     }
+    function firstMissingQuestion(){return configQuestions.find(question=>!question.querySelector('.option-pill.is-selected,.option-pill.active'));}
+    function clearQuestionValidation(question){
+      question.classList.remove('prava-question-invalid','prava-question-shake');question.removeAttribute('aria-invalid');
+      const hint=question.querySelector('.question-hint');hint.hidden=true;
+      const described=(question.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==hint.id);
+      if(described.length)question.setAttribute('aria-describedby',described.join(' '));else question.removeAttribute('aria-describedby');
+    }
+    function clearConfigValidation(){configQuestions.forEach(clearQuestionValidation);}
+    function showMissingQuestion(question){
+      clearConfigValidation();error.hidden=true;error.textContent='';
+      const hint=question.querySelector('.question-hint');hint.textContent=hint.textContent.trim()||'Изберете вариант, за да продължим.';hint.hidden=false;
+      question.classList.add('prava-question-invalid');question.setAttribute('aria-invalid','true');
+      const described=(question.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean);if(!described.includes(hint.id))described.push(hint.id);question.setAttribute('aria-describedby',described.join(' '));
+      // Restart a short local animation even if Next is pressed twice on the same question.
+      void question.offsetWidth;question.classList.add('prava-question-shake');
+      question.style.scrollMarginTop='calc(var(--prava-sticky-top,128px) + '+Math.ceil(header.getBoundingClientRect().height+12)+'px)';
+      question.scrollIntoView({behavior:'auto',block:'start'});question.focus({preventScroll:true});
+    }
+    phases[0].addEventListener('animationend',event=>{if(event.animationName==='prava-config-shake')event.target.classList.remove('prava-question-shake');});
+    page.addEventListener('change',event=>{
+      const question=configQuestions.find(node=>node.dataset.field===event.target.name);
+      if(question&&question.querySelector('.option-pill.is-selected,.option-pill.active'))clearQuestionValidation(question);
+    });
     function check() {
       if(step===1) {
-        const missing=[...page.querySelectorAll('.question-wrap-prava[data-field]')].find(n=>!n.querySelector('.option-pill.is-selected,.option-pill.active'));
+        const missing=firstMissingQuestion();
         if(missing) return 'Изберете вариант за всеки въпрос.';
       }
       if(step===2) {
@@ -84,6 +122,7 @@
       return '';
     }
     function render(scroll) {
+      clearConfigValidation();
       phases.forEach((node,i)=>visible(node,i===step-1));
       visible(columns,step!==10); visible(aiParent,step===9); visible(nav,step!==10); visible(heading,step!==10);
       const standard=page.querySelector('.sf-header-center'), final=page.querySelector('.final-title-subtitle');
@@ -102,10 +141,11 @@
     }
     function go(target,scroll=true) { const value=Number(target); if(!Number.isInteger(value)||value<1||value>10)return; step=value; render(scroll); }
     page.addEventListener('click',event=>{
+      if(event.target.closest('.prava-config-reset')){clearConfigValidation();error.hidden=true;error.textContent='';return;}
       const control=event.target.closest('[data-prava-nav],.prava-back-control-v3'); if(!control)return;
       event.preventDefault();
       if(control.dataset.pravaNav==='next') {
-        const message=check(); if(message){error.textContent=message;error.hidden=false;return;} go(step+1);
+        const message=check(); if(message){if(step===1)showMissingQuestion(firstMissingQuestion());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
       } else if(step>1) go(step-1);
     });
     window.pravaGoToStep=go;

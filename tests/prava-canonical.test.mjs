@@ -27,7 +27,7 @@ async function setup(t,storage,configure){
  return {w,d,page,choice,config,dim,dimensions,materials,next,back,payload,errors};
 }
 test('all ten phases have one explicit owner; every forward/back path and required gates',async t=>{
- const e=await setup(t);e.next();assert.equal(e.w.pravaFlow.getStep(),1);assert.equal(e.page.querySelector('.prava-validation').hidden,false);
+ const e=await setup(t);e.next();assert.equal(e.w.pravaFlow.getStep(),1);assert.equal(e.page.querySelector('.prava-validation').hidden,true);assert.equal(e.page.querySelector('[data-field="water_position_prava"] .question-hint').hidden,false);
  e.config();e.next();assert.equal(e.w.pravaFlow.getStep(),2);e.next();assert.equal(e.w.pravaFlow.getStep(),2);e.dimensions();
  for(let step=3;step<=10;step++){e.next();assert.equal(e.w.pravaFlow.getStep(),step);assert.equal(e.page.querySelectorAll('[data-prava-phase]:not([hidden])').length,step===10?0:1);}
  for(let step=9;step>=1;step--){e.back();assert.equal(e.w.pravaFlow.getStep(),step);}
@@ -136,4 +136,51 @@ test('material overlay keeps canonical role order and CAD fallback through first
  const after=e.payload();delete after.collectedAt;const expected={...before};delete expected.collectedAt;assert.deepEqual(after,expected,'presentation does not change selection data');
  const wrap=e.page.querySelector('[data-field="upper_finish"]');wrap.querySelectorAll('.page-btn')[1].click();assert.equal(wrap.querySelector('.vm-selected'),null);assert.equal(summary.querySelector('[data-role="upper"] img').src,before.materials.upper.sampleImageUrl);
  assert.equal(card.querySelectorAll('.prava-material-summary').length,1);
+});
+
+
+test('material overlays mount only selected roles, keep canonical order, and clear independently',async t=>{
+ const e=await setup(t),summary=e.page.querySelector('.prava-material-summary');
+ assert.equal(summary.hidden,true);assert.equal(summary.children.length,0,'no placeholder tiles');
+ assert.equal(e.page.querySelector('#prava-sketch-heading').textContent,'Скица');
+ e.page.querySelector('[data-field="lower_finish"] .material-card').click();
+ assert.equal(summary.hidden,false);assert.deepEqual([...summary.children].map(n=>n.dataset.role),['lower']);
+ const lower=e.payload().materials.lower;assert.equal(summary.querySelector('img').src,lower.sampleImageUrl);
+ e.page.querySelector('[data-field="upper_finish"] .material-card').click();
+ assert.deepEqual([...summary.children].map(n=>n.dataset.role),['upper','lower']);
+ e.materials();assert.deepEqual([...summary.children].map(n=>n.dataset.role),['upper','backsplash','countertop','lower']);
+ const clear=role=>{const input=e.page.querySelector('[name="'+role+'_finish"]');input.value='';input.dispatchEvent(new e.w.Event('change',{bubbles:true}));};
+ clear('upper');assert.deepEqual([...summary.children].map(n=>n.dataset.role),['backsplash','countertop','lower']);assert.equal(e.payload().materials.lower.sampleImageUrl,lower.sampleImageUrl);
+ for(const role of ['backsplash','countertop','lower'])clear(role);assert.equal(summary.children.length,0);assert.equal(summary.hidden,true);
+ e.w.pravaGoToStep(2);assert.equal(e.page.querySelector('#prava-sketch-heading').textContent,'Преглед на кухнята','other phase title is preserved');
+ e.w.pravaGoToStep(1);assert.equal(e.page.querySelector('#prava-sketch-heading').textContent,'Скица');
+});
+
+test('single configuration reset reuses source selection reset and preserves downstream choices',async t=>{
+ const e=await setup(t);e.config('yes');e.dimensions();e.materials();
+ const dishwasher=e.page.querySelector('[name="dishwasher_type"]');dishwasher.value='built_in_45';dishwasher.dispatchEvent(new e.w.Event('change',{bubbles:true}));
+ const extra=e.page.querySelector('[data-field="handleless"] input');extra.checked=true;extra.dispatchEvent(new e.w.Event('change',{bubbles:true}));
+ const meeting=e.page.querySelector('[name="meeting_slot"]');meeting.value='Fixture slot';
+ const before=e.payload(),phase=e.page.querySelector('[data-prava-phase="1"]'),reset=phase.querySelector('.prava-config-reset');
+ assert.equal(phase.querySelectorAll('[data-action="reset-prava"]').length,1);assert.equal(phase.querySelectorAll('.question-wrap-prava [data-action="reset-prava"]').length,0);
+ assert.equal(reset.type,'button');assert.equal(reset.closest('.prava-config-tools').parentElement,phase);reset.click();
+ for(const field of ['water_position_prava','oven_tall_unit','fridge_type','deep_cabinets','island','water_position','island_enabled'])assert.equal(e.page.querySelector('[name="'+field+'"]').value,'',field);
+ assert.equal(phase.querySelectorAll('.option-pill.active,.option-pill.is-selected').length,0);for(const pill of phase.querySelectorAll('.option-pill'))assert.equal(pill.getAttribute('aria-pressed'),'false');
+ const after=e.payload();assert.deepEqual(after.materials,before.materials);assert.deepEqual(after.dimensions,before.dimensions);assert.deepEqual(after.appliances,before.appliances);assert.deepEqual(after.extras,before.extras);assert.equal(meeting.value,'Fixture slot');assert.equal(e.w.pravaFlow.getStep(),1);
+ await new Promise(resolve=>setTimeout(resolve,45));assert.ok(e.page.querySelector('.cad-img-base.is-active'),'existing CAD reset remains wired');
+ e.next();assert.equal(phase.querySelector('.prava-question-invalid').dataset.field,'water_position_prava');
+});
+
+test('Next targets each first missing configuration answer, focuses/scrolls it and clears local hint on answer',async t=>{
+ const e=await setup(t),scrolled=[];e.w.HTMLElement.prototype.scrollIntoView=function(options){scrolled.push({node:this,options});};
+ const values=[['water_position_prava','center'],['oven_tall_unit','no'],['fridge_type','Вграден'],['deep_cabinets','no'],['island','no']];
+ for(const [field,value] of values){
+  e.next();const question=e.page.querySelector('.question-wrap-prava[data-field="'+field+'"]'),hint=question.querySelector('.question-hint');
+  assert.equal(e.w.pravaFlow.getStep(),1);assert.equal(scrolled.at(-1).node,question);assert.equal(scrolled.at(-1).options.block,'start');assert.equal(e.d.activeElement,question);assert.equal(hint.hidden,false);assert.equal(hint.textContent,'Изберете вариант, за да продължим.');assert.equal(question.getAttribute('aria-invalid'),'true');assert.equal(question.getAttribute('aria-describedby'),hint.id);assert.ok(question.classList.contains('prava-question-shake'));assert.equal(e.page.querySelectorAll('.prava-question-invalid').length,1);assert.equal(e.page.querySelector('.prava-validation').hidden,true);
+  const end=new e.w.Event('animationend',{bubbles:true});Object.defineProperty(end,'animationName',{value:'prava-config-shake'});question.dispatchEvent(end);assert.equal(question.classList.contains('prava-question-shake'),false);
+  e.choice(field,value);assert.equal(hint.hidden,true);assert.equal(question.hasAttribute('aria-invalid'),false);assert.equal(question.hasAttribute('aria-describedby'),false);
+ }
+ e.next();assert.equal(e.w.pravaFlow.getStep(),2);assert.equal(e.page.querySelector('.prava-global-progress').getAttribute('aria-valuenow'),'2');e.back();assert.equal(e.w.pravaFlow.getStep(),1);e.next();assert.equal(e.w.pravaFlow.getStep(),2);
+ e.next();assert.equal(e.w.pravaFlow.getStep(),2);assert.equal(e.page.querySelector('.prava-validation').hidden,false,'dimension validation is unchanged');
+ assert.deepEqual(e.errors,[]);
 });

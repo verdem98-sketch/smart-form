@@ -46,6 +46,21 @@
 .sf-page-prava .option-pill.is-selected,.sf-page-prava .option-pill.active{background:#333733;color:white;border-color:#333733}
 .sf-page-prava .option-check,.sf-page-prava .vm-check{display:none}
 .sf-page-prava .option-pill.is-selected .option-check,.sf-page-prava .vision-card.vm-selected .vm-check{display:block}
+/* First-step cleanup only: keep other phase typography and spacing intact. */
+.sf-page-prava[data-prava-step="1"] :is(#prava-sketch-heading,.prava-step-heading){font-family:"Red Hat Display",sans-serif;font-size:24px;line-height:1.25;font-weight:600;text-transform:none}
+.sf-page-prava [data-prava-phase="1"] .prava-config-tools{display:flex;justify-content:flex-end;margin:0 0 12px}
+.sf-page-prava [data-prava-phase="1"] .prava-config-reset{min-height:36px;padding:6px 10px;border:1px solid var(--prava-line);border-radius:6px;background:transparent;color:#606760;font:inherit;font-size:12px;line-height:1.5;cursor:pointer}
+.sf-page-prava [data-prava-phase="1"] .active-question-wrap{display:flex;flex-direction:column;gap:20px}
+.sf-page-prava [data-prava-phase="1"] .question-wrap-prava{margin:0;padding:0;text-align:left}
+.sf-page-prava [data-prava-phase="1"] .question-title{width:100%;margin:0 0 10px;text-align:left;font:inherit;font-size:18px;font-weight:600;line-height:1.35}
+.sf-page-prava [data-prava-phase="1"] .question-title>*{font:inherit;line-height:inherit;text-align:inherit}
+.sf-page-prava [data-prava-phase="1"] .options-row{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:8px;width:100%;margin:0;padding:0}
+.sf-page-prava [data-prava-phase="1"] .option-pill{min-height:44px;margin:0;padding:10px 14px;font:inherit;font-size:14px;line-height:1.4}
+.sf-page-prava [data-prava-phase="1"] .question-hint{margin:8px 0 0;font:inherit;font-size:12px;line-height:1.5;color:#93472e}
+.sf-page-prava [data-prava-phase="1"] .prava-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
+.sf-page-prava [data-prava-phase="1"] .prava-question-shake{animation:prava-config-shake .45s ease-in-out}
+@keyframes prava-config-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@media(max-width:991px){.sf-page-prava[data-prava-step="1"] :is(#prava-sketch-heading,.prava-step-heading){font-size:21px}}
 .sf-page-prava .prava-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
 .sf-page-prava .prava-navigation button,.sf-page-prava #prava-ai-generate-button,.sf-page-prava .prava-preview-status button,.sf-page-prava input[type="submit"]{min-height:44px;border-radius:8px;padding:12px 20px;border:1px solid #343834;background:#343834;color:white;font-size:14px;line-height:1.4;cursor:pointer}
 .sf-page-prava .prava-navigation [data-prava-nav="back"]{background:transparent;color:var(--prava-ink);border-color:var(--prava-line)}

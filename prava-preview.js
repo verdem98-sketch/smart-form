@@ -12,15 +12,16 @@
     const text=document.createElement('p'),retry=document.createElement('button');retry.type='button';retry.textContent='Опитайте отново';retry.hidden=true;status.append(text,retry);stage.append(status);
     const summaries=document.createElement('div');summaries.className='prava-material-summary';stage.append(summaries);
     const roles=[['upper','Горен ред'],['backsplash','Гръб'],['countertop','Плот'],['lower','Долен ред']];
-    roles.forEach(([role,label])=>{const item=document.createElement('div');item.dataset.role=role;const img=document.createElement('img'),name=document.createElement('span');img.alt=label;img.hidden=true;name.textContent=label;item.append(img,name);summaries.append(item);});
     let hasImage=false,revision=0;
+    function updateHeading(){if(heading)heading.textContent=hasImage?'Вашата AI визуализация':page.dataset.pravaStep==='1'?'Скица':plannerTitle;}
+    page.addEventListener('prava:phase-changed',updateHeading);
     function state(value,message){
       card.dataset.previewState=value;stage.setAttribute('aria-busy',String(value==='loading'));
-      if(heading)heading.textContent=hasImage?'Вашата AI визуализация':plannerTitle;
+      updateHeading();
       if(value==='loading'&&window.innerWidth<768)card.scrollIntoView({behavior:'auto',block:'start'});
       status.hidden=value==='planner'||value==='generated';retry.hidden=value!=='error';
       text.textContent=value==='loading'?'Създаваме Вашата визуализация…':message||'Визуализацията не можа да бъде създадена. Опитайте отново.';
-      summaries.hidden=hasImage;
+      summaries.hidden=hasImage||!summaries.children.length;
       stage.querySelectorAll('.cad-img,.cad-img-kitchen,.cad-img-deep_cabinets,.cad-img-island,.cad-img-base').forEach(n=>n.classList.toggle('prava-cad-replaced',hasImage));
     }
     function showImage(url){
@@ -33,11 +34,15 @@
       });
     }
     function materials(){roles.forEach(([role,label])=>{
-      const value=window.pravaMaterialSelections?.get(role+'_finish'),item=summaries.querySelector('[data-role="'+role+'"]'),img=item.querySelector('img');
+      const value=window.pravaMaterialSelections?.get(role+'_finish');
+      let item=summaries.querySelector('[data-role="'+role+'"]');
+      if(!value){item?.remove();return;}
+      if(!item){item=document.createElement('div');item.dataset.role=role;const img=document.createElement('img'),name=document.createElement('span');img.alt=label;item.append(img,name);}
+      const img=item.querySelector('img');
       img.hidden=!value?.sampleImageUrl;if(value?.sampleImageUrl)img.src=value.sampleImageUrl;
       const caption=label+(value?' · '+(value.displayName||value.label||value.id):'');
-      item.querySelector('span').textContent=caption;item.title=caption;
-    });}
+      item.querySelector('span').textContent=caption;item.title=caption;summaries.append(item);
+    });summaries.hidden=hasImage||!summaries.children.length;}
     page.addEventListener('change',event=>{if(roles.some(([role])=>event.target.name===role+'_finish'))materials();});
     retry.addEventListener('click',()=>document.getElementById('prava-ai-generate-button')?.click());
     window.pravaPreview={setState:state,showImage,getState:()=>card.dataset.previewState};materials();state('planner');
