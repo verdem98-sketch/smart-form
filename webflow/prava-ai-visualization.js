@@ -572,7 +572,8 @@
             correctionIndex:Number(data.correctionIndex||0),
             remainingCorrections:Number.isFinite(Number(data.remainingCorrections))
               ?Number(data.remainingCorrections)
-              :Math.max(0,3-Number(data.correctionIndex||0))
+              :Math.max(0,3-Number(data.correctionIndex||0)),
+            correctionReady:true
           }
         }));
         page.dispatchEvent(new CustomEvent('prava-ai-corrected',{
