@@ -352,10 +352,35 @@
 
     function humanizePlannerError(message){
       var text=clean(message);
-      var match=text.match(/Required fixed modules need\s+(\d+)\s*mm,\s*but the available run is only\s+(\d+)\s*mm/i);
+      var match=text.match(/Required fixed modules need\s+(\d+)\s*mm,\s*but the available run is only\s+(\d+)\s*mm(?:\.\s*Breakdown:\s*([^\.]+))?/i);
       if(match){
+        var labels={
+          fridge:'хладилник',
+          ovenTower:'колона за фурна',
+          ovenHobBase:'фурна + котлони',
+          hobBase:'модул за котлони',
+          sinkBase:'модул за мивка',
+          dishwasher:'миялна',
+          basket:'кошница',
+          washingMachine:'пералня',
+          applianceTower:'колона за уреди',
+          genericBase:'шкаф'
+        };
+        var breakdown=[];
+        if(match[3]){
+          match[3].split(',').forEach(function(item){
+            var parts=item.split(':');
+            var key=clean(parts[0]);
+            var mm=parseInt(parts[1],10);
+            if(!key||!isFinite(mm))return;
+            breakdown.push((labels[key]||key)+' '+mmToCmText(mm));
+          });
+        }
+        var detail=breakdown.length
+          ? ' В тези '+mmToCmText(match[1])+' са включени: '+breakdown.join(', ')+'.'
+          : '';
         return 'Избраните уреди и задължителни модули изискват поне '+mmToCmText(match[1])+
-          ' дължина, а Вие сте задали '+mmToCmText(match[2])+'.';
+          ' дължина, а Вие сте задали '+mmToCmText(match[2])+'.'+detail;
       }
       match=text.match(/Resolved cabinet stack needs\s+(\d+)\s*mm,\s*but room height is only\s+(\d+)\s*mm/i);
       if(match){
