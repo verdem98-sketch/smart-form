@@ -121,11 +121,11 @@ test("room height enters scene and rejects the existing oversized resolved stack
   assert.equal(env.scene().geometry.roomHeightMm, 2800);
   assert.deepEqual(env.scene().geometry.verticalFit, { requiredHeightMm: 2400, fits: true });
   env.choice("deep_cabinets", "yes");
-  assert.equal(env.scene().geometry.verticalFit.requiredHeightMm, 2600);
-  env.dimension("height_prava_3", 250);
+  assert.equal(env.scene().geometry.verticalFit.requiredHeightMm, 2500);
+  env.dimension("height_prava_3", 249);
   const result = buildStraightKitchenScene(env.payload());
   assert.equal(result.ok, false);
-  assert.match(result.errors.join(" "), /2600.*2500/);
+  assert.match(result.errors.join(" "), /2500.*2490/);
 });
 
 for (const field of fields) {
@@ -200,8 +200,13 @@ test("all optional appliance enums keep existing fixed widths and tower rules", 
     env.appliance("microwave_type", type);
     env.appliance("coffee_machine_type", type);
     assert.equal(env.scene().baseRun.find(x => x.type === "washingMachine").widthMm, 600);
-    assert.equal(env.scene().requested.appliances.microwave, type === "built_in");
-    assert.equal(env.scene().requested.appliances.coffeeMachine, type === "built_in");
+    const scene = env.scene();
+    for (const name of ["microwave", "coffeeMachine"]) {
+      assert.equal(scene.requested.appliances[name], true);
+      assert.equal(scene.requested.appliances[name], scene.structuredData.appliancePresence[name].enabled);
+      assert.equal(scene.structuredData.appliancePresence[name].placementScope, type === "built_in" ? "module" : "countertop");
+      assert.equal(scene.baseRun.some(m => m.appliances?.includes(name)), type === "built_in");
+    }
   }
   env.choice("oven_tall_unit", "no");
   env.appliance("microwave_type", "built_in"); env.appliance("coffee_machine_type", "built_in");
@@ -229,7 +234,7 @@ test("UI upper selections produce independent enriched standard/deep schedules",
   assert.ok(data.upperSchedules.standard.modules.every(m => m.bottomMm === 1450 && m.topMm === 2170 && m.depthMm === 350));
   env.choice("deep_cabinets", "yes");
   data = env.scene().structuredData;
-  assert.ok(data.upperSchedules.deep.modules.every(m => m.bottomMm === 2170 && m.topMm === 2600 && m.depthMm === 600));
+  assert.ok(data.upperSchedules.deep.modules.every(m => m.bottomMm === 2170 && m.topMm === 2500 && m.depthMm === 600));
   assert.deepEqual(data.upperSchedules.deep.modules.map(m => m.sourceBaseModuleId), data.upperSchedules.standard.modules.map(m => m.sourceBaseModuleId));
 });
 
