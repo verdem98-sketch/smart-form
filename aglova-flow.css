@@ -21,6 +21,7 @@
 .flow-aglova .ag-global-progress-seg:is(.is-done,.is-active){background:#23442f}
 .flow-aglova .ag-step-header{padding-top:20px;position:sticky;top:var(--ag-sticky-top,128px);z-index:4;background:#f7f7f5}
 .flow-aglova .ag-step-heading{position:static}
+.flow-aglova .ag-step-heading{text-transform:none}
 .flow-aglova .combo-dim-phase,.flow-aglova .final-phase-prava{scroll-margin-top:var(--ag-sticky-top,128px)}
 .flow-aglova .cad-stage-aglova{position:relative;inset:auto;transform:none;width:100%;height:auto;aspect-ratio:1280/606;min-height:382px;max-height:none;overflow:hidden;border:1px solid var(--ag-line);border-radius:var(--ag-radius);background:var(--ag-bg);margin:0;padding:0;z-index:0;isolation:isolate}
 .flow-aglova [data-ag-phase],.flow-aglova .final-content,.flow-aglova .contact-block{width:100%;max-width:none;min-width:0;height:auto;min-height:0;max-height:none;margin:0;padding:24px;border:1px solid var(--ag-line);border-radius:var(--ag-radius);background:var(--ag-bg);box-shadow:0 2px 8px #33333308;opacity:1!important;transform:none!important}
