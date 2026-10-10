@@ -88,7 +88,7 @@
       chosenId = row[0];
       keep.replaceChildren(card(row, true));
       if (hidden) { hidden.value = label(row); hidden.dispatchEvent(new Event('input', { bubbles: true })); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
-      wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: row[0], label: label(row) } }));
+      wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: row[0], label: label(row), src: src(row) } }));
       render();
     }
     function pager(total) {
@@ -118,10 +118,36 @@
     render();
   }
 
+  // Tiles on the sketch showing what was chosen so far (same element and order as Prava's prava-preview.js).
+  var TILES = [['upper', 'Горен ред'], ['backsplash', 'Гръб'], ['countertop', 'Плот'], ['lower', 'Долен ред']];
+  var tileSrc = {};
+  function tiles(root) {
+    var stage = root.querySelector('.sticky-cad-wrap .cad-stage-aglova') || root.querySelector('.cad-stage-aglova');
+    if (!stage) return null;
+    var box = stage.querySelector('.prava-material-summary');
+    if (!box) { box = el('div', 'prava-material-summary'); box.hidden = true; stage.append(box); }
+    return box;
+  }
+  function updateTiles(root) {
+    var box = tiles(root); if (!box) return;
+    TILES.forEach(function (t) {
+      var role = t[0], item = box.querySelector('[data-role="' + role + '"]');
+      if (!tileSrc[role]) { if (item) item.remove(); return; }
+      if (!item) {
+        item = el('div'); item.dataset.role = role;
+        var img = document.createElement('img'); img.alt = t[1]; item.append(img, el('span', '', t[1]));
+        item.title = t[1];
+      }
+      item.querySelector('img').src = tileSrc[role]; box.append(item);
+    });
+    box.hidden = !box.children.length;
+  }
+
   function init() {
     var root = document.querySelector('.flow-aglova');
     if (!root || root.dataset.agCatalog) return;
     root.dataset.agCatalog = '1';
+    root.addEventListener('ag:material-chosen', function (e) { tileSrc[e.detail.role] = e.detail.src; updateTiles(root); });
     Object.keys(ROLES).forEach(function (role) {
       var wrap = root.querySelector('.question-wrap[data-field="' + role + '_finish"]');
       if (!wrap) return;

@@ -144,3 +144,10 @@ html body .flow-aglova.flow-aglova .booking-days .booking-slot.active{background
 
 /* Legacy per-question navigation is superseded by the step navigation; hide before the flow module initialises (no flash) */
 .flow-aglova .combo-phase-wrap .question-actions,.flow-aglova .seo-text,.flow-aglova .extras-wrap,.flow-aglova .question-back-btn,.flow-aglova .question-next-btn{display:none!important}
+
+/* Chosen materials overlaid on the sketch, same tiles as Prava (.prava-material-summary). */
+.flow-aglova .prava-material-summary{position:absolute;top:12px;left:12px;z-index:9;display:grid;grid-template-columns:85px;grid-auto-rows:85px;gap:6px;margin:0;pointer-events:none}
+.flow-aglova .prava-material-summary[hidden]{display:none}
+.flow-aglova .prava-material-summary>div{position:relative;width:85px;height:85px;overflow:hidden;border:1px solid var(--ag-line);border-radius:8px;padding:0;background:var(--ag-bg);font-size:10px;line-height:1.25;overflow-wrap:anywhere;pointer-events:auto;box-shadow:none}
+.flow-aglova .prava-material-summary span{position:absolute;inset:auto 0 0;padding:4px;background:#333533e6;color:#fff;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.flow-aglova .prava-material-summary img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
