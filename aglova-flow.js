@@ -109,43 +109,8 @@
     new MutationObserver(() => { if (step !== 1 || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); }).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
     render(false);
 
-    // Sketch pin: port of prava-preview-fixed-pin-v3 (JS-fixed pin; CSS sticky is broken by legacy ancestors)
-    (function () {
-      const wrap = page.querySelector('.sticky-cad-wrap');
-      if (!wrap) return;
-      const spacer = document.createElement('div'); spacer.setAttribute('aria-hidden', 'true'); spacer.style.display = 'none';
-      wrap.parentNode.insertBefore(spacer, wrap);
-      let pinned = false, raf = 0;
-      const stickyTop = () => { const v = parseFloat(getComputedStyle(page).getPropertyValue('--ag-sticky-top')); return Number.isFinite(v) ? v : 128; };
-      function unpin() {
-        if (!pinned) return; pinned = false;
-        ['position', 'top', 'left', 'width', 'zIndex'].forEach(k => { wrap.style[k] = ''; });
-        spacer.style.display = 'none'; spacer.style.height = '';
-      }
-      function pin() {
-        if (pinned) return;
-        const rect = wrap.getBoundingClientRect();
-        spacer.style.display = 'block'; spacer.style.height = rect.height + 'px'; pinned = true;
-        wrap.style.position = 'fixed'; wrap.style.top = stickyTop() + 'px'; wrap.style.left = rect.left + 'px'; wrap.style.width = rect.width + 'px'; wrap.style.zIndex = '3';
-      }
-      function updateGeometry() {
-        if (!pinned) return;
-        const parentRect = spacer.parentElement.getBoundingClientRect();
-        wrap.style.left = parentRect.left + 'px'; wrap.style.width = spacer.getBoundingClientRect().width + 'px'; wrap.style.top = stickyTop() + 'px';
-        spacer.style.height = wrap.getBoundingClientRect().height + 'px';
-      }
-      function update() {
-        raf = 0;
-        if (window.innerWidth < 768 || getComputedStyle(wrap).display === 'none') { unpin(); return; }
-        if (!pinned) { if (wrap.getBoundingClientRect().top <= stickyTop()) pin(); }
-        else { updateGeometry(); if (spacer.getBoundingClientRect().top > stickyTop()) unpin(); }
-      }
-      const request = () => { if (!raf) raf = requestAnimationFrame(update); };
-      window.addEventListener('scroll', request, { passive: true });
-      window.addEventListener('resize', request, { passive: true });
-      page.addEventListener('ag:phase-changed', () => { unpin(); request(); });
-      request();
-    })();
+    // Sketch stays in its own slot with CSS position:sticky (see aglova-flow.css). The JS fixed pin from Prava
+    // (prava-preview-fixed-pin-v3) was removed: with Aglova's wider legacy layout it detached the sketch and stretched it over the page.
   }
   if (document.readyState === 'complete') init(); else window.addEventListener('load', () => setTimeout(init, 300), { once: true });
 })();
