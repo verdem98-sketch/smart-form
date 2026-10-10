@@ -22,10 +22,16 @@
 .flow-aglova .ag-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
 .flow-aglova .ag-navigation button,.flow-aglova #prava-ai-generate-button,.flow-aglova .prava-preview-status button,.flow-aglova input[type="submit"]{min-height:44px;border-radius:8px;padding:12px 20px;border:1px solid #343834;background:#343834;color:white;font-size:14px;line-height:1.4;cursor:pointer}
 .flow-aglova .ag-navigation [data-ag-nav="back"]{background:transparent;color:var(--ag-ink);border-color:var(--ag-line)}
-.flow-aglova .prava-final-nav{margin:0 0 20px}
+
 .flow-aglova .ag-validation,.flow-aglova .question-hint{color:#93472e;font-size:14px;line-height:1.5;margin:12px 0}
 .flow-aglova .ag-global-progress{pointer-events:auto}
 .flow-aglova [data-ag-hide="1"]{display:none!important}
 .flow-aglova .ag-stepnode{opacity:1!important;transform:none!important;visibility:visible!important}
 .flow-aglova .ag-stepnode[hidden]{display:none!important}
 .flow-aglova .combo-dim-phase{display:block}
+/* Aglova layout adaptations verified on the live page */
+.flow-aglova .ag-global-progress{top:112px;width:calc(100% - 80px);margin:0 40px 16px}
+.flow-aglova .ag-config-tools[hidden]{display:none}
+.flow-aglova .ag-navigation button[disabled]{opacity:.4}
+.flow-aglova .ag-final-nav{margin:0 0 20px}
+.flow-aglova[data-ag-step="1"] .combo-phase-wrap .question-wrap{min-height:0!important;height:auto!important;margin:0 0 20px!important}

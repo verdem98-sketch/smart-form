@@ -101,5 +101,5 @@
     new MutationObserver(() => { if (step !== 1 || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); }).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
     render(false);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
+  if (document.readyState === 'complete') init(); else window.addEventListener('load', () => setTimeout(init, 300), { once: true });
 })();
