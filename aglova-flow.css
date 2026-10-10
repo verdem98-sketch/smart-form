@@ -132,3 +132,8 @@
 .flow-aglova .ag-stepnode[hidden]{display:none!important}
 .flow-aglova[data-ag-step="1"] .combo-phase-wrap .question-wrap{min-height:0!important;height:auto!important;margin:0 0 24px!important}
 @media(max-width:767px){.flow-aglova .aglova-left{grid-template-columns:1fr!important}.flow-aglova .sticky-cad-wrap{position:static}}
+/* Override legacy Aglova booking/question skins (inline !important blocks in page head) */
+.flow-aglova .combo-phase-wrap .question-wrap[data-field]{background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important}
+.flow-aglova .booking-day{background:#fafaf8!important;border:1px solid var(--ag-line)!important;border-radius:10px!important;padding:14px!important;box-shadow:none!important;color:var(--ag-ink)!important}
+.flow-aglova .booking-slot{background:#f1f2ef!important;border:1px solid var(--ag-line)!important;border-radius:7px!important;color:var(--ag-ink)!important;box-shadow:none!important}
+.flow-aglova .booking-slot.active{background:#477448!important;color:#fff!important;border-color:#477448!important}
