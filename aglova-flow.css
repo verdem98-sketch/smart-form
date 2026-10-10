@@ -121,7 +121,7 @@
 .flow-aglova .step-3b-aglova,.flow-aglova.step-3b-aglova{width:min(1280px,100%);max-width:1280px;margin:0 auto}
 .flow-aglova .aglova-left{width:100%!important;margin:0!important;column-gap:32px!important;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)!important;align-items:start}
 .flow-aglova .ag-global-progress{margin:0 0 16px;width:100%;pointer-events:auto}
-.flow-aglova .sticky-cad-wrap{position:sticky;top:var(--ag-sticky-top,128px)}
+.flow-aglova .sticky-cad-wrap{position:sticky;top:var(--ag-sticky-top,128px);z-index:2;width:100%;min-width:0}
 .flow-aglova .question-wrap{background:transparent!important;border:0!important;border-radius:0!important;padding:0!important}
 .flow-aglova .question-head{display:block}
 .flow-aglova .ag-config-tools[hidden]{display:none}

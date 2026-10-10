@@ -44,7 +44,8 @@
     progress.append(head, track);
     const grid = page.querySelector('.aglova-left');
     grid.parentNode.insertBefore(progress, grid);
-    const heading = document.createElement('h2'); heading.className = 'ag-step-heading'; right.prepend(heading);
+    const heading = document.createElement('h2'); heading.className = 'ag-step-heading';
+    const header = document.createElement('div'); header.className = 'ag-step-header'; header.append(heading); right.prepend(header);
     const tools = document.createElement('div'); tools.className = 'ag-config-tools';
     const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'ag-config-reset'; reset.textContent = 'Нулиране';
     tools.append(reset); comboWrap.prepend(tools);
@@ -56,6 +57,12 @@
     right.append(error, nav);
     const finalBack = document.createElement('button'); finalBack.type = 'button'; finalBack.dataset.agNav = 'back'; finalBack.textContent = '← Назад';
     const finalNav = document.createElement('div'); finalNav.className = 'ag-navigation ag-final-nav'; finalNav.append(finalBack); finalPhase.prepend(finalNav);
+    function stickyOffset() {
+      const navbar = document.querySelector('[role="banner"],.navbar'), navbarHeight = navbar?.getBoundingClientRect().height || 0;
+      page.style.setProperty('--ag-progress-top', navbarHeight + 'px');
+      page.style.setProperty('--ag-sticky-top', (navbarHeight + Math.ceil(progress.getBoundingClientRect().height) + 16) + 'px');
+    }
+    window.addEventListener('resize', stickyOffset, { passive: true });
     let step = 1;
     function show(node, on) { node.hidden = !on; node.inert = !on; if (on) { node.style.setProperty('display', 'block', 'important'); } else node.style.removeProperty('display'); }
     function unhideQuestions() { questions.forEach(q => { q.style.setProperty('display', 'block', 'important'); q.style.opacity = '1'; q.hidden = false; }); }
@@ -78,6 +85,7 @@
       phases.forEach((n, i) => show(n, i === step - 1));
       if (step === 1) unhideQuestions();
       page.dataset.agStep = String(step);
+      stickyOffset();
       heading.textContent = titles[step - 1];
       pTitle.textContent = titles[step - 1]; pCount.textContent = 'Стъпка ' + step + ' от ' + N;
       progress.setAttribute('aria-valuenow', String(step));
