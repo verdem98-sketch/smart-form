@@ -112,5 +112,6 @@
     // Sketch stays in its own slot with CSS position:sticky (see aglova-flow.css). The JS fixed pin from Prava
     // (prava-preview-fixed-pin-v3) was removed: with Aglova's wider legacy layout it detached the sketch and stretched it over the page.
   }
-  if (document.readyState === 'complete') init(); else window.addEventListener('load', () => setTimeout(init, 300), { once: true });
+  if (document.readyState === 'complete') setTimeout(init, 0);
+  else document.addEventListener('DOMContentLoaded', () => setTimeout(init, 0), { once: true }); // after the engine's own DOMContentLoaded handlers
 })();

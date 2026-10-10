@@ -137,3 +137,6 @@ html body .flow-aglova.flow-aglova .combo-phase-wrap .question-wrap[data-field]{
 html body .flow-aglova.flow-aglova .booking-days .booking-day{background:#fafaf8!important;border:1px solid var(--ag-line)!important;border-radius:10px!important;padding:14px!important;box-shadow:none!important;color:var(--ag-ink)!important}
 html body .flow-aglova.flow-aglova .booking-days .booking-slot{background:#f1f2ef!important;border:1px solid var(--ag-line)!important;border-radius:7px!important;color:var(--ag-ink)!important;box-shadow:none!important}
 html body .flow-aglova.flow-aglova .booking-days .booking-slot.active{background:#477448!important;color:#fff!important;border-color:#477448!important}
+
+/* Legacy per-question navigation is superseded by the step navigation; hide before the flow module initialises (no flash) */
+.flow-aglova .combo-phase-wrap .question-actions,.flow-aglova .seo-text,.flow-aglova .extras-wrap,.flow-aglova .question-back-btn,.flow-aglova .question-next-btn{display:none!important}
