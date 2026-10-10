@@ -4,11 +4,12 @@
 .flow-aglova [data-ag-phase]:not([hidden]),.flow-aglova .final-phase-prava:not([hidden]){display:block}
 .flow-aglova *, .flow-aglova *::before,.flow-aglova *::after{box-sizing:border-box}
 .flow-aglova .step-3b-aglova{width:min(1280px,100%);max-width:1280px;margin:0 auto;padding:24px}
-.flow-aglova .step-content,.flow-aglova .sf-body-prava,.flow-aglova .sf-right-prava,.flow-aglova .sf-form-wrap,.flow-aglova .smart-form-block-prava,.flow-aglova .sf-form-prava,.flow-aglova form{width:100%;max-width:none;min-width:0;margin:0}
+.flow-aglova .step-content{width:100%;max-width:none;min-width:0;margin:0}
 .flow-aglova .step-content{border-radius:var(--ag-radius);background:#f7f7f5;padding:24px;border:1px solid var(--ag-line)}
 .flow-aglova .aglova-left{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px;width:100%;align-items:start;margin:0;min-width:0}
 .flow-aglova .combo-dim-phase{display:block;width:100%;min-width:0;max-width:none;margin:0;padding:0}
-/* Opaque backing covers the sticky spacing and rounded corners without changing flow. */
+.flow-aglova .ag-step-heading{position:sticky;top:var(--ag-sticky-top,128px);z-index:4;background:#f7f7f5;color:var(--ag-ink);font-size:24px;line-height:1.25;font-weight:600;margin:0;padding:12px 0 20px;min-height:62px;text-align:left}
+.flow-aglova .ag-global-progress{position:sticky;top:var(--ag-progress-top,112px);z-index:6;width:100%;margin:0 0 16px;padding:8px 14px 10px;background:#f2f1ed;border-radius:8px;pointer-events:none}
 .flow-aglova .ag-global-progress::before{content:"";position:absolute;inset:-1px -24px -17px;z-index:-1;background:#f7f7f5;pointer-events:none}
 .flow-aglova .ag-global-progress::after{content:"";position:absolute;inset:0;z-index:-1;background:inherit;border-radius:inherit;pointer-events:none}
 .flow-aglova .ag-step-header::before{content:"";position:absolute;inset:-17px -1px 0;z-index:-1;background:#f7f7f5;pointer-events:none}
@@ -22,7 +23,7 @@
 .flow-aglova .ag-step-heading{position:static}
 .flow-aglova .combo-dim-phase,.flow-aglova .final-phase-prava{scroll-margin-top:var(--ag-sticky-top,128px)}
 .flow-aglova .cad-stage-aglova{position:relative;inset:auto;transform:none;width:100%;height:auto;aspect-ratio:1280/606;min-height:382px;max-height:none;overflow:hidden;border:1px solid var(--ag-line);border-radius:var(--ag-radius);background:var(--ag-bg);margin:0;padding:0;z-index:0;isolation:isolate}
-.flow-aglova .prava-cad-replaced{display:none!important}
+.flow-aglova [data-ag-phase],.flow-aglova .final-content,.flow-aglova .contact-block{width:100%;max-width:none;min-width:0;height:auto;min-height:0;max-height:none;margin:0;padding:24px;border:1px solid var(--ag-line);border-radius:var(--ag-radius);background:var(--ag-bg);box-shadow:0 2px 8px #33333308;opacity:1!important;transform:none!important}
 .flow-aglova [data-action="reset-prava"]{background:transparent;color:#697069;border:0;box-shadow:none;font-size:12px;padding:8px 0}
 .flow-aglova .question-wrap{display:block;width:100%;height:auto;min-height:0;max-height:none;margin:0 0 24px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;opacity:1;visibility:visible}
 .flow-aglova .question-wrap:last-of-type{margin-bottom:0}
@@ -32,7 +33,6 @@
 .flow-aglova .option-pill.is-selected,.flow-aglova .option-pill.active{background:#333733;color:white;border-color:#333733}
 .flow-aglova .option-check,.flow-aglova .vm-check{display:none}
 .flow-aglova .option-pill.is-selected .option-check,.flow-aglova .vision-card.vm-selected .vm-check{display:block}
-/* First-step cleanup only: keep other phase typography and spacing intact. */
 .flow-aglova [data-ag-phase="1"] .ag-config-tools{display:flex;justify-content:flex-end;margin:0 0 12px}
 .flow-aglova [data-ag-phase="1"] .ag-config-reset{min-height:36px;padding:6px 10px;border:1px solid var(--ag-line);border-radius:6px;background:transparent;color:#606760;font:inherit;font-size:12px;line-height:1.5;cursor:pointer}
 .flow-aglova [data-ag-phase="1"] .active-question-wrap{display:flex;flex-direction:column;gap:20px}
@@ -47,14 +47,12 @@
 @keyframes ag-config-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 @media(max-width:991px){.flow-aglova[data-ag-step="1"] :is(#prava-sketch-heading,.ag-step-heading){font-size:21px}}
 .flow-aglova .ag-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
+.flow-aglova .ag-navigation button,.flow-aglova input[type="submit"]{min-height:44px;border-radius:8px;padding:12px 20px;border:1px solid #343834;background:#343834;color:white;font-size:14px;line-height:1.4;cursor:pointer}
 .flow-aglova .ag-navigation [data-ag-nav="back"]{background:transparent;color:var(--ag-ink);border-color:var(--ag-line)}
 .flow-aglova .ag-final-nav{margin:0 0 20px}
 .flow-aglova button:disabled{opacity:.45;cursor:default}
 .flow-aglova :is(button,a,input,select,textarea):focus-visible{outline:3px solid #719473;outline-offset:3px}
 .flow-aglova .ag-validation,.flow-aglova .question-hint{color:#93472e;font-size:14px;line-height:1.5;margin:12px 0}
-.flow-aglova .prava-material-controls{display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;width:100%;min-width:0}
-.flow-aglova .prava-material-controls label{font-size:12px;color:#606760;display:flex;flex:1 1 0;flex-direction:column;gap:6px;min-width:0}
-.flow-aglova .prava-material-search{flex:1.15 1 0;min-width:0}
 .flow-aglova input:not([type="checkbox"]):not([type="hidden"]):not([type="submit"]),.flow-aglova select,.flow-aglova textarea{width:100%;max-width:100%;min-width:0;min-height:44px;background:#fafaf8;border:1px solid var(--ag-line);border-radius:8px;padding:10px 12px;color:var(--ag-ink);font:inherit;font-size:14px}
 .flow-aglova .material-gallery-grid,.flow-aglova .worktop-gallery-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .flow-aglova .material-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;padding:0;border:1px solid var(--ag-line);border-radius:10px;background:#fafaf8;text-align:left;cursor:pointer}
@@ -86,6 +84,7 @@
 .flow-aglova .final-content>.booking-day{margin-top:20px}
 .flow-aglova .booking-custom-title,.flow-aglova .final-contact label{font-size:14px;line-height:1.5;margin:0 0 10px}
 .flow-aglova .final-contact{margin:0;display:flex;flex-direction:column;gap:14px}
+.flow-aglova .final-phase-prava>.contact-block{margin-top:24px}
 .flow-aglova .contact-block{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
 .flow-aglova .contact-row,.flow-aglova .tex-area-holder{width:100%;min-width:0;margin:0}
 .flow-aglova .inspiration-card{width:100%;min-width:0;position:relative;border:1px solid var(--ag-line);border-radius:10px;overflow:hidden;cursor:pointer}
@@ -94,7 +93,9 @@
 .flow-aglova .inspiration-check{display:none;position:absolute;top:10px;right:10px;background:var(--ag-green);color:white;border-radius:50%;width:24px;height:24px;text-align:center}
 .flow-aglova .inspiration-card.vm-selected .inspiration-check{display:block}
 .flow-aglova .blocked-dates-source{display:none}
+.flow-aglova .prava-back-icon-v2::after,.flow-aglova .prava-back-icon-v2::before{content:none}
 .flow-aglova .cad-stage-aglova{box-shadow:0 2px 8px #33333308}
+.flow-aglova .option-pill,.flow-aglova .booking-day,.flow-aglova .booking-slot{box-shadow:none}
 .flow-aglova .booking-days,.flow-aglova .booking-wrap{box-shadow:none}
 .flow-aglova .plan-wrap{display:flex;flex-wrap:wrap;gap:12px;width:100%;min-width:0;max-width:none}
 .flow-aglova .plan-wrap .options-row{display:flex;flex:1 1 140px;width:auto;min-width:0;margin:0}
@@ -113,7 +114,6 @@
 @media(max-width:991px){.flow-aglova .step-3b-aglova{padding:16px}.flow-aglova .step-content{padding:18px}.flow-aglova .aglova-left{gap:20px}.flow-aglova .final-grid{grid-template-columns:1fr}.flow-aglova .booking-days{grid-template-columns:repeat(3,minmax(0,1fr))}.flow-aglova .ag-step-heading,.flow-aglova #prava-sketch-heading{font-size:21px}.flow-aglova [data-ag-phase]{padding:18px}}
 @media(max-width:767px){.flow-aglova .aglova-left{grid-template-columns:1fr}.flow-aglova .prava-preview-card{position:static}.flow-aglova .cad-stage-aglova{min-height:382px}.flow-aglova #prava-sketch-heading{position:static;min-height:0;padding:0 0 16px}.flow-aglova .ag-step-heading{top:0;padding:12px 0}.flow-aglova .booking-days{grid-template-columns:repeat(2,minmax(0,1fr))}.flow-aglova .success-preview-wrap,.flow-aglova .contact-block{grid-template-columns:1fr}.flow-aglova .prava-final-inspiration-grid-v2{grid-template-columns:repeat(2,minmax(0,1fr))}.flow-aglova .step-3b-aglova{padding:12px}.flow-aglova .step-content{padding:14px}.flow-aglova .ag-global-progress::before{inset-inline:-14px}}
 @media(prefers-reduced-motion:reduce){.flow-aglova *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
-/* Material chooser refinement: one control row, 5×2 cards on desktop. */
 .flow-aglova [data-ag-phase="3"] textarea,.flow-aglova [data-ag-phase="4"] textarea,.flow-aglova [data-ag-phase="5"] textarea,.flow-aglova [data-ag-phase="6"] textarea{display:none!important}
 @media(max-width:991px){.flow-aglova .prava-material-controls{flex-wrap:wrap}.flow-aglova .prava-material-controls label{flex:1 1 calc(50% - 10px)}.flow-aglova .material-gallery-grid,.flow-aglova .worktop-gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:767px){.flow-aglova .prava-material-controls label{flex:1 1 100%}.flow-aglova .material-gallery-grid,.flow-aglova .worktop-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
