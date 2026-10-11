@@ -31,6 +31,7 @@
     // superseded nodes
     ['.seo-text', '.extras-wrap', '.phase-next-btn', '.question-back-btn', '.question-next-btn', '.nav-btn', '.sf-back-link']
       .forEach(sel => page.querySelectorAll(sel).forEach(n => { if (!finalPhase.contains(n)) n.dataset.agHide = '1'; }));
+    page.querySelectorAll('.extras-vision-phase,.vision-phase-prava').forEach(n => { if (!finalPhase.contains(n)) n.dataset.agHide = '1'; }); // old step-9 leftovers ("Посока за визия"); the AI card is ours now
     page.querySelectorAll('.aglova-workspace').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     page.querySelectorAll('.aglova-right').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     const resetBtn = page.querySelector('.nav-reset');
