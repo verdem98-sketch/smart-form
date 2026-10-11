@@ -261,20 +261,20 @@
 
     /* ---------------- free-standing & built-in appliances */
     function freeDishwasher(g, W) {
-      var h = .84, w = W - .03;
-      box(w, h, D - .02, mats.steel, 0, PL + h / 2, (D - .02) / 2, g);
-      box(w - .02, .09, .016, mats.glass, 0, PL + h - .05, D - .02 + .008, g);                       // control panel
-      for (var i = 0; i < 4; i++) box(.02, .012, .008, mats.steel, -w / 2 + .08 + i * .035, PL + h - .05, D - .02 + .018, g);
-      box(w - .05, h - .2, .01, mats.front, 0, PL + (h - .2) / 2 + .02, D - .02 + .005, g);          // door panel
-      box(w * .62, .016, .026, mats.steel, 0, PL + h - .14, D + .02, g);                             // bar handle
+      var h = BH - WT - .012, w = W - .03, B0 = 0;
+      box(w, h, D - .02, mats.steel, 0, B0 + h / 2, (D - .02) / 2, g);
+      box(w - .02, .09, .016, mats.glass, 0, B0 + h - .05, D - .02 + .008, g);                       // control panel
+      for (var i = 0; i < 4; i++) box(.02, .012, .008, mats.steel, -w / 2 + .08 + i * .035, B0 + h - .05, D - .02 + .018, g);
+      box(w - .05, h - .2, .01, mats.front, 0, B0 + (h - .2) / 2 + .02, D - .02 + .005, g);          // door panel
+      box(w * .62, .016, .026, mats.steel, 0, B0 + h - .14, D + .02, g);                             // bar handle
     }
     function freeWasher(g, W) {
-      var h = .84, w = W - .03;
-      box(w, h, D - .02, mats.frontA, 0, PL + h / 2, (D - .02) / 2, g);
-      box(w - .02, .1, .014, mats.carcass, 0, PL + h - .06, D - .02 + .007, g);                      // control strip
-      var kn = new T.Mesh(new T.CylinderGeometry(.022, .022, .014, 20), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-w / 2 + .08, PL + h - .06, D - .02 + .02); g.add(kn);
-      box(.1, .03, .008, mats.glass, w / 2 - .12, PL + h - .06, D - .02 + .016, g);
-      var cy = PL + (h - .12) / 2, ring = new T.Mesh(new T.TorusGeometry(.17, .02, 14, 44), mats.steel); ring.position.set(0, cy, D - .02 + .01); g.add(ring);
+      var h = BH - WT - .012, w = W - .03, B0 = 0;
+      box(w, h, D - .02, mats.frontA, 0, B0 + h / 2, (D - .02) / 2, g);
+      box(w - .02, .1, .014, mats.carcass, 0, B0 + h - .06, D - .02 + .007, g);                      // control strip
+      var kn = new T.Mesh(new T.CylinderGeometry(.022, .022, .014, 20), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-w / 2 + .08, B0 + h - .06, D - .02 + .02); g.add(kn);
+      box(.1, .03, .008, mats.glass, w / 2 - .12, B0 + h - .06, D - .02 + .016, g);
+      var cy = B0 + (h - .12) / 2, ring = new T.Mesh(new T.TorusGeometry(.17, .02, 14, 44), mats.steel); ring.position.set(0, cy, D - .02 + .01); g.add(ring);
       var disc = new T.Mesh(new T.CircleGeometry(.152, 40), mats.glass); disc.position.set(0, cy, D - .02 + .006); g.add(disc);
     }
     function standMicro(g, x) {
