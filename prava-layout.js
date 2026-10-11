@@ -176,6 +176,8 @@
         deep: pill('deep_cabinets') === 'yes', island: pill('island') === 'yes', islandLenMm: dimMm('island_len_3a'), islandWidthMm: dimMm('island_width_3a'),
         dishwasherMm: dw ? Number(dw[1]) * 10 : 0, washer: !!fieldVal('washing_machine_type'),
         microwave: /built_in/.test(fieldVal('microwave_type')), coffee: /built_in/.test(fieldVal('coffee_machine_type')),
+        dishFree: /^free/.test(fieldVal('dishwasher_type')), washFree: fieldVal('washing_machine_type') === 'free_standing',
+        microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
         showCabinets: step >= 2,
         cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
@@ -226,7 +228,7 @@
       handleH(g, 0, y1 - .045, w - .14);
       for (var i = 0; i < 3; i++) { var kn = new T.Mesh(new T.CylinderGeometry(.012, .012, .01, 16), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-.12 + i * .12, y1 - .02, D + FT + .005); g.add(kn); }
     }
-    function microFront(g, w, y0, y1) { front(g, w, y0, y1, mats.glass, 0); box(w - .2, y1 - y0 - .1, .004, mats.steel, -.04, (y0 + y1) / 2, D + FT + .002, g); }
+    function microFront(g, w, y0, y1) { front(g, w, y0, y1, mats.steel, 0); box(w * .62, y1 - y0 - .1, .006, mats.glass, -w * .12, (y0 + y1) / 2, D + FT + .003, g); box(w * .18, y1 - y0 - .1, .006, mats.hob, w * .33, (y0 + y1) / 2, D + FT + .003, g); box(.012, (y1 - y0) * .6, .014, mats.sink, w * .17, (y0 + y1) / 2, D + FT + .008, g); }
     function sinkTop(g, w) {
       box(Math.min(w - .1, .5), .004, .4, mats.sink, 0, BH + 0.002, .3, g);
       var bowl = box(Math.min(w - .16, .42), .006, .3, mats.glass, 0, BH + 0.005, .3, g);
@@ -240,6 +242,40 @@
       var disc = new T.Mesh(new T.CircleGeometry(.155, 36), mats.glass); disc.position.set(0, cy, D + FT + .004); g.add(disc);
     }
 
+
+    /* ---------------- free-standing & built-in appliances */
+    function freeDishwasher(g, W) {
+      var h = .84, w = W - .03;
+      box(w, h, D - .02, mats.steel, 0, PL + h / 2, (D - .02) / 2, g);
+      box(w - .02, .09, .016, mats.glass, 0, PL + h - .05, D - .02 + .008, g);                       // control panel
+      for (var i = 0; i < 4; i++) box(.02, .012, .008, mats.steel, -w / 2 + .08 + i * .035, PL + h - .05, D - .02 + .018, g);
+      box(w - .05, h - .2, .01, mats.front, 0, PL + (h - .2) / 2 + .02, D - .02 + .005, g);          // door panel
+      box(w * .62, .016, .026, mats.steel, 0, PL + h - .14, D + .02, g);                             // bar handle
+    }
+    function freeWasher(g, W) {
+      var h = .84, w = W - .03;
+      box(w, h, D - .02, mats.frontA, 0, PL + h / 2, (D - .02) / 2, g);
+      box(w - .02, .1, .014, mats.carcass, 0, PL + h - .06, D - .02 + .007, g);                      // control strip
+      var kn = new T.Mesh(new T.CylinderGeometry(.022, .022, .014, 20), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-w / 2 + .08, PL + h - .06, D - .02 + .02); g.add(kn);
+      box(.1, .03, .008, mats.glass, w / 2 - .12, PL + h - .06, D - .02 + .016, g);
+      var cy = PL + (h - .12) / 2, ring = new T.Mesh(new T.TorusGeometry(.17, .02, 14, 44), mats.steel); ring.position.set(0, cy, D - .02 + .01); g.add(ring);
+      var disc = new T.Mesh(new T.CircleGeometry(.152, 40), mats.glass); disc.position.set(0, cy, D - .02 + .006); g.add(disc);
+    }
+    function standMicro(g, x) {
+      var w = .46, h = .28, d = .36, y = BH + h / 2 + .004, z = .36;
+      box(w, h, d, mats.steel, x, y, z, g);
+      box(w * .66, h - .06, .01, mats.glass, x - w * .12, y, z + d / 2 + .004, g);
+      box(.1, h - .06, .01, mats.hob, x + w * .36, y, z + d / 2 + .004, g);
+      box(.012, h * .6, .014, mats.steel, x + w * .2, y, z + d / 2 + .012, g);
+    }
+    function standCoffee(g, x) {
+      var w = .28, h = .4, d = .38, z = .3, y = BH + h / 2 + .004;
+      box(w, h, d, mats.hob, x, y, z, g);
+      box(w - .04, .06, .02, mats.steel, x, BH + h - .06, z + d / 2 + .004, g);                      // head
+      box(.05, .018, .06, mats.steel, x, BH + .19, z + d / 2 + .01, g);                              // spout
+      box(w - .06, .012, .12, mats.steel, x, BH + .06, z + d / 2 - .04, g);                          // drip tray
+      box(.05, .05, .012, mats.glass, x + w * .3, BH + h * .72, z + d / 2 + .004, g);
+    }
     function buildBase(m, w) {
       var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
       box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
@@ -248,14 +284,17 @@
         case 'sinkBase': doors(g, W, y0, y1, W >= .55 ? 2 : 1); break;
         case 'ovenHobBase': drawers(g, W, y1 - .16, y1, [1]); ovenFront(g, W, y0 + .14, y1 - .16 + 0); front(g, W, y0, y0 + .14, mats.front, 0); handleH(g, 0, y0 + .1, W * .5); break;
         case 'hobBase': drawers(g, W, y0, y1, [1, 1, 1.6]); break;
-        case 'dishwasher': front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
-        case 'washingMachine': porthole(g, W, y0, y1); break;
+        case 'dishwasher': if (m.free) break; front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
+        case 'washingMachine': if (m.free) break; porthole(g, W, y0, y1); break;
         case 'basket': drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
         case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
         default: if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
       }
       if (m.type === 'ovenHobBase' || m.type === 'hobBase') hobPlate(g, W);
       if (m.type === 'sinkBase') sinkTop(g, W);
+      if (m.free && m.type === 'dishwasher') { g.remove.apply(g, g.children.slice(0, 2)); freeDishwasher(g, W); }
+      if (m.free && m.type === 'washingMachine') { g.remove.apply(g, g.children.slice(0, 2)); freeWasher(g, W); }
+      if (m.host) { var two = m.host.length > 1; if (m.host.indexOf('micro') >= 0) standMicro(g, two ? -W * .22 : 0); if (m.host.indexOf('coffee') >= 0) standCoffee(g, two ? W * .26 : 0); }
       return g;
     }
     function buildTall(m, w) {
@@ -337,9 +376,16 @@
       var ordered = applyOrder(plan, dirty ? order : null); order = ordered.map(function (m) { return m.id; });
       ordered.forEach(function (m, i) { m.idx = i; });
       var pos = position(plan, ordered); items = pos.items;
+      items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
+      var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
+      if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'edgeFront'; });
+      if (gb.length) {
+        if (inp.microFree) gb[0].host = ['micro'];
+        if (inp.coffeeFree) { var cg = gb[gb.length - 1]; cg.host = (cg.host || []).concat('coffee'); }
+      }
       var runs = [], cur = null;
       items.forEach(function (m) {
-        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? tone(inp.cLower, m.idx % 2 ? -.045 : 0) : (m.idx % 2 ? mats.frontB : mats.frontA); mats.upper = mats.deep = hasU ? tone(inp.cUpper, m.idx % 2 ? -.045 : 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? tone(inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? tone(inp.cUpper, 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
         g.position.x = cx; g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
@@ -457,6 +503,7 @@
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
     function fail() { failed = true; host.hidden = true; stage.classList.remove('prava-3d-on'); }
 
+    page.addEventListener('change', function () { soon(); }, true); page.addEventListener('input', function () { soon(); }, true);
     var raf = 0; function soon() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; sync(false); }); }
     Promise.resolve(root.THREE || load(THREE_URL)).then(function () { return root.THREE.OrbitControls || load(ORBIT_URL); }).then(function () {
       setup();
