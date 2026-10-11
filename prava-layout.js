@@ -133,6 +133,7 @@
       function n(sel) { var el = row.querySelector(sel + ' .picker-value-text') || row.querySelector(sel + ' .picker-value'); return parseInt((el && el.textContent) || '0', 10) || 0; }
       return (n('.meters-control') * 100 + n('.centimeters-control')) * 10;
     }
+    function chk(name) { var e = q('input[name="' + name + '"]'); return !!(e && e.checked); }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
     /* ---------------- material colours (steps 3-6) */
     var catalog = null, colCache = {}, toneCache = {};
@@ -178,6 +179,7 @@
         microwave: /built_in/.test(fieldVal('microwave_type')), coffee: /built_in/.test(fieldVal('coffee_machine_type')),
         dishFree: /^free/.test(fieldVal('dishwasher_type')), washFree: fieldVal('washing_machine_type') === 'free_standing',
         microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
+        x: { handleless: chk('handleless'), drawers: chk('more_drawers'), glass: chk('glass_display'), lift: chk('lift_mechanisms'), panel: chk('panel_doors'), light: chk('counter_lighting'), bottle: chk('bottle_rack') },
         showCabinets: step >= 2,
         cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
@@ -189,6 +191,7 @@
       mats = { front: M(0xf4f0e6, .5), frontA: M(0xf4f0e6, .5), frontB: M(0xd9cfba, .5), frontAlt: M(0xcfc6b2, .55), carcass: M(0xb9b3a6, .8), plinth: M(0x2f3133, .8), top: M(0xa5875c, .5), steel: M(0xbfc4c8, .35, .7),
         glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
         upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
+      mats.glassFront = new T.MeshStandardMaterial({ color: 0xcfe3e6, roughness: .1, metalness: .1, transparent: true, opacity: .32 }); mats.glow = new T.MeshBasicMaterial({ color: 0xffe8b0 }); mats.led = new T.MeshBasicMaterial({ color: 0xfff1c2 });
       mats.topDefault = mats.top; mats.islandDefault = mats.island;
     }
     var edgeMat = null;
@@ -207,9 +210,14 @@
 
     /* ---------------- fronts */
     var TALLH = 2.4, D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
-    function handleH(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
-    function handleV(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
-    function front(g, w, y0, y1, mat, x) { var h = y1 - y0 - G; box(w - G, h, FT, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT / 2, g); return h; }
+    var X = {};   /* extras chosen in step 8: handleless, drawers, glass, lift, panel, light, bottle */
+    function handleH(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
+    function handleV(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
+    function front(g, w, y0, y1, mat, x) {
+      var h = y1 - y0 - G; box(w - G, h, FT, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT / 2, g);
+      if (X.panel && (!mat || mat === mats.front) && h > .3 && w > .25) box(w - G - .12, h - .12, .008, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT + .004, g);   // shaker panel
+      return h;
+    }
     function doors(g, w, y0, y1, n) {
       var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, dw * .55)); }
     }
@@ -302,9 +310,9 @@
         case 'hobBase': drawers(g, W, y0, y1, [1, 1, 1.6]); break;
         case 'dishwasher': if (m.free) break; front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
         case 'washingMachine': if (m.free) break; porthole(g, W, y0, y1); break;
-        case 'basket': drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
+        case 'basket': if (X.bottle) { front(g, W, y0, y1, mats.front, 0); for (var bi = -2; bi <= 2; bi++) box(.008, y1 - y0 - .16, .01, mats.steel, bi * Math.min(.02, W / 7), (y0 + y1) / 2, D + FT + .006, g); handleH(g, 0, y1 - .05, W * .5); } else drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
         case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
-        default: if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
+        default: if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1.5]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
       }
       if (m.type === 'ovenHobBase' || m.type === 'hobBase') hobPlate(g, W);
       if (m.type === 'sinkBase') sinkTop(g, W);
@@ -341,10 +349,21 @@
     }
     /* top edge of the upper run (and of the deep row, when chosen) is flush with the tall columns */
     function upperSpec(deep) { return deep ? { ub: 1.45, uh: TALLH - .33 - 1.45, db: TALLH - .33, dh: .33 } : { ub: 1.55, uh: TALLH - 1.55 }; }
-    function buildUpper(w, bottom, h, depth, mat) {
-      var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
-      var n = w >= .7 ? 2 : 1, dw = w / n;
-      for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); box(dw - G, h - G, FT, mat, cx, bottom + h / 2, depth + FT / 2, g); box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g); }
+    function buildUpper(w, bottom, h, depth, mat, opt) {
+      opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
+      var n = (X.lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
+      if (opt.glass) {                                                                                  // lit display cabinet: warm interior + shelves
+        box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
+        [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
+      }
+      for (var i = 0; i < n; i++) {
+        var cx = -w / 2 + dw * (i + .5);
+        if (opt.glass) { box(dw - G, h - G, .008, fm, cx, bottom + h / 2, depth + .004, g); box(dw - G, .03, FT, mats.steel, cx, bottom + h - .015, depth + FT / 2, g); box(dw - G, .03, FT, mats.steel, cx, bottom + .015, depth + FT / 2, g); }
+        else { box(dw - G, h - G, FT, fm, cx, bottom + h / 2, depth + FT / 2, g); if (X.panel && h > .3 && dw > .25) box(dw - G - .1, h - .1, .008, fm, cx, bottom + h / 2, depth + FT + .004, g); }
+        if (!X.handleless) box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);
+      }
+      if (X.lift) [-1, 1].forEach(function (sd) { box(.012, h * .55, .012, mats.steel, sd * (w / 2 - .02), bottom + h * .55, depth + .01, g); });   // lift arms
+      if (X.light && !opt.deep) box(w - .04, .012, .03, mats.led, 0, bottom - .006, depth - .05, g);       // LED strip under uppers
       return g;
     }
 
@@ -354,6 +373,7 @@
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, Dp = 3.4;
       mats.top = inp.cTop !== null && inp.cTop !== undefined ? tone(inp.cTop, 0, .45) : mats.topDefault;
       mats.island = inp.cLower !== null && inp.cLower !== undefined ? tone(inp.cLower, -.03) : mats.islandDefault;
+      if (inp.showCabinets && inp.x && inp.x.light) { var gw = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), new T.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .22 })); gw.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .006); roomGroup.add(gw); }
       if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bs = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), tone(inp.cBack, 0, .4)); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
@@ -385,13 +405,14 @@
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
-      meshById = {}; msg.hidden = true; items = [];
+      meshById = {}; msg.hidden = true; items = []; X = inp.x || {};
       if (!inp.showCabinets) return;
-      plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee });
+      plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
       var ordered = applyOrder(plan, dirty ? order : null); order = ordered.map(function (m) { return m.id; });
       ordered.forEach(function (m, i) { m.idx = i; });
       var pos = position(plan, ordered); items = pos.items;
+      var upList = items.filter(function (m) { return !TALL[m.type]; }), glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)].id : null;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
       var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
       if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'edgeFront'; });
@@ -406,8 +427,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper); up.position.x = cx; up.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep); dp.position.x = cx; dp.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = cx; up.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = cx; dp.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
