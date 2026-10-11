@@ -151,11 +151,14 @@
     /* ---------------- materials / helpers */
     function setupMats() {
       var M = function (c, r, m) { return new T.MeshStandardMaterial({ color: c, roughness: r === undefined ? .6 : r, metalness: m || 0 }); };
-      mats = { front: M(0xf2f0ea, .5), frontAlt: M(0xe7e4dc, .55), carcass: M(0xdcd9d1, .8), plinth: M(0x2f3133, .8), top: M(0xc9ae86, .55), steel: M(0xbfc4c8, .35, .7),
-        glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xf6f5f1, 1), floor: M(0xdad8d2, .95), side: M(0xeceae4, 1),
-        upper: M(0xf2f0ea, .5), deep: M(0xe9e6de, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
+      mats = { front: M(0xf4f0e6, .5), frontA: M(0xf4f0e6, .5), frontB: M(0xd9cfba, .5), frontAlt: M(0xcfc6b2, .55), carcass: M(0xb9b3a6, .8), plinth: M(0x2f3133, .8), top: M(0xa5875c, .5), steel: M(0xbfc4c8, .35, .7),
+        glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
+        upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
     }
-    function box(w, h, d, mat, x, y, z, parent) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m); return m; }
+    var edgeMat = new T.LineBasicMaterial({ color: 0x3c3f3b, transparent: true, opacity: .75 });
+    function box(w, h, d, mat, x, y, z, parent) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
+      if (parent && Math.max(w, h, d) > .07 && Math.min(w, h, d) > .012 && mat !== mats.glass && mat !== mats.hob) { var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeMat); ed.raycast = function () {}; m.add(ed); }
+      return m; }
     function label(text, size, color, bg) {
       var c = document.createElement('canvas'), g = c.getContext('2d'), fs = 44; g.font = '600 ' + fs + 'px sans-serif';
       var w = Math.ceil(g.measureText(text).width) + 28; c.width = w; c.height = fs + 22;
@@ -297,7 +300,7 @@
       var pos = position(plan, ordered); items = pos.items;
       var runs = [], cur = null;
       items.forEach(function (m) {
-        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000, g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; mats.front = m.idx % 2 ? mats.frontB : mats.frontA; mats.upper = mats.front; mats.deep = mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
         g.position.x = cx; g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
