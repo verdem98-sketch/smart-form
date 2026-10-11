@@ -329,8 +329,10 @@
     var home = { pos: null, target: null };
     function fit(inp) {
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000;
-      var dist = Math.max(L * 0.95, 3.2) + 1.8;
-      home.target = new T.Vector3(L / 2, Math.min(H * .38, 1.0), .5); home.pos = new T.Vector3(L / 2 + L * .18, Math.max(1.8, H * .75), .5 + dist);
+      var el = renderer && renderer.domElement, asp = el && el.clientHeight ? el.clientWidth / el.clientHeight : 1.3; asp = Math.max(.6, Math.min(2.5, asp));
+      var tv = Math.tan(21 * Math.PI / 180), th = tv * asp;
+      var dist = Math.max((L / 2 * 1.2) / th, (H / 2 * 1.25) / tv, 3.2) + .9;
+      home.target = new T.Vector3(L / 2, Math.min(H * .42, 1.1), .3); home.pos = new T.Vector3(L / 2 + L * .1, Math.max(1.7, H * .62), .3 + dist);
       camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
     }
     function sync(force) {
