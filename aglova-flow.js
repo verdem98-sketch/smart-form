@@ -35,7 +35,22 @@
     page.querySelectorAll('.aglova-workspace').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     page.querySelectorAll('.aglova-right').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     const resetBtn = page.querySelector('.nav-reset');
-    const questions = [...comboWrap.querySelectorAll('[data-field]')].filter(q => q.querySelector('.option-pill') && !q.classList.contains('question-deep-cabinets'));
+    // Deep upper row: a step-1 question in Prava ("Дълбок горен ред" НЕ/ДА). Aglova's template only has an empty placeholder,
+    // so build the question here; the answer drives the hidden "deep_cabinets" extras checkbox the AI payload and summary already read.
+    const deepQ = comboWrap.querySelector('.question-deep-cabinets');
+    const deepBox = page.querySelector('label[data-field="deep_cabinets"] input[type="checkbox"]');
+    if (deepQ && deepBox && !deepQ.querySelector('.option-pill')) {
+      deepQ.innerHTML = '<div class="question-title water-question-spacing"><div>Искате ли дълбок горен ред?</div></div>' +
+        '<div class="options-row"><a data-value="no" href="#" class="option-pill deep-cabinets-no w-button">НЕ</a><a data-value="yes" href="#" class="option-pill deep-cabinets-yes w-button">ДА</a></div>';
+      deepQ.addEventListener('click', e => {
+        const pill = e.target.closest('.option-pill'); if (!pill) return;
+        e.preventDefault();
+        deepQ.querySelectorAll('.option-pill').forEach(p => { const on = p === pill; p.classList.toggle('active', on); p.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+        deepBox.checked = pill.dataset.value === 'yes';
+        deepBox.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+    const questions = [...comboWrap.querySelectorAll('[data-field]')].filter(q => q.querySelector('.option-pill'));
     // header / progress
     const progress = document.createElement('div'); progress.className = 'ag-global-progress';
     progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-valuemin', '0'); progress.setAttribute('aria-valuemax', String(N));
@@ -142,7 +157,7 @@
     }, 0)));
     function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; render(scroll); }
     page.addEventListener('click', e => {
-      if (e.target.closest('.ag-config-reset')) { if (resetBtn) resetBtn.click(); setTimeout(unhideQuestions, 0); return; }
+      if (e.target.closest('.ag-config-reset')) { if (deepQ) { deepQ.querySelectorAll('.option-pill').forEach(p => { p.classList.remove('active'); p.setAttribute('aria-pressed', 'false'); }); if (deepBox) deepBox.checked = false; } if (resetBtn) resetBtn.click(); setTimeout(unhideQuestions, 0); return; }
       const c = e.target.closest('[data-ag-nav]'); if (!c) { if (step === 1) setTimeout(unhideQuestions, 0); return; }
       e.preventDefault();
       if (c.dataset.agNav === 'next') {
