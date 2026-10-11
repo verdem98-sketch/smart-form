@@ -204,7 +204,7 @@
     function fmt(mm) { return (mm % 10 === 0 ? mm / 10 : (mm / 10).toFixed(1)) + ' см'; }
 
     /* ---------------- fronts */
-    var D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
+    var TALLH = 2.4, D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
     function handleH(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
     function handleV(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
     function front(g, w, y0, y1, mat, x) { var h = y1 - y0 - G; box(w - G, h, FT, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT / 2, g); return h; }
@@ -259,7 +259,7 @@
       return g;
     }
     function buildTall(m, w) {
-      var g = new T.Group(), H = 2.4, W = w;
+      var g = new T.Group(), H = TALLH, W = w;
       if (m.type === 'fridge') {
         if (m.applianceType === 'free_standing') {
           box(W - .01, 1.9, D + .02, mats.steel, 0, .95, (D + .02) / 2, g);
@@ -284,6 +284,8 @@
       }
       return g;
     }
+    /* top edge of the upper run (and of the deep row, when chosen) is flush with the tall columns */
+    function upperSpec(deep) { return deep ? { ub: 1.45, uh: TALLH - .33 - 1.45, db: TALLH - .33, dh: .33 } : { ub: 1.55, uh: TALLH - 1.55 }; }
     function buildUpper(w, bottom, h, depth, mat) {
       var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
       var n = w >= .7 ? 2 : 1, dw = w / n;
@@ -297,7 +299,7 @@
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, Dp = 3.4;
       mats.top = inp.cTop !== null && inp.cTop !== undefined ? tone(inp.cTop, 0, .45) : mats.topDefault;
       mats.island = inp.cLower !== null && inp.cLower !== undefined ? tone(inp.cLower, -.03) : mats.islandDefault;
-      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bs = new T.Mesh(new T.PlaneGeometry(L, 1.45 - BH), tone(inp.cBack, 0, .4)); bs.position.set(L / 2, (1.45 + BH) / 2, .004); roomGroup.add(bs); }
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bs = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), tone(inp.cBack, 0, .4)); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
       for (x = 0; x <= L + 1e-6; x += .5) { pts.push(x, 0, 0, x, 0, Dp); }
@@ -342,8 +344,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var up = buildUpper(w, 1.45, .72, .35, mats.upper); up.position.x = cx; up.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dp = buildUpper(w, 2.17, .33, D, mats.deep); dp.position.x = cx; dp.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper); up.position.x = cx; up.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep); dp.position.x = cx; dp.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
