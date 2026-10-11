@@ -187,9 +187,9 @@
     }
     function missingStep(missing) {
       var first = (missing && missing[0]) || '';
-      if (/стена|височина/.test(first)) return 1;                                                     // step 1: wall sizes + height
-      if (['комин', 'позиция на водата', 'фурна', 'хладилник', 'бар или остров'].indexOf(first) > -1) return 2;   // step 2: configuration
-      if (/дължина|размер . на комина|ширина/.test(first) && first !== 'визия за плот') return 2;               // chimney / bar / island sizes sit in step 2
+      if (/стена|височина|комина/.test(first) || first === 'комин') return 1;                                                     // step 1: wall sizes, height, chimney (+ its sizes)
+      if (['позиция на водата', 'фурна', 'хладилник', 'бар или остров'].indexOf(first) > -1) return 2;   // step 2: configuration
+      if (/дължина|ширина/.test(first) && first !== 'визия за плот') return 2;               // bar / island sizes sit in step 2
       var m = { 'визия за горен ред': 3, 'визия за долен ред': 4, 'визия за плот': 5, 'визия за гръб': 6, 'размер на миялната 45/60 см': 7 };
       return m[first] || 1;
     }
@@ -399,7 +399,7 @@
       }
       function render() {
         var c = collect().configuration, mode = barMode(c.bar), html = '';
-        html += row('Комин', pill('chimney_exists'), 2, 'field:chimney_exists');
+        html += row('Комин', pill('chimney_exists'), 1, 'field:chimney_exists');
         html += row('Вода', pill('water_position_aglova'), 2, 'field:water_position_aglova');
         html += row('Фурна', pill('oven_tall_unit_aglova'), 2, 'field:oven_tall_unit_aglova');
         html += row('Хладилник', pill('fridge_type_aglova'), 2, 'field:fridge_type_aglova');
@@ -407,7 +407,7 @@
         html += row('Стена 1', dim('stena1_len_aglova'), 1, 'dim:stena1_len_aglova');
         html += row('Стена 2', dim('stena2_len_aglova'), 1, 'dim:stena2_len_aglova');
         html += row('Височина', dim('visochina_aglova'), 1, 'dim:visochina_aglova');
-        if (yes(c.chimney)) { html += row('Комин A', dim('chimney_a_aglova'), 2, 'dim:chimney_a_aglova'); html += row('Комин B', dim('chimney_b_aglova'), 2, 'dim:chimney_b_aglova'); }
+        if (yes(c.chimney)) { html += row('Комин A', dim('chimney_a_aglova'), 1, 'dim:chimney_a_aglova'); html += row('Комин B', dim('chimney_b_aglova'), 1, 'dim:chimney_b_aglova'); }
         if (mode === 'wall1' || mode === 'wall2') { html += row('Бар дължина', dim('bar_len_aglova'), 2, 'dim:bar_len_aglova'); html += row('Бар ширина', dim('bar_width_aglova'), 2, 'dim:bar_width_aglova'); }
         if (mode === 'island') { html += row('Остров дължина', dim('island_len_aglova'), 2, 'dim:island_len_aglova'); html += row('Остров ширина', dim('island_width_aglova'), 2, 'dim:island_width_aglova'); }
         html += '<div class="ag-summary-materials"><div class="ag-summary-block-title">Материали</div><div class="ag-summary-materials-grid">' +
