@@ -192,7 +192,16 @@
     let busy = false;
     const keepVisible = () => { if ((step !== 1 && step !== 2) || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); };
     new MutationObserver(keepVisible).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
-    if (chimQ) new MutationObserver(keepVisible).observe(chimQ, { attributes: true, attributeFilter: ['style', 'hidden', 'class'] });
+    // the legacy engine show()/hide()s these two wrappers when a question is answered; the flow owns phase visibility
+    let fixing = false;
+    const keepPhase = () => {
+      if (fixing) return;
+      fixing = true;
+      [dimWrap, comboWrap].forEach(n => { const on = phases.indexOf(n) === step - 1; if (n.hidden === on || n.inert === on || (on && n.style.display !== 'block') || (!on && n.style.display)) show(n, on); });
+      setTimeout(() => { fixing = false; }, 0);
+    };
+    [dimWrap, comboWrap].forEach(n => new MutationObserver(keepPhase).observe(n, { attributes: true, attributeFilter: ['style', 'hidden'] }));
+    if (chimQ) new MutationObserver(keepVisible).observe(chimQ,{ attributes: true, attributeFilter: ['style', 'hidden', 'class'] });
     render(false);
 
     // Sketch stays in its own slot with CSS position:sticky (see aglova-flow.css). The JS fixed pin from Prava
