@@ -24,10 +24,13 @@
       scene.add(new T.HemisphereLight(0xffffff,0x9a9d98,0.9));
       var d=new T.DirectionalLight(0xffffff,0.7);d.position.set(3,6,2);scene.add(d);
       group=new T.Group();scene.add(group);
-      var target=new T.Vector3(-0.2,1.1,-4.0);
-      camera.position.set(2.0,1.7,-1.0);
+      var target=new T.Vector3(-0.8,1.1,-4.1);
+      camera.position.set(2.4,1.7,-1.4);
+      var floor=new T.Mesh(new T.PlaneGeometry(6,7),new T.MeshStandardMaterial({color:0xcfd2cc,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.set(1.0,-0.002,-4.1);scene.add(floor);
+      var wall=new T.Mesh(new T.PlaneGeometry(7,2.7),new T.MeshStandardMaterial({color:0xf3f3f0,roughness:1,side:T.DoubleSide}));wall.rotation.y=Math.PI/2;wall.position.set(-1.17,1.35,-4.1);scene.add(wall);
+      var grid=new T.GridHelper(6,12,0xb5b9b2,0xc4c8c1);grid.position.set(1.0,0,-4.1);scene.add(grid);
       controls=new T.OrbitControls(camera,renderer.domElement);
-      controls.target.copy(target);controls.enablePan=false;controls.enableDamping=true;controls.minDistance=1.2;controls.maxDistance=7;controls.maxPolarAngle=Math.PI*0.52;controls.update();
+      controls.target.copy(target);controls.enablePan=false;controls.enableDamping=true;controls.minDistance=1.5;controls.maxDistance=8;controls.maxPolarAngle=Math.PI*0.52;controls.update();
       loader=new T.GLTFLoader();
       mats={room:new T.MeshStandardMaterial({color:0xd9dbd6,flatShading:true,side:T.DoubleSide,roughness:1}),
         kitchen:new T.MeshStandardMaterial({color:0xf4f4f1,flatShading:true,side:T.DoubleSide,roughness:.8}),
@@ -60,7 +63,7 @@
       var show=card.dataset.previewState==='planner';
       host.hidden=!show;stage.classList.toggle('prava-3d-on',show);
       if(key===current||!show)return;current=key;resize();
-      var list=[model('empty-room','room')];
+      var list=[];
       if(w.kitchen)list.push(model(w.kitchen,'kitchen'));
       if(w.deep)list.push(model('top-row','deep'));
       if(w.island)list.push(model('island','island'));
@@ -76,7 +79,7 @@
       new MutationObserver(soon).observe(stage,{subtree:true,attributes:true,attributeFilter:['class','style']});
       new MutationObserver(soon).observe(card,{attributes:true,attributeFilter:['data-preview-state']});
       page.addEventListener('click',function(){setTimeout(soon,120);});
-      window.pravaViewer3d={refresh:soon};soon();
+      window.pravaViewer3d={refresh:soon,debug:function(){return{scene:scene,camera:camera,group:group};}};soon();
     }).catch(fail);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
