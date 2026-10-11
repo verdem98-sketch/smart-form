@@ -15,12 +15,20 @@
     // Step 9: AI visualization card (aglova-ai.js adds the summary, states and corrections). Same copy as Prava.
     const aiPhase = document.createElement('section'); aiPhase.className = 'ag-ai-phase';
     aiPhase.innerHTML = '<div id="aglova-ai-card-v1"><h3>Виж кухнята си като реална визия</h3><p>Ще създадем една ориентировъчна реалистична визуализация на база избраната конфигурация, размери, материали, уреди и екстри.</p><button id="aglova-ai-generate-button" type="button">Генерирай AI визуализация</button></div>';
-    const phases = [comboWrap, dimWrap, ...vision, cards[0], cards[1], aiPhase, finalPhase];
+    // Order like Prava: step 1 = wall sizes, step 2 = configuration (its choices add their own size rows: chimney, bar, island).
+    const phases = [dimWrap, comboWrap, ...vision, cards[0], cards[1], aiPhase, finalPhase];
     if (!right || phases.some(n => !n)) { console.warn('aglova-flow: phase contract incomplete'); return; }
     page.dataset.agFlow = '1';
-    const titles = ['Конфигурация', 'Размери', 'Горен ред', 'Долен ред', 'Плот', 'Гръб', 'Електроуреди', 'Допълнителни екстри', 'AI визуализация', 'Последна стъпка'];
+    const titles = ['Размери', 'Конфигурация', 'Горен ред', 'Долен ред', 'Плот', 'Гръб', 'Електроуреди', 'Допълнителни екстри', 'AI визуализация', 'Последна стъпка'];
     const N = titles.length;
     const LAST = N;
+    // The chimney / bar / island size rows belong to the configuration step now: they appear right under the question that asks for them.
+    {
+      const g = k => dimWrap.querySelector('.dimensions-group-' + k);
+      const qChim = comboWrap.querySelector('.question-chimney'), qBar = comboWrap.querySelector('.question-bar');
+      if (qChim && g('chimney')) qChim.after(g('chimney'));
+      if (qBar) { if (g('island')) qBar.after(g('island')); if (g('bar')) qBar.after(g('bar')); }
+    }
     // move every step into the right card
     phases.forEach((node, i) => {
       if (node !== finalPhase && node.parentNode !== right) right.append(node); // final stays in .aglova-workspace: the engine's final-only mode hides .aglova-left
@@ -86,13 +94,14 @@
     function show(node, on) { node.hidden = !on; node.inert = !on; if (on) { node.style.setProperty('display', 'block', 'important'); } else node.style.removeProperty('display'); }
     function unhideQuestions() { questions.forEach(q => { q.style.setProperty('display', 'block', 'important'); q.style.opacity = '1'; q.hidden = false; }); }
     const answered = q => !!q.querySelector('.option-pill.active,.option-pill.is-selected');
-    function dimsOk() {
-      const rows = [...dimWrap.querySelectorAll('.dimension-row')].filter(r => r.offsetParent !== null);
-      return rows.length > 0 && rows.every(r => r.classList.contains('is-touched'));
-    }
+    const touched = r => r.classList.contains('is-touched');
+    const dimRows = () => [...dimWrap.querySelectorAll('.dimension-row')].filter(r => r.offsetParent !== null);                 // step 1: wall sizes + height
+    const extraRows = () => [...comboWrap.querySelectorAll('.dimension-row')].filter(r => r.offsetParent !== null);            // step 2: only the rows the choices added
+    function dimsOk() { const rows = dimRows(); return rows.length > 0 && rows.every(touched); }
     function check() {
-      if (step === 1 && !questions.every(answered)) return 'Изберете вариант за всеки въпрос.';
-      if (step === 2 && !dimsOk()) return 'Въведете всички приложими размери.';
+      if (step === 1 && !dimsOk()) return 'Въведете всички приложими размери.';
+      if (step === 2 && !questions.every(answered)) return 'Изберете вариант за всеки въпрос.';
+      if (step === 2 && !extraRows().every(touched)) return 'Въведете всички приложими размери.';
       if (step >= 3 && step <= 6) {
         const f = vision[step - 3].querySelector('input[type="hidden"][name]');
         const has = vision[step - 3].querySelector('.vm-selected,.vision-card.is-selected,.vision-card.active') || (f && f.value);
@@ -102,15 +111,15 @@
     }
     function render(scroll) {
       phases.forEach((n, i) => show(n, i === step - 1));
-      if (step === 1) unhideQuestions();
-      page.dataset.agStep = String(step);
+      if (step === 2) unhideQuestions();
+      page.dataset.agStep = String(step); page.dataset.agFlowStep = String(step);   // agStep is also written by the legacy engine; agFlowStep is ours
       stickyOffset();
       heading.textContent = titles[step - 1];
       pTitle.textContent = titles[step - 1]; pCount.textContent = 'Стъпка ' + step + ' от ' + N;
       progress.setAttribute('aria-valuenow', String(step));
       segs.forEach((s, i) => { s.classList.toggle('is-done', i < step - 1); s.classList.toggle('is-active', i === step - 1); });
       clearValidation(); back.disabled = step === 1; next.hidden = step === LAST; error.hidden = true; error.textContent = '';
-      tools.hidden = step !== 1;
+      tools.hidden = step !== 2;
       page.dispatchEvent(new CustomEvent('ag:phase-changed', { detail: { step } }));
       if (scroll) {
         // The progress bar is sticky, so scrolling it into view does nothing once it is pinned. Put the top of the step
@@ -121,27 +130,30 @@
       }
     }
     // Per-item validation like Prava: hint under the unanswered question/row, outline, short shake, scroll to it.
-    const HINTS = { 1: 'Изберете вариант, за да продължим.', 2: 'Въведете размера, за да продължим.' };
-    const dimRows = () => [...dimWrap.querySelectorAll('.dimension-row')].filter(r => r.offsetParent !== null);
+    const isRow = n => n.classList.contains('dimension-row');
     questions.forEach((q, i) => {
       let hint = q.querySelector(':scope > .question-hint');
       if (!hint) { hint = document.createElement('p'); hint.className = 'question-hint'; q.append(hint); }
       hint.id = hint.id || 'ag-config-hint-' + i; hint.setAttribute('role', 'alert'); hint.hidden = true;
       q.tabIndex = -1; q.setAttribute('role', 'group');
     });
-    function itemsOf(s) { return s === 1 ? questions : s === 2 ? dimRows() : []; }
-    function itemDone(s, n) { return s === 1 ? answered(n) : n.classList.contains('is-touched'); }
+    function itemsOf(s) {
+      if (s === 1) return dimRows();
+      if (s !== 2) return [];
+      return [...questions, ...extraRows()].sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));   // page order
+    }
+    function itemDone(s, n) { return isRow(n) ? touched(n) : answered(n); }
     function clearItem(n) {
       n.classList.remove('ag-question-invalid', 'ag-question-shake'); n.removeAttribute('aria-invalid');
       const h = n.querySelector(':scope > .question-hint'); if (h) h.hidden = true;
       n.removeAttribute('aria-describedby');
     }
-    function clearValidation() { [...questions, ...dimWrap.querySelectorAll('.dimension-row')].forEach(clearItem); }
+    function clearValidation() { [...questions, ...page.querySelectorAll('.dimension-row')].forEach(clearItem); }
     function showMissing(n) {
       clearValidation(); error.hidden = true; error.textContent = '';
       let h = n.querySelector(':scope > .question-hint');
       if (!h) { h = document.createElement('p'); h.className = 'question-hint'; h.id = 'ag-hint-' + Math.random().toString(36).slice(2, 7); h.setAttribute('role', 'alert'); n.append(h); }
-      h.textContent = HINTS[step] || ''; h.hidden = false;
+      h.textContent = isRow(n) ? 'Въведете размера, за да продължим.' : 'Изберете вариант, за да продължим.'; h.hidden = false;
       n.classList.add('ag-question-invalid'); n.setAttribute('aria-invalid', 'true'); n.setAttribute('aria-describedby', h.id);
       void n.offsetWidth; n.classList.add('ag-question-shake');          // restart the animation if Next is pressed twice
       n.style.scrollMarginTop = 'calc(var(--ag-sticky-top,128px) + 12px)';
@@ -158,7 +170,7 @@
     function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; render(scroll); }
     page.addEventListener('click', e => {
       if (e.target.closest('.ag-config-reset')) { if (deepQ) { deepQ.querySelectorAll('.option-pill').forEach(p => { p.classList.remove('active'); p.setAttribute('aria-pressed', 'false'); }); if (deepBox) deepBox.checked = false; } if (resetBtn) resetBtn.click(); setTimeout(unhideQuestions, 0); return; }
-      const c = e.target.closest('[data-ag-nav]'); if (!c) { if (step === 1) setTimeout(unhideQuestions, 0); return; }
+      const c = e.target.closest('[data-ag-nav]'); if (!c) { if (step === 2) setTimeout(unhideQuestions, 0); return; }
       e.preventDefault();
       if (c.dataset.agNav === 'next') {
         const m = check();
@@ -172,9 +184,9 @@
       else if (step > 1) go(step - 1);
     });
     window.agGoToStep = go; window.agFlow = { getStep: () => step, validate: check };
-    // keep step 1 questions all visible when the engine re-hides them
+    // keep the step-2 questions all visible when the engine re-hides them
     let busy = false;
-    new MutationObserver(() => { if (step !== 1 || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); }).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
+    new MutationObserver(() => { if (step !== 2 || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); }).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
     render(false);
 
     // Sketch stays in its own slot with CSS position:sticky (see aglova-flow.css). The JS fixed pin from Prava

@@ -46,7 +46,7 @@
 .flow-aglova :is([data-ag-phase="1"],[data-ag-phase="2"]) .ag-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
 .flow-aglova :is([data-ag-phase="1"],[data-ag-phase="2"]) .ag-question-shake{animation:ag-config-shake .45s ease-in-out}
 @keyframes ag-config-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
-@media(max-width:991px){.flow-aglova[data-ag-step="1"] :is(#prava-sketch-heading,.ag-step-heading){font-size:21px}}
+@media(max-width:991px){.flow-aglova[data-ag-flow-step="2"] :is(#prava-sketch-heading,.ag-step-heading){font-size:21px}}
 .flow-aglova .ag-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
 .flow-aglova .ag-navigation button,.flow-aglova input[type="submit"]{min-height:44px;border-radius:8px;padding:12px 20px;border:1px solid #343834;background:#343834;color:white;font-size:14px;line-height:1.4;cursor:pointer}
 .flow-aglova .ag-navigation [data-ag-nav="back"]{background:transparent;color:var(--ag-ink);border-color:var(--ag-line)}
@@ -134,7 +134,7 @@
 .flow-aglova [data-ag-hide="1"]{display:none!important}
 .flow-aglova .ag-stepnode{opacity:1!important;transform:none!important;visibility:visible!important}
 .flow-aglova .ag-stepnode[hidden]{display:none!important}
-.flow-aglova[data-ag-step="1"] .combo-phase-wrap .question-wrap{min-height:0!important;height:auto!important;margin:0 0 24px!important}
+.flow-aglova[data-ag-flow-step="2"] .combo-phase-wrap .question-wrap{min-height:0!important;height:auto!important;margin:0 0 24px!important}
 @media(max-width:767px){.flow-aglova .aglova-left{grid-template-columns:1fr!important}.flow-aglova .sticky-cad-wrap{position:static}}
 /* Override legacy Aglova booking/question skins (inline !important blocks in page head) */
 html body .flow-aglova.flow-aglova .combo-phase-wrap .question-wrap[data-field]{background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important}

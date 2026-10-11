@@ -215,7 +215,7 @@
     function readInputs() {
       var fr = pill('fridge_type_aglova'), fridge = null;
       if (/свободно/i.test(fr)) fridge = 'free_standing'; else if (/вграден/i.test(fr)) fridge = 'built_in';
-      var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = Number(page.dataset.agStep || 1), bar = pill('bar_enabled_aglova'), barMode = /остров/i.test(bar) ? 'island' : /стена\s*1/i.test(bar) ? 'wall1' : /стена\s*2/i.test(bar) ? 'wall2' : 'none';
+      var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = (root.agFlow && root.agFlow.getStep && root.agFlow.getStep()) || Number(page.dataset.agFlowStep) || 1, bar = pill('bar_enabled_aglova'), barMode = /остров/i.test(bar) ? 'island' : /стена\s*1/i.test(bar) ? 'wall1' : /стена\s*2/i.test(bar) ? 'wall2' : 'none';
       var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova');
       return {
         wall1Mm: w1, wall2Mm: w2, heightMm: dimMm('visochina_aglova') || 2600,
@@ -691,7 +691,7 @@
     root.agLayout = root.agLayout || { refresh: function () {}, current: null };
     Promise.resolve(root.THREE || load(THREE_URL)).then(function () { return root.THREE.OrbitControls || load(ORBIT_URL); }).then(function () {
       setup();
-      new MutationObserver(soon).observe(page, { subtree: true, attributes: true, characterData: true, childList: true, attributeFilter: ['class', 'data-ag-step', 'data-preview-state', 'value'] });
+      new MutationObserver(soon).observe(page, { subtree: true, attributes: true, characterData: true, childList: true, attributeFilter: ['class', 'data-ag-flow-step', 'data-preview-state', 'value'] });
       page.addEventListener('click', function () { setTimeout(soon, 100); }); page.addEventListener('ag:phase-changed', function () { inputsSig = ''; soon(); }); page.addEventListener('ag:material-chosen', function () { inputsSig = ''; soon(); });
       root.agLayout = { refresh: soon, current: root.agLayout.current, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
