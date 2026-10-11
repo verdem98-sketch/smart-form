@@ -177,8 +177,8 @@
       if (envTex !== null) return envTex || null; envTex = false;
       try {
         var c = document.createElement('canvas'); c.width = 512; c.height = 256; var g = c.getContext('2d');
-        var gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#ffffff'); gr.addColorStop(.5, '#dfe3e6'); gr.addColorStop(1, '#8e9490'); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
-        g.fillStyle = '#ffffff'; g.fillRect(60, 40, 90, 70); g.fillRect(300, 30, 140, 60); g.fillStyle = '#6f7571'; g.fillRect(200, 130, 60, 80);
+        var gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#ffffff'); gr.addColorStop(.45, '#c9cfcc'); gr.addColorStop(.55, '#6d7370'); gr.addColorStop(1, '#2c302e'); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+        for (var sx = 0; sx < 512; sx += 64) { var sg = g.createLinearGradient(sx, 0, sx + 34, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(.5, 'rgba(255,255,255,1)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sg; g.fillRect(sx, 20, 34, 200); }   // window-like streaks: give gloss fronts visible reflections
         var tx = new T.CanvasTexture(c); tx.mapping = T.EquirectangularReflectionMapping;
         var pm = new T.PMREMGenerator(renderer); envTex = pm.fromEquirectangular(tx).texture; pm.dispose();
       } catch (e) { envTex = false; }
@@ -186,8 +186,8 @@
     }
     function mkMat(props, gloss) {
       if (!gloss) return new T.MeshStandardMaterial(props);
-      var p = {}; for (var k in props) p[k] = props[k]; p.roughness = .16; p.metalness = 0;
-      var m = new T.MeshPhysicalMaterial(p); m.clearcoat = 1; m.clearcoatRoughness = .06; var e = glossEnv(); if (e) { m.envMap = e; m.envMapIntensity = .85; } return m;
+      var p = {}; for (var k in props) p[k] = props[k]; p.roughness = .12; p.metalness = 0;
+      var m = new T.MeshPhysicalMaterial(p); m.clearcoat = 1; m.clearcoatRoughness = .06; var e = glossEnv(); if (e) { m.envMap = e; m.envMapIntensity = 1.1; } return m;
     }
     function scaleUV(geo, w, h, d, tile, off) {
       var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
