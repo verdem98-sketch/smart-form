@@ -155,9 +155,9 @@
         glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
         upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
     }
-    var edgeMat = new T.LineBasicMaterial({ color: 0x3c3f3b, transparent: true, opacity: .75 });
+    var edgeMat = null;
     function box(w, h, d, mat, x, y, z, parent) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
-      if (parent && Math.max(w, h, d) > .07 && Math.min(w, h, d) > .012 && mat !== mats.glass && mat !== mats.hob) { var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeMat); ed.raycast = function () {}; m.add(ed); }
+      if (parent && Math.max(w, h, d) > .07 && Math.min(w, h, d) > .012 && mat !== mats.glass && mat !== mats.hob) { if (!edgeMat) edgeMat = new T.LineBasicMaterial({ color: 0x3c3f3b, transparent: true, opacity: .75 }); var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeMat); ed.raycast = function () {}; m.add(ed); }
       return m; }
     function label(text, size, color, bg) {
       var c = document.createElement('canvas'), g = c.getContext('2d'), fs = 44; g.font = '600 ' + fs + 'px sans-serif';
