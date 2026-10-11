@@ -218,17 +218,33 @@
       heights.forEach(function (hh) { var h = (y1 - y0) * hh / tot; front(g, w, y - h, y, mats.front, 0); handleH(g, 0, y - 0.04, Math.min(w * .6, .3)); y -= h; });
     }
     function hobPlate(g, w) {
-      var pw = Math.min(w - .06, .58); box(pw, 0.006, .5, mats.hob, 0, BH + 0.003, .31, g);
+      var pw = Math.min(w - .06, .58), k = pw / .58;
+      box(pw, 0.008, .5, mats.hob, 0, BH + 0.004, .31, g);
+      box(pw + .012, 0.004, .512, mats.steel, 0, BH + 0.002, .31, g);                                  // steel frame
       var r = [[-.14, .2], [.14, .2], [-.14, .42], [.14, .42]], rad = [.075, .06, .055, .075];
-      r.forEach(function (p, i) { var ring = new T.Mesh(new T.RingGeometry(rad[i] * .78, rad[i], 28), mats.ring); ring.rotation.x = -Math.PI / 2; ring.position.set(p[0] * (pw / .58), BH + 0.0065, p[1] + .1); g.add(ring); });
+      r.forEach(function (p, i) {
+        var ring = new T.Mesh(new T.RingGeometry(rad[i] * .8, rad[i], 32), mats.ring); ring.rotation.x = -Math.PI / 2; ring.position.set(p[0] * k, BH + 0.0092, p[1] + .1); g.add(ring);
+        var dot = new T.Mesh(new T.CircleGeometry(rad[i] * .22, 20), mats.ring); dot.rotation.x = -Math.PI / 2; dot.position.set(p[0] * k, BH + 0.0092, p[1] + .1); g.add(dot);
+      });
+      box(pw * .5, 0.002, .022, mats.steel, 0, BH + 0.0092, .53, g);                                   // touch controls
     }
     function ovenFront(g, w, y0, y1) {
-      front(g, w, y0, y1, mats.front, 0); var h = y1 - y0;
-      box(w - .1, h - .13, 0.006, mats.glass, 0, (y0 + y1) / 2 - .02, D + FT + .003, g);
-      handleH(g, 0, y1 - .045, w - .14);
-      for (var i = 0; i < 3; i++) { var kn = new T.Mesh(new T.CylinderGeometry(.012, .012, .01, 16), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-.12 + i * .12, y1 - .02, D + FT + .005); g.add(kn); }
+      front(g, w, y0, y1, mats.steel, 0); var h = y1 - y0, z = D + FT;
+      box(w - .04, .075, .008, mats.hob, 0, y1 - .06, z + .004, g);                                    // control strip
+      box(.09, .026, .004, mats.glass, 0, y1 - .06, z + .009, g);                                      // display
+      for (var i = 0; i < 4; i++) { var kn = new T.Mesh(new T.CylinderGeometry(.014, .014, .014, 18), mats.sink); kn.rotation.x = Math.PI / 2; kn.position.set(i < 2 ? -w / 2 + .06 + i * .045 : w / 2 - .06 - (3 - i) * .045, y1 - .06, z + .015); g.add(kn); }
+      box(w - .09, h - .2, .008, mats.front, 0, (y0 + y1) / 2 - .06, z + .004, g);                     // glass frame
+      box(w - .13, h - .24, .006, mats.glass, 0, (y0 + y1) / 2 - .06, z + .01, g);                     // oven window
+      box(w - .16, .018, .026, mats.steel, 0, y1 - .125, z + .026, g);                                 // handle bar
     }
-    function microFront(g, w, y0, y1) { front(g, w, y0, y1, mats.steel, 0); box(w * .62, y1 - y0 - .1, .006, mats.glass, -w * .12, (y0 + y1) / 2, D + FT + .003, g); box(w * .18, y1 - y0 - .1, .006, mats.hob, w * .33, (y0 + y1) / 2, D + FT + .003, g); box(.012, (y1 - y0) * .6, .014, mats.sink, w * .17, (y0 + y1) / 2, D + FT + .008, g); }
+    function microFront(g, w, y0, y1) {
+      front(g, w, y0, y1, mats.steel, 0); var h = y1 - y0, cy = (y0 + y1) / 2, z = D + FT;
+      box(w * .64, h - .08, .008, mats.glass, -w * .12, cy, z + .004, g);
+      box(w * .2, h - .08, .008, mats.hob, w * .33, cy, z + .004, g);
+      box(w * .12, .03, .004, mats.ring, w * .33, cy + h * .22, z + .01, g);
+      var kn = new T.Mesh(new T.CylinderGeometry(.016, .016, .014, 18), mats.sink); kn.rotation.x = Math.PI / 2; kn.position.set(w * .33, cy - h * .12, z + .014); g.add(kn);
+      box(.012, h * .6, .016, mats.sink, w * .19, cy, z + .016, g);
+    }
     function sinkTop(g, w) {
       box(Math.min(w - .1, .5), .004, .4, mats.sink, 0, BH + 0.002, .3, g);
       var bowl = box(Math.min(w - .16, .42), .006, .3, mats.glass, 0, BH + 0.005, .3, g);
