@@ -42,9 +42,9 @@
 .flow-aglova [data-ag-phase="1"] .question-title>*{font:inherit;line-height:inherit;text-align:inherit}
 .flow-aglova [data-ag-phase="1"] .options-row{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:8px;width:100%;margin:0;padding:0}
 .flow-aglova [data-ag-phase="1"] .option-pill{min-height:44px;margin:0;padding:10px 14px;font:inherit;font-size:14px;line-height:1.4}
-.flow-aglova [data-ag-phase="1"] .question-hint{margin:8px 0 0;font:inherit;font-size:12px;line-height:1.5;color:#93472e}
-.flow-aglova [data-ag-phase="1"] .ag-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
-.flow-aglova [data-ag-phase="1"] .ag-question-shake{animation:ag-config-shake .45s ease-in-out}
+.flow-aglova :is([data-ag-phase="1"],[data-ag-phase="2"]) .question-hint{margin:8px 0 0;font:inherit;font-size:12px;line-height:1.5;color:#93472e}
+.flow-aglova :is([data-ag-phase="1"],[data-ag-phase="2"]) .ag-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
+.flow-aglova :is([data-ag-phase="1"],[data-ag-phase="2"]) .ag-question-shake{animation:ag-config-shake .45s ease-in-out}
 @keyframes ag-config-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 @media(max-width:991px){.flow-aglova[data-ag-step="1"] :is(#prava-sketch-heading,.ag-step-heading){font-size:21px}}
 .flow-aglova .ag-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
@@ -151,3 +151,5 @@ html body .flow-aglova.flow-aglova .booking-days .booking-slot.active{background
 .flow-aglova .prava-material-summary>div{position:relative;width:85px;height:85px;overflow:hidden;border:1px solid var(--ag-line);border-radius:8px;padding:0;background:var(--ag-bg);font-size:10px;line-height:1.25;overflow-wrap:anywhere;pointer-events:auto;box-shadow:none}
 .flow-aglova .prava-material-summary span{position:absolute;inset:auto 0 0;padding:4px;background:#333533e6;color:#fff;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 .flow-aglova .prava-material-summary img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+
+.flow-aglova .dimension-row>.question-hint{flex:1 1 100%;grid-column:1/-1;width:100%;order:99}

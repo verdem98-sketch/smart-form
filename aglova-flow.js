@@ -90,7 +90,7 @@
       pTitle.textContent = titles[step - 1]; pCount.textContent = 'Стъпка ' + step + ' от ' + N;
       progress.setAttribute('aria-valuenow', String(step));
       segs.forEach((s, i) => { s.classList.toggle('is-done', i < step - 1); s.classList.toggle('is-active', i === step - 1); });
-      back.disabled = step === 1; next.hidden = step === LAST; error.hidden = true; error.textContent = '';
+      clearValidation(); back.disabled = step === 1; next.hidden = step === LAST; error.hidden = true; error.textContent = '';
       tools.hidden = step !== 1;
       page.dispatchEvent(new CustomEvent('ag:phase-changed', { detail: { step } }));
       if (scroll) {
@@ -101,12 +101,55 @@
         window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - offset), behavior: 'auto' });
       }
     }
+    // Per-item validation like Prava: hint under the unanswered question/row, outline, short shake, scroll to it.
+    const HINTS = { 1: 'Изберете вариант, за да продължим.', 2: 'Въведете размера, за да продължим.' };
+    const dimRows = () => [...dimWrap.querySelectorAll('.dimension-row')].filter(r => r.offsetParent !== null);
+    questions.forEach((q, i) => {
+      let hint = q.querySelector(':scope > .question-hint');
+      if (!hint) { hint = document.createElement('p'); hint.className = 'question-hint'; q.append(hint); }
+      hint.id = hint.id || 'ag-config-hint-' + i; hint.setAttribute('role', 'alert'); hint.hidden = true;
+      q.tabIndex = -1; q.setAttribute('role', 'group');
+    });
+    function itemsOf(s) { return s === 1 ? questions : s === 2 ? dimRows() : []; }
+    function itemDone(s, n) { return s === 1 ? answered(n) : n.classList.contains('is-touched'); }
+    function clearItem(n) {
+      n.classList.remove('ag-question-invalid', 'ag-question-shake'); n.removeAttribute('aria-invalid');
+      const h = n.querySelector(':scope > .question-hint'); if (h) h.hidden = true;
+      n.removeAttribute('aria-describedby');
+    }
+    function clearValidation() { [...questions, ...dimWrap.querySelectorAll('.dimension-row')].forEach(clearItem); }
+    function showMissing(n) {
+      clearValidation(); error.hidden = true; error.textContent = '';
+      let h = n.querySelector(':scope > .question-hint');
+      if (!h) { h = document.createElement('p'); h.className = 'question-hint'; h.id = 'ag-hint-' + Math.random().toString(36).slice(2, 7); h.setAttribute('role', 'alert'); n.append(h); }
+      h.textContent = HINTS[step] || ''; h.hidden = false;
+      n.classList.add('ag-question-invalid'); n.setAttribute('aria-invalid', 'true'); n.setAttribute('aria-describedby', h.id);
+      void n.offsetWidth; n.classList.add('ag-question-shake');          // restart the animation if Next is pressed twice
+      n.style.scrollMarginTop = 'calc(var(--ag-sticky-top,128px) + 12px)';
+      n.scrollIntoView({ behavior: 'auto', block: 'start' });
+      if (!n.hasAttribute('tabindex')) n.tabIndex = -1;
+      n.focus({ preventScroll: true });
+    }
+    page.addEventListener('animationend', e => { if (/config-shake$/.test(e.animationName)) e.target.classList.remove('ag-question-shake'); });
+    // answering clears that item's message
+    ['click', 'input', 'change'].forEach(ev => page.addEventListener(ev, () => setTimeout(() => {
+      if (step !== 1 && step !== 2) return;
+      itemsOf(step).forEach(n => { if (n.classList.contains('ag-question-invalid') && itemDone(step, n)) clearItem(n); });
+    }, 0)));
     function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; render(scroll); }
     page.addEventListener('click', e => {
       if (e.target.closest('.ag-config-reset')) { if (resetBtn) resetBtn.click(); setTimeout(unhideQuestions, 0); return; }
       const c = e.target.closest('[data-ag-nav]'); if (!c) { if (step === 1) setTimeout(unhideQuestions, 0); return; }
       e.preventDefault();
-      if (c.dataset.agNav === 'next') { const m = check(); if (m) { error.textContent = m; error.hidden = false; return; } go(step + 1); }
+      if (c.dataset.agNav === 'next') {
+        const m = check();
+        if (m) {
+          const missing = (step === 1 || step === 2) ? itemsOf(step).find(n => !itemDone(step, n)) : null;
+          if (missing) showMissing(missing); else { error.textContent = m; error.hidden = false; }
+          return;
+        }
+        go(step + 1);
+      }
       else if (step > 1) go(step - 1);
     });
     window.agGoToStep = go; window.agFlow = { getStep: () => step, validate: check };
