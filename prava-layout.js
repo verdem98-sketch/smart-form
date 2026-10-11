@@ -134,6 +134,38 @@
       return (n('.meters-control') * 100 + n('.centimeters-control')) * 10;
     }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
+    /* ---------------- material colours (steps 3-6) */
+    var catalog = null, colCache = {}, toneCache = {};
+    function catalogMap() {
+      if (catalog) return catalog; catalog = {};
+      page.querySelectorAll('script[data-prava-catalog]').forEach(function (s) {
+        try { var j = JSON.parse(s.textContent), w = s.closest('[data-field]'), f = w && w.dataset.field; if (!f) return; var m = catalog[f] = {}; j.items.forEach(function (r) { m[r[0]] = j.base ? j.base + encodeURIComponent(r[5]) : r[4]; }); } catch (e) { /* ignore */ }
+      });
+      return catalog;
+    }
+    function colourOf(field) {
+      var id = fieldVal(field); if (!id) return null;
+      var u = (catalogMap()[field] || {})[id]; if (!u) return null;
+      u = u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/');
+      if (colCache[u] !== undefined) return colCache[u];
+      colCache[u] = null;
+      var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = c.height = 8; var g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
+          var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
+          for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+          if (n) { colCache[u] = (r / n << 16) | (gg / n << 8) | (b / n); sync(true); }
+        } catch (e) { /* tainted canvas: keep default colour */ }
+      };
+      im.src = u; return null;
+    }
+    function tone(hex, shift, rough) {
+      var k = hex + '|' + shift + '|' + (rough || 0); if (toneCache[k]) return toneCache[k];
+      var col = new T.Color(hex); if (shift) col.offsetHSL(0, 0, shift);
+      return (toneCache[k] = new T.MeshStandardMaterial({ color: col, roughness: rough === undefined ? .5 : rough, metalness: 0 }));
+    }
+
     function readInputs() {
       var fr = pill('fridge_type'), fridge = null;
       if (/вграден/i.test(fr) && !/свободно/i.test(fr)) fridge = 'built_in'; else if (/свободно/i.test(fr)) fridge = 'free_standing';
@@ -144,7 +176,8 @@
         deep: pill('deep_cabinets') === 'yes', island: pill('island') === 'yes', islandLenMm: dimMm('island_len_3a'), islandWidthMm: dimMm('island_width_3a'),
         dishwasherMm: dw ? Number(dw[1]) * 10 : 0, washer: !!fieldVal('washing_machine_type'),
         microwave: /built_in/.test(fieldVal('microwave_type')), coffee: /built_in/.test(fieldVal('coffee_machine_type')),
-        showCabinets: step >= 2
+        showCabinets: step >= 2,
+        cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
     }
 
@@ -154,6 +187,7 @@
       mats = { front: M(0xf4f0e6, .5), frontA: M(0xf4f0e6, .5), frontB: M(0xd9cfba, .5), frontAlt: M(0xcfc6b2, .55), carcass: M(0xb9b3a6, .8), plinth: M(0x2f3133, .8), top: M(0xa5875c, .5), steel: M(0xbfc4c8, .35, .7),
         glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
         upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
+      mats.topDefault = mats.top; mats.islandDefault = mats.island;
     }
     var edgeMat = null;
     function box(w, h, d, mat, x, y, z, parent) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
@@ -261,6 +295,9 @@
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, Dp = 3.4;
+      mats.top = inp.cTop !== null && inp.cTop !== undefined ? tone(inp.cTop, 0, .45) : mats.topDefault;
+      mats.island = inp.cLower !== null && inp.cLower !== undefined ? tone(inp.cLower, -.03) : mats.islandDefault;
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bs = new T.Mesh(new T.PlaneGeometry(L, 1.45 - BH), tone(inp.cBack, 0, .4)); bs.position.set(L / 2, (1.45 + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
       for (x = 0; x <= L + 1e-6; x += .5) { pts.push(x, 0, 0, x, 0, Dp); }
@@ -300,7 +337,7 @@
       var pos = position(plan, ordered); items = pos.items;
       var runs = [], cur = null;
       items.forEach(function (m) {
-        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; mats.front = m.idx % 2 ? mats.frontB : mats.frontA; mats.upper = mats.front; mats.deep = mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? tone(inp.cLower, m.idx % 2 ? -.045 : 0) : (m.idx % 2 ? mats.frontB : mats.frontA); mats.upper = mats.deep = hasU ? tone(inp.cUpper, m.idx % 2 ? -.045 : 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
         g.position.x = cx; g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
