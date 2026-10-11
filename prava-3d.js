@@ -2,7 +2,7 @@
    Falls back to the original sketch images if three.js or a model fails to load. Step 9 AI image is untouched. */
 (function(){
   'use strict';
-  var BASE=(document.currentScript&&document.currentScript.dataset.base)||'https://cdn.jsdelivr.net/gh/verdem98-sketch/smart-form@main/prava-3d/';
+  var BASE=(document.currentScript&&document.currentScript.dataset.base)||'https://cdn.jsdelivr.net/gh/verdem98-sketch/smart-form@3012068bdcf24c4af55a4562ef7a0141cc02a84c/prava-3d/';
   var THREE_URL='https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js';
   var GLTF_URL='https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js';
   var ORBIT_URL='https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js';
