@@ -153,3 +153,5 @@ html body .flow-aglova.flow-aglova .booking-days .booking-slot.active{background
 .flow-aglova .prava-material-summary img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 .flow-aglova .dimension-row>.question-hint{flex:1 1 100%;grid-column:1/-1;width:100%;order:99}
+
+.flow-aglova .prava-appliance-select-row{display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,2fr);align-items:center;gap:12px;margin-bottom:18px}

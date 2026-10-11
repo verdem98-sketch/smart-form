@@ -280,6 +280,8 @@ try {
     const liftMechanisms = checkedByKey("lift_mechanisms");
     const counterLighting = checkedByKey("counter_lighting");
     const bottleRack = checkedByKey("bottle_rack");
+    const handleless = checkedByKey("handleless");
+    const panelDoors = checkedByKey("panel_doors");
 
     setAll("dishwasher", dishwasher);
     setAll("washing_machine", washing);
@@ -292,6 +294,8 @@ try {
     setAll("lift_mechanisms", liftMechanisms);
     setAll("counter_lighting", counterLighting);
     setAll("bottle_rack", bottleRack);
+    setAll("handleless", handleless);
+    setAll("panel_doors", panelDoors);
 
     const inspiration = selectedInspiration();
     const plan = planValue();
@@ -345,7 +349,9 @@ try {
           { label: "Повече чекмеджета", value: moreDrawers },
           { label: "Повдигащи механизми", value: liftMechanisms },
           { label: "Осветление на плот", value: counterLighting },
-          { label: "Бутилиера", value: bottleRack }
+          { label: "Бутилиера", value: bottleRack },
+          { label: "Без дръжки", value: handleless },
+          { label: "Таблени вратички", value: panelDoors }
         ]),
         line([
           { label: "Вдъхновение", value: inspiration },
@@ -775,6 +781,8 @@ try {
         "lift_mechanisms",
         "counter_lighting",
         "bottle_rack",
+        "handleless",
+        "panel_doors",
         "inspiration_card_aglova",
         "plan_aglova",
         "custom_date"
@@ -1180,6 +1188,8 @@ document.addEventListener("submit", function (e) {
     "lift_mechanisms",
     "counter_lighting",
     "bottle_rack",
+    "handleless",
+    "panel_doors",
     "inspiration_card_aglova",
     "inspiration_card_aglova_img",
     "plan_aglova",
