@@ -56,9 +56,9 @@
 .sf-page-prava [data-prava-phase="1"] .question-title>*{font:inherit;line-height:inherit;text-align:inherit}
 .sf-page-prava [data-prava-phase="1"] .options-row{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:8px;width:100%;margin:0;padding:0}
 .sf-page-prava [data-prava-phase="1"] .option-pill{min-height:44px;margin:0;padding:10px 14px;font:inherit;font-size:14px;line-height:1.4}
-.sf-page-prava [data-prava-phase="1"] .question-hint{margin:8px 0 0;font:inherit;font-size:12px;line-height:1.5;color:#93472e}
-.sf-page-prava [data-prava-phase="1"] .prava-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
-.sf-page-prava [data-prava-phase="1"] .prava-question-shake{animation:prava-config-shake .45s ease-in-out}
+.sf-page-prava :is([data-prava-phase="1"],[data-prava-phase="2"]) .question-hint{margin:8px 0 0;font:inherit;font-size:12px;line-height:1.5;color:#93472e}
+.sf-page-prava :is([data-prava-phase="1"],[data-prava-phase="2"]) .prava-question-invalid{outline:1px solid #bc7b65;outline-offset:7px;border-radius:6px}
+.sf-page-prava :is([data-prava-phase="1"],[data-prava-phase="2"]) .prava-question-shake{animation:prava-config-shake .45s ease-in-out}
 @keyframes prava-config-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 @media(max-width:991px){.sf-page-prava[data-prava-step="1"] :is(#prava-sketch-heading,.prava-step-heading){font-size:21px}}
 .sf-page-prava .prava-navigation{display:flex;justify-content:space-between;gap:16px;margin:24px 0 0}
@@ -147,3 +147,5 @@
 .sf-page-prava [data-prava-phase="3"] textarea,.sf-page-prava [data-prava-phase="4"] textarea,.sf-page-prava [data-prava-phase="5"] textarea,.sf-page-prava [data-prava-phase="6"] textarea{display:none!important}
 @media(max-width:991px){.sf-page-prava .prava-material-controls{flex-wrap:wrap}.sf-page-prava .prava-material-controls label{flex:1 1 calc(50% - 10px)}.sf-page-prava .material-gallery-grid,.sf-page-prava .worktop-gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:767px){.sf-page-prava .prava-material-controls label{flex:1 1 100%}.sf-page-prava .material-gallery-grid,.sf-page-prava .worktop-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.sf-page-prava .dimension-row>.question-hint{flex:1 1 100%;grid-column:1/-1;width:100%;order:99}
