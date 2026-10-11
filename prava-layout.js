@@ -136,7 +136,7 @@
     function chk(name) { var e = q('input[name="' + name + '"]'); return !!(e && e.checked); }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
     /* ---------------- material colours (steps 3-6) */
-    var catalog = null, colCache = {}, toneCache = {};
+    var catalog = null, colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0;
     function catalogMap() {
       if (catalog) return catalog; catalog = {};
       page.querySelectorAll('script[data-prava-catalog]').forEach(function (s) {
@@ -156,10 +156,24 @@
           var c = document.createElement('canvas'); c.width = c.height = 8; var g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
           var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
           for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+          if (im.naturalWidth >= 64 && im.naturalHeight >= 64) { var tx = new T.Texture(im); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.anisotropy = 4; tx.needsUpdate = true; texCache[u] = tx; }   // real decor image (solids are only 16x16 swatches: flat colour is exact)
           if (n) { colCache[u] = (r / n << 16) | (gg / n << 8) | (b / n); sync(true); }
         } catch (e) { /* tainted canvas: keep default colour */ }
       };
       im.src = u; return null;
+    }
+    function decorUrl(field) { var id = fieldVal(field); if (!id) return null; var u = (catalogMap()[field] || {})[id]; return u ? u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/') : null; }
+    /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
+    function fin(field, hex, shift, rough) {
+      var u = decorUrl(field), tx = u && texCache[u];
+      if (!tx) return tone(hex, shift, rough);
+      var k = u + '|' + (rough || 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      return texMat[k];
+    }
+    function scaleUV(geo, w, h, d, tile, off) {
+      var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (var f = 0; f < 6; f++) for (var i = 0; i < 4; i++) { var k = f * 4 + i; uv.setXY(k, uv.getX(k) * sp[f][0] / tile + off, uv.getY(k) * sp[f][1] / tile + off * .6); }
+      uv.needsUpdate = true;
     }
     function tone(hex, shift, rough) {
       var k = hex + '|' + shift + '|' + (rough || 0); if (toneCache[k]) return toneCache[k];
@@ -195,7 +209,7 @@
       mats.topDefault = mats.top; mats.islandDefault = mats.island;
     }
     var edgeMat = null;
-    function box(w, h, d, mat, x, y, z, parent) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
+    function box(w, h, d, mat, x, y, z, parent) { var bg = new T.BoxGeometry(w, h, d); if (mat.map && mat.userData.tile) scaleUV(bg, w, h, d, mat.userData.tile, ((texN++) * .37) % 1); var m = new T.Mesh(bg, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
       if (parent && Math.max(w, h, d) > .07 && (Math.min(w, h, d) > .012 || (mat !== mats.steel && Math.min(w, h) > .2 && d > .006)) && mat !== mats.glass && mat !== mats.hob) { if (!edgeMat) edgeMat = new T.LineBasicMaterial({ color: 0x3c3f3b, transparent: true, opacity: .75 }); var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeMat); ed.raycast = function () {}; m.add(ed); }
       return m; }
     function label(text, size, color, bg) {
@@ -379,10 +393,10 @@
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, Dp = 3.4;
-      mats.top = inp.cTop !== null && inp.cTop !== undefined ? tone(inp.cTop, 0, .45) : mats.topDefault;
-      mats.island = inp.cLower !== null && inp.cLower !== undefined ? tone(inp.cLower, -.03) : mats.islandDefault;
+      texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? fin('countertop_finish', inp.cTop, 0, .45) : mats.topDefault;
+      mats.island = inp.cLower !== null && inp.cLower !== undefined ? fin('lower_finish', inp.cLower, -.03) : mats.islandDefault;
       if (inp.showCabinets && inp.x && inp.x.light) { var gw = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), new T.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .22 })); gw.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .006); roomGroup.add(gw); }
-      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bs = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), tone(inp.cBack, 0, .4)); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bm = fin('backsplash_finish', inp.cBack, 0, .4), bgm = new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH); if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * L / .6, buv.getY(bi) * (upperSpec(inp.deep).ub - BH) / .6); } var bs = new T.Mesh(bgm, bm); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
       for (x = 0; x <= L + 1e-6; x += .5) { pts.push(x, 0, 0, x, 0, Dp); }
@@ -413,7 +427,7 @@
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
-      meshById = {}; msg.hidden = true; items = []; X = inp.x || {};
+      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0;
       if (!inp.showCabinets) return;
       plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
@@ -439,7 +453,7 @@
       }
       var runs = [], cur = null;
       items.forEach(function (m) {
-        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? tone(inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? tone(inp.cUpper, 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
         g.position.x = cx; g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
