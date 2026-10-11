@@ -93,7 +93,13 @@
       back.disabled = step === 1; next.hidden = step === LAST; error.hidden = true; error.textContent = '';
       tools.hidden = step !== 1;
       page.dispatchEvent(new CustomEvent('ag:phase-changed', { detail: { step } }));
-      if (scroll) progress.scrollIntoView({ behavior: 'auto', block: 'start' });
+      if (scroll) {
+        // The progress bar is sticky, so scrolling it into view does nothing once it is pinned. Put the top of the step
+        // (right card + sketch) just under it, so every new step starts at its top whatever the previous scroll was.
+        const target = step === LAST ? phases[LAST - 1] : (heading.closest('.aglova-left') || progress);
+        const offset = (parseFloat(getComputedStyle(page).getPropertyValue('--ag-sticky-top')) || 128);
+        window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - offset), behavior: 'auto' });
+      }
     }
     function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; render(scroll); }
     page.addEventListener('click', e => {
