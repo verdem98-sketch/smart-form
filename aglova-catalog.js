@@ -2,17 +2,24 @@
 (function () {
   'use strict';
   var selections = {};
+  // High-gloss decors (same list as Prava's prava-gloss.js): Kronospan Feelness High Gloss and EGGER PerfectSense Gloss. Cabinet decors only.
+  var GLOSS = {};
+  ['kronospan_0112', 'kronospan_0164', 'kronospan_0171', 'kronospan_0190', 'kronospan_0564', 'kronospan_5981', 'kronospan_6299', 'kronospan_7045', 'kronospan_7166', 'kronospan_8685',
+    'egger-perfectsense_u702', 'egger-perfectsense_u708', 'egger-perfectsense_u732', 'egger-perfectsense_u961', 'egger-perfectsense_u999', 'egger-perfectsense_w1000', 'egger-perfectsense_w1100']
+    .forEach(function (id) { GLOSS[id] = 1; });
+  window.agGloss = { has: function (id) { return !!GLOSS[String(id || '')]; } };
   window.agMaterialSelections = { get: function (field) { var r = selections[field]; return r ? Object.assign({}, r) : null; } };
   var script = document.currentScript;
   var base = script && script.src ? script.src.replace(/[^/]*$/, '') : '';
   var ROLES = {
-    upper: { file: 'cabinet', cabinet: true, filters: ['manufacturer', 'category', 'substrate'] },
-    lower: { file: 'cabinet', cabinet: true, filters: ['manufacturer', 'category', 'substrate'] },
+    upper: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
+    lower: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
     countertop: { file: 'countertop', cabinet: false, filters: ['family', 'manufacturer', 'category'] },
     backsplash: { file: 'backsplash', cabinet: false, filters: ['manufacturer', 'category'] }
   };
-  var LABELS = { manufacturer: 'Производител', category: 'Категория', substrate: 'Плоскост', family: 'Тип плот' };
+  var LABELS = { finish: 'Покритие', manufacturer: 'Производител', category: 'Категория', substrate: 'Плоскост', family: 'Тип плот' };
   var OPTIONS = {
+    finish: [['all', 'Всички'], ['gloss', 'Гланц']],
     manufacturer: [['all', 'Всички'], ['EGGER', 'EGGER'], ['Egger PerfectSense', 'PerfectSense'], ['Kronospan', 'Kronospan']],
     category: [['all', 'Всички'], ['wood', 'Дървесни'], ['metal', 'Метал'], ['stone', 'Камък'], ['structure', 'Структура'], ['solid', 'Едноцветни']],
     substrate: [['all', 'Всички'], ['pdc', 'ПДЧ'], ['mdf', 'МДФ']],
@@ -30,7 +37,7 @@
     var hidden = wrap.querySelector('input[name="' + field + '"]');
     var present = {};
     items.forEach(function (r) { present[r[cabinet ? 2 : 6]] = 1; });
-    var filters = { manufacturer: 'all', category: 'all', substrate: 'all', family: role === 'countertop' ? 'thermal' : 'all' };
+    var filters = { finish: 'all', manufacturer: 'all', category: 'all', substrate: 'all', family: role === 'countertop' ? 'thermal' : 'all' };
     var current = 1, query = '', chosenId = '';
 
     var gallery = el('div', 'material-gallery ag-material-gallery');
@@ -71,7 +78,7 @@
     function filtered() {
       return items.filter(function (row) {
         var cat = row[cabinet ? 2 : 6];
-        return (filters.manufacturer === 'all' || row[1] === filters.manufacturer) && (filters.category === 'all' || cat === filters.category) &&
+        return (filters.finish === 'all' || window.agGloss.has(row[0])) && (filters.manufacturer === 'all' || row[1] === filters.manufacturer) && (filters.category === 'all' || cat === filters.category) &&
           (filters.family === 'all' || row[7] === filters.family) &&
           (filters.substrate === 'all' || ((source.substrates || {})[filters.substrate] || []).indexOf(String(code(row)).toUpperCase()) >= 0) &&
           (!query || [row[1], code(row), name(row)].join(' ').toLocaleLowerCase('bg').indexOf(query) >= 0);
@@ -83,7 +90,7 @@
       b.classList.toggle('vm-selected', selected); b.setAttribute('aria-pressed', String(selected));
       var img = document.createElement('img'); img.loading = 'lazy'; img.src = src(row); img.alt = label(row);
       var copy = el('div', 'material-card-copy');
-      copy.append(el('strong', 'material-card-code', code(row)), el('span', 'vision-card-label', name(row)), el('small', 'material-card-brand', row[1]));
+      copy.append(el('strong', 'material-card-code', code(row)), el('span', 'vision-card-label', name(row)), el('small', 'material-card-brand', row[1] + (cabinet && window.agGloss.has(row[0]) ? ' · гланц' : '')));
       b.append(img, copy); return b;
     }
     function choose(row) {
@@ -95,7 +102,7 @@
         value: row[0], id: row[0], manufacturer: row[1] || null,
         decorCode: row[cabinet ? 3 : 2] || null, decorName: cabinet ? row[4] || null : null,
         displayName: cabinet ? row[4] || null : [row[2], row[3]].filter(Boolean).join(' · ') || null,
-        productCode: null, surface: null, finish: null, profile: null, thicknessMm: null,
+        productCode: null, surface: null, finish: cabinet && window.agGloss.has(row[0]) ? 'gloss' : null, profile: null, thicknessMm: null,
         surfaceCode: cabinet ? null : row[3] || null, category: row[cabinet ? 2 : 6] || null,
         family: role === 'countertop' ? row[7] || null : null,
         label: cabinet ? row[4] || null : [row[2], row[3]].filter(Boolean).join(' · ') || null,
