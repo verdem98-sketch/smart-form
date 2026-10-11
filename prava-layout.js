@@ -165,20 +165,39 @@
     function decorUrl(field) { var id = fieldVal(field); if (!id) return null; var u = (catalogMap()[field] || {})[id]; return u ? u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/') : null; }
     /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
     function fin(field, hex, shift, rough) {
-      var u = decorUrl(field), tx = u && texCache[u];
-      if (!tx) return tone(hex, shift, rough);
-      var k = u + '|' + (rough || 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      var u = decorUrl(field), tx = u && texCache[u], gl = glossy(field);
+      if (!tx) return tone(hex, shift, rough, gl);
+      var k = u + '|' + (rough || 0) + '|' + gl; if (!texMat[k]) { texMat[k] = mkMat({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }, gl); texMat[k].userData.tile = .6; }
       return texMat[k];
+    }
+    /* high-gloss decors (list from prava-gloss.js: Kronospan Feelness High Gloss, Egger PerfectSense Gloss) get a mirror-like lacquer look */
+    function glossy(field) { var g = root.pravaGloss; return !!(g && g.has && g.has(fieldVal(field))); }
+    var envTex = null;
+    function glossEnv() {
+      if (envTex !== null) return envTex || null; envTex = false;
+      try {
+        var c = document.createElement('canvas'); c.width = 512; c.height = 256; var g = c.getContext('2d');
+        var gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#ffffff'); gr.addColorStop(.5, '#dfe3e6'); gr.addColorStop(1, '#8e9490'); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+        g.fillStyle = '#ffffff'; g.fillRect(60, 40, 90, 70); g.fillRect(300, 30, 140, 60); g.fillStyle = '#6f7571'; g.fillRect(200, 130, 60, 80);
+        var tx = new T.CanvasTexture(c); tx.mapping = T.EquirectangularReflectionMapping;
+        var pm = new T.PMREMGenerator(renderer); envTex = pm.fromEquirectangular(tx).texture; pm.dispose();
+      } catch (e) { envTex = false; }
+      return envTex || null;
+    }
+    function mkMat(props, gloss) {
+      if (!gloss) return new T.MeshStandardMaterial(props);
+      var p = {}; for (var k in props) p[k] = props[k]; p.roughness = .16; p.metalness = 0;
+      var m = new T.MeshPhysicalMaterial(p); m.clearcoat = 1; m.clearcoatRoughness = .06; var e = glossEnv(); if (e) { m.envMap = e; m.envMapIntensity = .85; } return m;
     }
     function scaleUV(geo, w, h, d, tile, off) {
       var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
       for (var f = 0; f < 6; f++) for (var i = 0; i < 4; i++) { var k = f * 4 + i; uv.setXY(k, uv.getX(k) * sp[f][0] / tile + off, uv.getY(k) * sp[f][1] / tile + off * .6); }
       uv.needsUpdate = true;
     }
-    function tone(hex, shift, rough) {
-      var k = hex + '|' + shift + '|' + (rough || 0); if (toneCache[k]) return toneCache[k];
+    function tone(hex, shift, rough, gloss) {
+      var k = hex + '|' + shift + '|' + (rough || 0) + '|' + (gloss ? 1 : 0); if (toneCache[k]) return toneCache[k];
       var col = new T.Color(hex); if (shift) col.offsetHSL(0, 0, shift);
-      return (toneCache[k] = new T.MeshStandardMaterial({ color: col, roughness: rough === undefined ? .5 : rough, metalness: 0 }));
+      return (toneCache[k] = mkMat({ color: col, roughness: rough === undefined ? .5 : rough, metalness: 0 }, gloss));
     }
 
     function readInputs() {
