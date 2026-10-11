@@ -1,6 +1,8 @@
 /* Aglova material catalogue: same data, filters and paging as Prava (prava-material-gallery.js), rendered without Prava's DOM. */
 (function () {
   'use strict';
+  var selections = {};
+  window.agMaterialSelections = { get: function (field) { var r = selections[field]; return r ? Object.assign({}, r) : null; } };
   var script = document.currentScript;
   var base = script && script.src ? script.src.replace(/[^/]*$/, '') : '';
   var ROLES = {
@@ -88,6 +90,17 @@
       chosenId = row[0];
       keep.replaceChildren(card(row, true));
       if (hidden) { hidden.value = label(row); hidden.dispatchEvent(new Event('input', { bubbles: true })); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
+      // Same record shape as window.pravaMaterialSelections: this is what the AI planner gets.
+      selections[role + '_finish'] = {
+        value: row[0], id: row[0], manufacturer: row[1] || null,
+        decorCode: row[cabinet ? 3 : 2] || null, decorName: cabinet ? row[4] || null : null,
+        displayName: cabinet ? row[4] || null : [row[2], row[3]].filter(Boolean).join(' · ') || null,
+        productCode: null, surface: null, finish: null, profile: null, thicknessMm: null,
+        surfaceCode: cabinet ? null : row[3] || null, category: row[cabinet ? 2 : 6] || null,
+        family: role === 'countertop' ? row[7] || null : null,
+        label: cabinet ? row[4] || null : [row[2], row[3]].filter(Boolean).join(' · ') || null,
+        sampleImageUrl: src(row)
+      };
       wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: row[0], label: label(row), src: src(row) } }));
       render();
     }

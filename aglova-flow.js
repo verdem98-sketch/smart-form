@@ -12,10 +12,13 @@
     const cards = [...page.querySelectorAll('.prava-extras-card')];
     const vision = ['upper', 'lower', 'countertop', 'backsplash'].map(r => page.querySelector('[data-field="' + r + '_finish"]'));
     const left = page.querySelector('.sticky-cad-wrap');
-    const phases = [comboWrap, dimWrap, ...vision, cards[0], cards[1], finalPhase];
+    // Step 9: AI visualization card (aglova-ai.js adds the summary, states and corrections). Same copy as Prava.
+    const aiPhase = document.createElement('section'); aiPhase.className = 'ag-ai-phase';
+    aiPhase.innerHTML = '<div id="aglova-ai-card-v1"><h3>Виж кухнята си като реална визия</h3><p>Ще създадем една ориентировъчна реалистична визуализация на база избраната конфигурация, размери, материали, уреди и екстри.</p><button id="aglova-ai-generate-button" type="button">Генерирай AI визуализация</button></div>';
+    const phases = [comboWrap, dimWrap, ...vision, cards[0], cards[1], aiPhase, finalPhase];
     if (!right || phases.some(n => !n)) { console.warn('aglova-flow: phase contract incomplete'); return; }
     page.dataset.agFlow = '1';
-    const titles = ['Конфигурация', 'Размери', 'Горен ред', 'Долен ред', 'Плот', 'Гръб', 'Електроуреди', 'Допълнителни екстри', 'Последна стъпка'];
+    const titles = ['Конфигурация', 'Размери', 'Горен ред', 'Долен ред', 'Плот', 'Гръб', 'Електроуреди', 'Допълнителни екстри', 'AI визуализация', 'Последна стъпка'];
     const N = titles.length;
     const LAST = N;
     // move every step into the right card
