@@ -89,31 +89,7 @@
       const described=(question.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==hint.id);
       if(described.length)question.setAttribute('aria-describedby',described.join(' '));else question.removeAttribute('aria-describedby');
     }
-    // Step 2 uses the same hint, outline and shake as step 1, on the first dimension row without a value.
-    function dimensionKeys(){const keys=['len_prava_3','height_prava_3'];if(islandEnabled())keys.push('island_len_3a','island_width_3a');return keys;}
-    function dimensionRow(key){return page.querySelector('.dimension-row[data-dim="'+key+'"]');}
-    function dimensionValue(row){
-      const number=selector=>Number((row.querySelector(selector+' .picker-value-text')||row.querySelector(selector+' .picker-value'))?.textContent||0);
-      return number('.meters-control')*100+number('.centimeters-control');
-    }
-    function firstMissingRow(){return dimensionKeys().map(dimensionRow).find(row=>row&&dimensionValue(row)<=0);}
-    function clearRowValidation(row){
-      row.classList.remove('prava-question-invalid','prava-question-shake');row.removeAttribute('aria-invalid');row.removeAttribute('aria-describedby');
-      const hint=row.querySelector(':scope > .question-hint');if(hint)hint.hidden=true;
-    }
-    function clearDimensionValidation(){page.querySelectorAll('.dimension-row').forEach(clearRowValidation);}
-    function showMissingRow(row){
-      clearConfigValidation();error.hidden=true;error.textContent='';
-      let hint=row.querySelector(':scope > .question-hint');
-      if(!hint){hint=document.createElement('p');hint.className='question-hint';hint.id='prava-dim-hint-'+row.dataset.dim;hint.setAttribute('role','alert');row.append(hint);}
-      hint.textContent='Въведете размера, за да продължим.';hint.hidden=false;
-      row.classList.add('prava-question-invalid');row.setAttribute('aria-invalid','true');row.setAttribute('aria-describedby',hint.id);
-      void row.offsetWidth;row.classList.add('prava-question-shake');
-      row.style.scrollMarginTop='calc(var(--prava-sticky-top,128px) + '+Math.ceil(header.getBoundingClientRect().height+12)+'px)';
-      row.scrollIntoView({behavior:'auto',block:'start'});
-      if(!row.hasAttribute('tabindex'))row.tabIndex=-1;row.focus({preventScroll:true});
-    }
-    function clearConfigValidation(){configQuestions.forEach(clearQuestionValidation);clearDimensionValidation();}
+    function clearConfigValidation(){configQuestions.forEach(clearQuestionValidation);}
     function showMissingQuestion(question){
       clearConfigValidation();error.hidden=true;error.textContent='';
       const hint=question.querySelector('.question-hint');hint.textContent=hint.textContent.trim()||'Изберете вариант, за да продължим.';hint.hidden=false;
@@ -125,11 +101,6 @@
       question.scrollIntoView({behavior:'auto',block:'start'});question.focus({preventScroll:true});
     }
     phases[0].addEventListener('animationend',event=>{if(event.animationName==='prava-config-shake')event.target.classList.remove('prava-question-shake');});
-    right.addEventListener('animationend',event=>{if(event.animationName==='prava-config-shake')event.target.classList.remove('prava-question-shake');});
-    ['click','input','change'].forEach(name=>page.addEventListener(name,()=>setTimeout(()=>{
-      if(step!==2)return;
-      page.querySelectorAll('.dimension-row.prava-question-invalid').forEach(row=>{if(dimensionValue(row)>0)clearRowValidation(row);});
-    },0)));
     page.addEventListener('change',event=>{
       const question=configQuestions.find(node=>node.dataset.field===event.target.name);
       if(question&&question.querySelector('.option-pill.is-selected,.option-pill.active'))clearQuestionValidation(question);
@@ -174,7 +145,7 @@
       const control=event.target.closest('[data-prava-nav],.prava-back-control-v3'); if(!control)return;
       event.preventDefault();
       if(control.dataset.pravaNav==='next') {
-        const message=check(); if(message){if(step===1)showMissingQuestion(firstMissingQuestion());else if(step===2&&firstMissingRow())showMissingRow(firstMissingRow());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
+        const message=check(); if(message){if(step===1)showMissingQuestion(firstMissingQuestion());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
       } else if(step>1) go(step-1);
     });
     window.pravaGoToStep=go;
