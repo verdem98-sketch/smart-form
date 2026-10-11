@@ -48,26 +48,30 @@
     ['handleless', 'panel_doors'].forEach(function (k) { if (form) hiddenInput(form, k); }); // filled by the legacy submit handler
     var anchor = card.querySelector('.extras-title-subtitle');
     if (anchor) anchor.querySelectorAll('.phase-title').forEach(hide);
-    var boxOf = function (key) { return card.querySelector('[data-checkbox-field="' + key + '"]'); };
-    var template = card.querySelector('label.w-checkbox');
+    var keyOf = function (l) { var b = l.querySelector('input[type="checkbox"]'); return l.getAttribute('data-field') || (b && b.getAttribute('data-checkbox-field')) || ''; };
+    var labels = [].slice.call(card.querySelectorAll('label.w-checkbox'));
+    var template = labels[0];
     if (!template) return;
-    // remove what Prava does not offer (deep cabinets is a step-1 question there)
-    card.querySelectorAll('label.w-checkbox').forEach(function (l) {
-      var box = l.querySelector('input[type="checkbox"]'), key = box && box.getAttribute('data-checkbox-field');
-      if (key && !EXTRAS.some(function (e) { return e[0] === key; })) { hide(l); box.checked = false; }
+    var byKey = {};
+    labels.forEach(function (l) {
+      var key = keyOf(l);
+      if (EXTRAS.some(function (e) { return e[0] === key; })) byKey[key] = l;
+      else { hide(l); var b = l.querySelector('input[type="checkbox"]'); if (b) b.checked = false; }   // e.g. deep cabinets: a step-1 question in Prava
     });
-    var parent = template.parentNode, previous = null;
+    var previous = null;
     EXTRAS.forEach(function (e) {
-      var box = boxOf(e[0]), label = box && box.closest('label');
+      var label = byKey[e[0]];
       if (!label) {
         label = template.cloneNode(true);
         label.removeAttribute('data-ag-hide'); label.setAttribute('data-field', e[0]);
-        box = label.querySelector('input[type="checkbox"]'); box.checked = false; box.setAttribute('data-checkbox-field', e[0]); box.setAttribute('data-name', e[1]); box.name = '';
-        box.classList.remove('w-checkbox-input--inputType-custom');
-        parent.append(label);
+        var box = label.querySelector('input[type="checkbox"]');
+        box.checked = false; box.setAttribute('data-checkbox-field', e[0]); box.setAttribute('data-name', e[1]); box.name = 'checkbox';
+        box.classList.remove('w-checkbox-input--checked');
+        var custom = label.querySelector('.w-checkbox-input'); if (custom) custom.classList.remove('w--redirected-checked');
+        template.parentNode.append(label);
       }
       var text = label.querySelector('.w-form-label'); if (text) text.textContent = e[1];
-      if (previous) previous.after(label); else (anchor ? anchor.after(label) : parent.prepend(label));
+      if (previous) previous.after(label); else if (anchor) anchor.after(label); else template.parentNode.prepend(label);
       previous = label;
     });
   }
