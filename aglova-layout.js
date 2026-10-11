@@ -1,0 +1,702 @@
+/* Aglova (corner / L-shaped kitchen): interactive 3D sketch.
+   Same viewer as Prava's prava-layout.js (real decor textures, handleless / drawers / glass display / lift flaps / panel doors /
+   LED / bottle rack, oven + drawer, free-standing appliances, independent upper / lower drag), laid out as an L:
+   wall 1 = left wall (runs towards the viewer), wall 2 = right back wall. Every position is measured along its own wall from the
+   corner end; wall 1 owns the 900 mm corner unit (or the chimney), wall 2 starts after the 600 mm depth of wall 1 (or the chimney).
+   The layout engine mirrors kitchen-corner-planner.ts (verde-contract-automation) so the AI step sees the same module widths. */
+(function (root) {
+  'use strict';
+
+  /* ------------------------------------------------------------------ layout engine (pure) */
+  var MAX_FILLER = 150, MIN_CUSTOM = 150, MAX_CUSTOM = 900, STEP = 50;
+  var BASE_DEPTH = 600, CORNER_UNIT = 900, MAX_UPPER = 900;
+  var TALL = { fridge: 1, ovenTower: 1, applianceTower: 1 };
+
+  function chooseStorage(rem) {
+    if (rem < 0) return null;
+    if (rem === 0) return { widths: [], filler: 0 };
+    if (rem <= MAX_FILLER) return { widths: [], filler: rem };
+    var filler = rem % STEP, cab = rem - filler;
+    if (cab < MIN_CUSTOM) { var need = MIN_CUSTOM - cab; if (filler >= need) { cab += need; filler -= need; } }
+    if (filler < 0 || filler > MAX_FILLER || cab < MIN_CUSTOM) return null;
+    var count = Math.max(1, Math.ceil(cab / MAX_CUSTOM));
+    var baseUnits = Math.floor(cab / STEP / count), extra = cab / STEP - baseUnits * count;
+    var widths = [];
+    for (var i = 0; i < count; i++) { var u = baseUnits + (extra > 0 ? 1 : 0); if (extra > 0) extra--; widths.push(u * STEP); }
+    if (widths.some(function (w) { return w < MIN_CUSTOM || w > MAX_CUSTOM; })) return null;
+    return { widths: widths, filler: filler };
+  }
+
+  function fixedMod(type, w, zone, apps, extra) {
+    var m = { type: type, w: w, zone: zone, locked: true };
+    if (apps && apps.length) m.appliances = apps;
+    if (extra) for (var k in extra) m[k] = extra[k];
+    return m;
+  }
+  function sumW(list) { return list.reduce(function (s, m) { return s + m.w; }, 0); }
+
+  /* cfg: wall1Mm, wall2Mm, heightMm, waterWall (1|2), ovenTower, fridge ('built_in'|'free_standing'|null), dishwasherMm, washer, microwave, coffee (built-in),
+          basket, chimney, chimneyAMm, chimneyBMm, deep */
+  function planCorner(cfg) {
+    var errors = [], L1 = Math.round(cfg.wall1Mm || 0), L2 = Math.round(cfg.wall2Mm || 0);
+    var res = { wall1Mm: L1, wall2Mm: L2, errors: errors, chimney: !!cfg.chimney, walls: { 1: { wall: 1, lengthMm: L1, startMm: 0, modules: [], fillerMm: 0 }, 2: { wall: 2, lengthMm: L2, startMm: 0, modules: [], fillerMm: 0 } } };
+    if (!L1 || !L2) { errors.push('Въведете дължина на стена 1 и на стена 2.'); return res; }
+    var chim = !!cfg.chimney, A = cfg.chimneyAMm || 0, B = cfg.chimneyBMm || 0;
+    if (chim && (!A || !B)) { errors.push('Въведете размерите A и B на комина.'); return res; }
+    var start1 = chim ? A : 0, cornerUnit = !chim, start2 = chim ? B : BASE_DEPTH;
+    var avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
+    res.walls[1].startMm = start1; res.walls[2].startMm = start2;
+    var waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
+    var place = { 1: [], 2: [] };
+    function put(wall, key, m) { place[wall].push({ key: key, module: m }); }
+    put(waterWall, 'sinkBase', fixedMod('sinkBase', 600, 'water'));
+    if (cfg.dishwasherMm) put(waterWall, 'dishwasher', fixedMod('dishwasher', cfg.dishwasherMm, 'water'));
+    if (cfg.washer) put(waterWall, 'washingMachine', fixedMod('washingMachine', 600, 'water'));
+    if (cfg.ovenTower) {
+      var tower = ['oven']; if (cfg.microwave) tower.push('microwave'); if (cfg.coffee) tower.push('coffeeMachine');
+      put(other, 'ovenTower', fixedMod('ovenTower', 600, 'tall', tower));
+      put(other, 'hobBase', fixedMod('hobBase', 600, 'cooking'));
+    } else put(other, 'ovenHobBase', fixedMod('ovenHobBase', 600, 'cooking', ['oven']));
+    if (cfg.basket) put(other, 'basket', fixedMod('basket', 150, 'cooking'));
+    if (cfg.fridge) put(other, 'fridge', fixedMod('fridge', 600, 'tall', null, { applianceType: cfg.fridge }));
+    function need(w) { return sumW(place[w].map(function (i) { return i.module; })); }
+    function move(from, keys) {
+      keys.forEach(function (key) {
+        if (need(from) <= avail[from]) return;
+        var at = -1; place[from].forEach(function (i, ix) { if (at < 0 && i.key === key) at = ix; });
+        if (at < 0) return;
+        var to = from === 1 ? 2 : 1, item = place[from][at];
+        if (need(to) + item.module.w > avail[to]) return;
+        place[from].splice(at, 1); place[to].push(item);
+      });
+    }
+    move(other, ['fridge', 'ovenTower', 'basket']);
+    move(waterWall, ['washingMachine', 'dishwasher']);
+    [1, 2].forEach(function (w) {
+      if (need(w) > avail[w]) errors.push('Стена ' + w + ': избраните модули изискват ' + need(w) + ' мм, а наличната дължина е само ' + avail[w] + ' мм.');
+    });
+    if (errors.length) return res;
+    [1, 2].forEach(function (w) {
+      var items = place[w].map(function (i) { return i.module; });
+      var tall = items.filter(function (m) { return TALL[m.type]; }), rest = items.filter(function (m) { return !TALL[m.type]; });
+      var remaining = avail[w] - need(w), st = chooseStorage(remaining);
+      if (!st) { errors.push('Стена ' + w + ': остатъкът от ' + remaining + ' мм не може да се разпредели на шкафове; променете дължината.'); return; }
+      var storage = st.widths.map(function (x) { return { type: 'genericBase', w: x, locked: false, zone: 'storage' }; });
+      var mods = [];
+      if (w === 1 && cornerUnit) mods.push(fixedMod('cornerBase', CORNER_UNIT, 'corner'));
+      var water = rest.filter(function (m) { return m.zone === 'water'; }), cooking = rest.filter(function (m) { return m.zone !== 'water'; });
+      if (w === waterWall) {
+        var before = storage.length > 1 ? storage.slice(0, 1) : [], after = storage.length > 1 ? storage.slice(1) : storage;
+        mods = mods.concat(before, water, cooking, after, tall);
+      } else mods = mods.concat(cooking, storage, tall);
+      res.walls[w].modules = mods; res.walls[w].fillerMm = st.filler;
+    });
+    if (errors.length) { res.walls[1].modules = []; res.walls[2].modules = []; return res; }
+    var cnt = {};
+    [1, 2].forEach(function (w) { res.walls[w].modules.forEach(function (m) { cnt[m.type] = (cnt[m.type] || 0) + 1; m.id = m.type + '#' + (cnt[m.type] - 1); m.wall = w; }); });
+    var anyTall = res.walls[1].modules.concat(res.walls[2].modules).some(function (m) { return TALL[m.type]; });
+    var required = Math.max(anyTall ? 2400 : 900, cfg.deep ? 2500 : 2170);
+    if (cfg.heightMm && required > cfg.heightMm) errors.push('Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
+    return res;
+  }
+
+  /* the user's manual order inside one wall; the corner unit always stays first */
+  function applyOrder(mods, order) {
+    if (!order || !order.length) return mods.slice();
+    var byId = {}; mods.forEach(function (m) { byId[m.id] = m; });
+    var kept = order.filter(function (id) { return byId[id]; }), keptSet = {}; kept.forEach(function (id) { keptSet[id] = 1; });
+    var out = kept.map(function (id) { return byId[id]; });
+    mods.forEach(function (m, i) { if (!keptSet[m.id]) out.splice(Math.min(i, out.length), 0, m); });
+    var ci = -1; out.forEach(function (m, i) { if (m.type === 'cornerBase') ci = i; });
+    if (ci > 0) out.unshift(out.splice(ci, 1)[0]);
+    return out;
+  }
+  function position(mods, startMm) { var x = startMm, out = []; mods.forEach(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.x = x; out.push(c); x += m.w; }); return { items: out, end: x }; }
+  function swapIds(order, a, b) { var o = order.slice(), i = o.indexOf(a), j = o.indexOf(b); if (i < 0 || j < 0) return o; var t = o[i]; o[i] = o[j]; o[j] = t; return o; }
+  /* upper cabinets: every run of consecutive non-tall modules is split into spans of at most 900 mm (same rule as the backend) */
+  function upperRuns(wall, items) {
+    var runs = [], cur = null;
+    items.forEach(function (m) {
+      if (TALL[m.type]) { cur = null; return; }
+      if (cur && cur.x0 + cur.w === m.x) cur.w += m.w; else { cur = { wall: wall, x0: m.x, w: m.w }; runs.push(cur); }
+    });
+    runs.forEach(function (r, ri) {
+      var parts = Math.max(1, Math.ceil(r.w / MAX_UPPER)), unit = Math.round(r.w / parts / 10) * 10, x = r.x0; r.units = [];
+      for (var i = 0; i < parts; i++) { var w = i === parts - 1 ? r.x0 + r.w - x : unit; r.units.push({ id: 'u' + wall + '_' + ri + '_' + i, wall: wall, w: w }); x += w; }
+    });
+    return runs;
+  }
+
+  var engine = { chooseStorage: chooseStorage, planCorner: planCorner, applyOrder: applyOrder, position: position, swapIds: swapIds, upperRuns: upperRuns, TALL: TALL };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = engine; }
+  root.AglovaLayoutEngine = engine;
+  if (typeof document === 'undefined') return;
+
+  /* ------------------------------------------------------------------ viewer */
+  var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js';
+  var ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js';
+  function load(src) { return new Promise(function (ok, no) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { no(new Error(src)); }; document.head.appendChild(s); }); }
+
+  function init() {
+    var page = document.querySelector('.flow-aglova'), card = page && page.querySelector('.sticky-cad-wrap'), stage = card && card.querySelector('.cad-stage');
+    if (!stage || root.agLayout) return;
+    var host = document.createElement('div'); host.className = 'ag-3d'; host.hidden = true; stage.appendChild(host);
+    var st = document.createElement('style');
+    st.textContent = '.flow-aglova .ag-3d{position:absolute;inset:0;z-index:8;background:#eef0ed;touch-action:none}.flow-aglova .ag-3d canvas{display:block;width:100%;height:100%;cursor:grab}' +
+      '.flow-aglova .ag-3d-hint{position:absolute;left:10px;bottom:8px;max-width:calc(100% - 20px);font:11px/1.35 sans-serif;color:#606760;background:rgba(255,255,255,.88);padding:4px 9px;border-radius:8px;pointer-events:none}' +
+      '.flow-aglova .ag-3d-msg{position:absolute;left:110px;right:56px;top:10px;font:12px/1.4 sans-serif;color:#7a2d1f;background:#fff1ec;border:1px solid #e6b8ab;padding:8px 10px;border-radius:10px;pointer-events:none}' +
+      '.flow-aglova .ag-3d-btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}' +
+      '.flow-aglova .ag-3d-btns button{width:36px;height:36px;border:1px solid #c8cbc7;border-radius:10px;background:#fff;color:#333533;font:600 17px/1 sans-serif;cursor:pointer;padding:0}' +
+      '.flow-aglova .ag-3d-btns button:hover,.flow-aglova .ag-3d-btns button[aria-pressed="true"]{background:#e8f0e8;border-color:#477448}' +
+      '.flow-aglova .cad-stage.ag-3d-on>.cad-base,.flow-aglova .cad-stage.ag-3d-on>.cad-kitchen,.flow-aglova .cad-stage.ag-3d-on>.cad-bar,.flow-aglova .cad-stage.ag-3d-on>.cad-island{visibility:hidden!important;pointer-events:none!important}';
+    document.head.appendChild(st);
+    var hint = document.createElement('div'); hint.className = 'ag-3d-hint'; host.appendChild(hint);
+    var msg = document.createElement('div'); msg.className = 'ag-3d-msg'; msg.hidden = true; host.appendChild(msg);
+    var btns = document.createElement('div'); btns.className = 'ag-3d-btns'; host.appendChild(btns);
+    function mkBtn(label, title, act) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = b.ariaLabel = title; b.dataset.act = act; btns.appendChild(b); return b; }
+    mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⟲', 'Начален изглед', 'reset');
+    var modeBtn = mkBtn('✥', 'Режим: местене на шкафове / въртене на изгледа', 'mode');
+    var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
+
+    var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
+    var failed = false, moveMode = true, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var mats = {}, drag = null, unitById = {};
+
+    /* ---------------- inputs from the page */
+    function q(sel) { return page.querySelector(sel); }
+    function pill(field) { var e = q('[data-field="' + field + '"] .option-pill.active,[data-field="' + field + '"] .option-pill.is-selected'); return e ? String(e.dataset.value || e.textContent || '').trim() : ''; }
+    function dimMm(key) {
+      var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return 0;
+      function n(sel) { var el = row.querySelector(sel + ' .picker-value-text') || row.querySelector(sel + ' .picker-value'); return parseInt((el && el.textContent) || '0', 10) || 0; }
+      return (n('.meters-control') * 100 + n('.centimeters-control')) * 10;
+    }
+    function chk(field) { var e = q('[data-field="' + field + '"] input[type="checkbox"]'); return !!(e && e.checked); }
+    function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
+    /* ---------------- material colours + real decor textures (steps 3-6) */
+    var colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0;
+    function decorUrl(field) {
+      var rec = root.agMaterialSelections && root.agMaterialSelections.get(field), u = rec && rec.sampleImageUrl;
+      return u ? u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/') : null;
+    }
+    function colourOf(field) {
+      var u = decorUrl(field); if (!u) return null;
+      if (colCache[u] !== undefined) return colCache[u];
+      colCache[u] = null;
+      var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = c.height = 8; var g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
+          var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
+          for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+          if (im.naturalWidth >= 64 && im.naturalHeight >= 64) { var tx = new T.Texture(im); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.anisotropy = 4; tx.needsUpdate = true; texCache[u] = tx; }   // real decor image (solids are only 16x16 swatches: flat colour is exact)
+          if (n) { colCache[u] = (r / n << 16) | (gg / n << 8) | (b / n); sync(true); }
+        } catch (e) { /* tainted canvas: keep default colour */ }
+      };
+      im.src = u; return null;
+    }
+    /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
+    function fin(field, hex, shift, rough) {
+      var u = decorUrl(field), tx = u && texCache[u];
+      if (!tx) return tone(hex, shift, rough);
+      var k = u + '|' + (rough || 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      return texMat[k];
+    }
+    function scaleUV(geo, w, h, d, tile, off) {
+      var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (var f = 0; f < 6; f++) for (var i = 0; i < 4; i++) { var k = f * 4 + i; uv.setXY(k, uv.getX(k) * sp[f][0] / tile + off, uv.getY(k) * sp[f][1] / tile + off * .6); }
+      uv.needsUpdate = true;
+    }
+    function tone(hex, shift, rough) {
+      var k = hex + '|' + shift + '|' + (rough || 0); if (toneCache[k]) return toneCache[k];
+      var col = new T.Color(hex); if (shift) col.offsetHSL(0, 0, shift);
+      return (toneCache[k] = new T.MeshStandardMaterial({ color: col, roughness: rough === undefined ? .5 : rough, metalness: 0 }));
+    }
+
+    function readInputs() {
+      var fr = pill('fridge_type_aglova'), fridge = null;
+      if (/свободно/i.test(fr)) fridge = 'free_standing'; else if (/вграден/i.test(fr)) fridge = 'built_in';
+      var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = Number(page.dataset.agStep || 1), bar = pill('bar_enabled_aglova'), barMode = /остров/i.test(bar) ? 'island' : /стена\s*1/i.test(bar) ? 'wall1' : /стена\s*2/i.test(bar) ? 'wall2' : 'none';
+      var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova');
+      return {
+        wall1Mm: w1, wall2Mm: w2, heightMm: dimMm('visochina_aglova') || 2600,
+        chimney: /^да$/i.test(pill('chimney_exists')), chimneyAMm: dimMm('chimney_a_aglova'), chimneyBMm: dimMm('chimney_b_aglova'),
+        waterWall: /2/.test(pill('water_position_aglova')) ? 2 : 1, ovenTower: /^да$/i.test(pill('oven_tall_unit_aglova')), fridge: fridge,
+        deep: pill('deep-cabinets') === 'yes', barMode: barMode,
+        barLenMm: dimMm(barMode === 'island' ? 'island_len_aglova' : 'bar_len_aglova'), barWidthMm: dimMm(barMode === 'island' ? 'island_width_aglova' : 'bar_width_aglova'),
+        dishwasherMm: dw ? Number(dw[1]) * 10 : 0, washer: !!fieldVal('washing_machine_type'),
+        microwave: fieldVal('microwave_type') === 'built_in', coffee: fieldVal('coffee_machine_type') === 'built_in',
+        dishFree: /^free/.test(fieldVal('dishwasher_type')), washFree: fieldVal('washing_machine_type') === 'free_standing',
+        microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
+        x: { handleless: chk('handleless'), drawers: chk('more_drawers'), glass: chk('glass_display'), lift: chk('lift_mechanisms'), panel: chk('panel_doors'), light: chk('counter_lighting'), bottle: chk('bottle_rack') },
+        showCabinets: step >= 2 && w1 > 0 && w2 > 0,
+        cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
+      };
+    }
+
+    /* ---------------- materials / helpers / fronts / appliances (shared with the straight-kitchen viewer) */
+    function setupMats() {
+      var M = function (c, r, m) { return new T.MeshStandardMaterial({ color: c, roughness: r === undefined ? .6 : r, metalness: m || 0 }); };
+      mats = { front: M(0xf4f0e6, .5), frontA: M(0xf4f0e6, .5), frontB: M(0xd9cfba, .5), frontAlt: M(0xcfc6b2, .55), carcass: M(0xb9b3a6, .8), plinth: M(0x2f3133, .8), top: M(0xa5875c, .5), steel: M(0xbfc4c8, .35, .7),
+        glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
+        upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), appl: M(0xe8ebed, .4, .15), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35, side: T.DoubleSide }) };
+      mats.glassFront = new T.MeshStandardMaterial({ color: 0xcfe3e6, roughness: .1, metalness: .1, transparent: true, opacity: .32 }); mats.glow = new T.MeshBasicMaterial({ color: 0xffe8b0 }); mats.led = new T.MeshBasicMaterial({ color: 0xfff1c2 });
+      mats.topDefault = mats.top; mats.islandDefault = mats.island;
+    }
+    var edgeMat = null;
+    function box(w, h, d, mat, x, y, z, parent) { var bg = new T.BoxGeometry(w, h, d); if (mat.map && mat.userData.tile) scaleUV(bg, w, h, d, mat.userData.tile, ((texN++) * .37) % 1); var m = new T.Mesh(bg, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
+      if (parent && Math.max(w, h, d) > .07 && (Math.min(w, h, d) > .012 || (mat !== mats.steel && Math.min(w, h) > .2 && d > .006)) && mat !== mats.glass && mat !== mats.hob) { if (!edgeMat) edgeMat = new T.LineBasicMaterial({ color: 0x3c3f3b, transparent: true, opacity: .75 }); var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeMat); ed.raycast = function () {}; m.add(ed); }
+      return m; }
+    function label(text, size, color, bg) {
+      var c = document.createElement('canvas'), g = c.getContext('2d'), fs = 44; g.font = '600 ' + fs + 'px sans-serif';
+      var w = Math.ceil(g.measureText(text).width) + 28; c.width = w; c.height = fs + 22;
+      g.font = '600 ' + fs + 'px sans-serif'; if (bg) { g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height); }
+      g.fillStyle = color || '#3b423b'; g.textBaseline = 'middle'; g.fillText(text, 14, c.height / 2 + 2);
+      var tex = new T.CanvasTexture(c); tex.anisotropy = 4;
+      var sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthTest: false })); sp.scale.set(size * c.width / c.height, size, 1); sp.renderOrder = 10; return sp;
+    }
+    function fmt(mm) { return (mm % 10 === 0 ? mm / 10 : (mm / 10).toFixed(1)) + ' см'; }
+
+    /* ---------------- fronts */
+    var TALLH = 2.4, D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
+    var X = {};   /* extras chosen in step 8: handleless, drawers, glass, lift, panel, light, bottle */
+    function handleH(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
+    function handleV(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
+    function front(g, w, y0, y1, mat, x) {
+      var h = y1 - y0 - G; box(w - G, h, FT, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT / 2, g);
+      if (X.panel && (!mat || mat === mats.front) && h > .3 && w > .25) box(w - G - .12, h - .12, .008, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT + .004, g);   // shaker panel
+      return h;
+    }
+    function doors(g, w, y0, y1, n) {
+      var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, dw * .55)); }
+    }
+    function drawers(g, w, y0, y1, heights) {
+      var tot = heights.reduce(function (a, b) { return a + b; }, 0), y = y1;
+      heights.forEach(function (hh) { var h = (y1 - y0) * hh / tot; front(g, w, y - h, y, mats.front, 0); handleH(g, 0, y - 0.04, Math.min(w * .6, .3)); y -= h; });
+    }
+    function hobPlate(g, w) {
+      var pw = Math.min(w - .06, .58), k = pw / .58;
+      box(pw, 0.008, .5, mats.hob, 0, BH + 0.004, .31, g);
+      box(pw + .012, 0.004, .512, mats.steel, 0, BH + 0.002, .31, g);                                  // steel frame
+      var r = [[-.14, .2], [.14, .2], [-.14, .42], [.14, .42]], rad = [.075, .06, .055, .075];
+      r.forEach(function (p, i) {
+        var ring = new T.Mesh(new T.RingGeometry(rad[i] * .8, rad[i], 32), mats.ring); ring.rotation.x = -Math.PI / 2; ring.position.set(p[0] * k, BH + 0.0092, p[1] + .1); g.add(ring);
+        var dot = new T.Mesh(new T.CircleGeometry(rad[i] * .22, 20), mats.ring); dot.rotation.x = -Math.PI / 2; dot.position.set(p[0] * k, BH + 0.0092, p[1] + .1); g.add(dot);
+      });
+      box(pw * .5, 0.002, .022, mats.steel, 0, BH + 0.0092, .53, g);                                   // touch controls
+    }
+    function ovenFront(g, w, y0, y1) {
+      front(g, w, y0, y1, mats.steel, 0); var h = y1 - y0, z = D + FT;
+      box(w - .04, .075, .008, mats.hob, 0, y1 - .06, z + .004, g);                                    // control strip
+      box(.09, .026, .004, mats.glass, 0, y1 - .06, z + .009, g);                                      // display
+      for (var i = 0; i < 4; i++) { var kn = new T.Mesh(new T.CylinderGeometry(.014, .014, .014, 18), mats.sink); kn.rotation.x = Math.PI / 2; kn.position.set(i < 2 ? -w / 2 + .06 + i * .045 : w / 2 - .06 - (3 - i) * .045, y1 - .06, z + .015); g.add(kn); }
+      box(w - .09, h - .2, .008, mats.front, 0, (y0 + y1) / 2 - .06, z + .004, g);                     // glass frame
+      box(w - .13, h - .24, .006, mats.glass, 0, (y0 + y1) / 2 - .06, z + .01, g);                     // oven window
+      box(w - .16, .018, .026, mats.steel, 0, y1 - .125, z + .026, g);                                 // handle bar
+    }
+    function microFront(g, w, y0, y1) {
+      front(g, w, y0, y1, mats.steel, 0); var h = y1 - y0, cy = (y0 + y1) / 2, z = D + FT;
+      box(w * .64, h - .08, .008, mats.glass, -w * .12, cy, z + .004, g);
+      box(w * .2, h - .08, .008, mats.hob, w * .33, cy, z + .004, g);
+      box(w * .12, .03, .004, mats.ring, w * .33, cy + h * .22, z + .01, g);
+      var kn = new T.Mesh(new T.CylinderGeometry(.016, .016, .014, 18), mats.sink); kn.rotation.x = Math.PI / 2; kn.position.set(w * .33, cy - h * .12, z + .014); g.add(kn);
+      box(.012, h * .6, .016, mats.sink, w * .19, cy, z + .016, g);
+    }
+    function sinkTop(g, w) {
+      box(Math.min(w - .1, .5), .004, .4, mats.sink, 0, BH + 0.002, .3, g);
+      var bowl = box(Math.min(w - .16, .42), .006, .3, mats.glass, 0, BH + 0.005, .3, g);
+      var base = new T.Mesh(new T.CylinderGeometry(.022, .026, .03, 16), mats.steel); base.position.set(0, BH + .015, .1); g.add(base);
+      var neck = new T.Mesh(new T.CylinderGeometry(.011, .011, .28, 12), mats.steel); neck.position.set(0, BH + .17, .1); g.add(neck);
+      var arm = new T.Mesh(new T.CylinderGeometry(.01, .01, .17, 12), mats.steel); arm.rotation.x = Math.PI / 2; arm.position.set(0, BH + .3, .185); g.add(arm);
+    }
+    function porthole(g, w, y0, y1) {
+      front(g, w, y0, y1, mats.front, 0); var cy = (y0 + y1) / 2 - .02;
+      var ring = new T.Mesh(new T.TorusGeometry(.17, .016, 12, 40), mats.steel); ring.position.set(0, cy, D + FT + .008); g.add(ring);
+      var disc = new T.Mesh(new T.CircleGeometry(.155, 36), mats.glass); disc.position.set(0, cy, D + FT + .004); g.add(disc);
+    }
+
+
+    /* ---------------- free-standing & built-in appliances */
+    function freeDishwasher(g, W) {
+      var h = BH - WT - .012, w = W - .03, B0 = 0;
+      box(w, h, D - .02, mats.steel, 0, B0 + h / 2, (D - .02) / 2, g);
+      box(w - .02, .09, .016, mats.glass, 0, B0 + h - .05, D - .02 + .008, g);                       // control panel
+      for (var i = 0; i < 4; i++) box(.02, .012, .008, mats.steel, -w / 2 + .08 + i * .035, B0 + h - .05, D - .02 + .018, g);
+      box(w - .05, h - .2, .01, mats.appl, 0, B0 + (h - .2) / 2 + .02, D - .02 + .005, g);          // door panel (fixed appliance colour)
+      box(w * .62, .016, .026, mats.steel, 0, B0 + h - .14, D + .02, g);                             // bar handle
+    }
+    function freeWasher(g, W) {
+      var h = BH - WT - .012, w = W - .03, B0 = 0;
+      box(w, h, D - .02, mats.appl, 0, B0 + h / 2, (D - .02) / 2, g);
+      box(w - .02, .1, .014, mats.carcass, 0, B0 + h - .06, D - .02 + .007, g);                      // control strip
+      var kn = new T.Mesh(new T.CylinderGeometry(.022, .022, .014, 20), mats.steel); kn.rotation.x = Math.PI / 2; kn.position.set(-w / 2 + .08, B0 + h - .06, D - .02 + .02); g.add(kn);
+      box(.1, .03, .008, mats.glass, w / 2 - .12, B0 + h - .06, D - .02 + .016, g);
+      var cy = B0 + (h - .12) / 2, ring = new T.Mesh(new T.TorusGeometry(.17, .02, 14, 44), mats.steel); ring.position.set(0, cy, D - .02 + .01); g.add(ring);
+      var disc = new T.Mesh(new T.CircleGeometry(.152, 40), mats.glass); disc.position.set(0, cy, D - .02 + .006); g.add(disc);
+    }
+    function standMicro(g, x) {
+      var w = .46, h = .28, d = .36, y = BH + h / 2 + .004, z = .36;
+      box(w, h, d, mats.steel, x, y, z, g);
+      box(w * .66, h - .06, .01, mats.glass, x - w * .12, y, z + d / 2 + .004, g);
+      box(.1, h - .06, .01, mats.hob, x + w * .36, y, z + d / 2 + .004, g);
+      box(.012, h * .6, .014, mats.steel, x + w * .2, y, z + d / 2 + .012, g);
+    }
+    function standCoffee(g, x) {
+      var w = .28, h = .4, d = .38, z = .3, y = BH + h / 2 + .004;
+      box(w, h, d, mats.hob, x, y, z, g);
+      box(w - .04, .06, .02, mats.steel, x, BH + h - .06, z + d / 2 + .004, g);                      // head
+      box(.05, .018, .06, mats.steel, x, BH + .19, z + d / 2 + .01, g);                              // spout
+      box(w - .06, .012, .12, mats.steel, x, BH + .06, z + d / 2 - .04, g);                          // drip tray
+      box(.05, .05, .012, mats.glass, x + w * .3, BH + h * .72, z + d / 2 + .004, g);
+    }
+    function buildBase(m, w) {
+      var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
+      box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
+      box(W - 0.002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
+      switch (m.type) {
+        case 'cornerBase': cornerFront(g, W, y0, y1); break;
+        case 'sinkBase': doors(g, W, y0, y1, W > .601 ? 2 : 1); break;
+        case 'ovenHobBase': ovenFront(g, W, y1 - .6, y1); front(g, W, y0, y1 - .6, mats.front, 0); handleH(g, 0, y1 - .6 - .04, W * .5); break;   // 60 cm oven flush with the worktop, one drawer below   // oven + drawer below it
+        case 'hobBase': drawers(g, W, y0, y1, [1, 1, 1.6]); break;
+        case 'dishwasher': if (m.free) break; front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
+        case 'washingMachine': if (m.free) break; porthole(g, W, y0, y1); break;
+        case 'basket': if (X.bottle) { front(g, W, y0, y1, mats.front, 0); for (var bi = -2; bi <= 2; bi++) box(.008, y1 - y0 - .16, .01, mats.steel, bi * Math.min(.02, W / 7), (y0 + y1) / 2, D + FT + .006, g); handleH(g, 0, y1 - .05, W * .5); } else drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
+        case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
+        default: if (W <= .601) doors(g, W, y0, y1, 1); else if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1, 1.4]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
+      }
+      if (m.type === 'ovenHobBase' || m.type === 'hobBase') hobPlate(g, W);
+      if (m.type === 'sinkBase') sinkTop(g, W);
+      if (m.free && m.type === 'dishwasher') { g.remove.apply(g, g.children.slice(0, 2)); freeDishwasher(g, W); }
+      if (m.free && m.type === 'washingMachine') { g.remove.apply(g, g.children.slice(0, 2)); freeWasher(g, W); }
+      if (m.host) { var two = m.host.length > 1; if (m.host.indexOf('micro') >= 0) standMicro(g, two ? -W * .22 : 0); if (m.host.indexOf('coffee') >= 0) standCoffee(g, two ? W * .26 : 0); }
+      return g;
+    }
+    function buildTall(m, w) {
+      var g = new T.Group(), H = TALLH, W = w;
+      if (m.type === 'fridge') {
+        if (m.applianceType === 'free_standing') {
+          box(W - .01, 1.9, D + .02, mats.steel, 0, .95, (D + .02) / 2, g);
+          front(g, W - .01, 1.2, 1.9, mats.steel, 0); front(g, W - .01, .02, 1.2, mats.steel, 0);
+          box(.014, .5, .02, mats.sink, W / 2 - .05, 1.55, D + .03, g); box(.014, .5, .02, mats.sink, W / 2 - .05, .85, D + .03, g);
+          box(W - .002, H - 1.9, D - .01, mats.carcass, 0, 1.9 + (H - 1.9) / 2, (D - .01) / 2, g); front(g, W, 1.9, H, mats.front, 0); handleH(g, 0, 1.94, W * .5);
+        } else {
+          box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
+          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, 2.1, mats.front, 0); front(g, W, 2.1, H, mats.front, 0);
+          handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
+        }
+      } else {
+        box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
+        var y = PL, apps = m.appliances || [];
+        if (m.type === 'ovenTower') { front(g, W, y, y + .38, mats.front, 0); handleH(g, 0, y + .33, W * .5); y += .38; }
+        else { front(g, W, y, y + .5, mats.front, 0); handleH(g, 0, y + .45, W * .5); y += .5; }
+        if (apps.indexOf('oven') >= 0) { ovenFront(g, W, y, y + .6); y += .6; }
+        if (apps.indexOf('microwave') >= 0) { microFront(g, W, y, y + .4); y += .4; }
+        if (apps.indexOf('coffeeMachine') >= 0) { front(g, W, y, y + .45, mats.steel, 0); box(.12, .1, .02, mats.glass, 0, y + .22, D + FT + .01, g); y += .45; }
+        if (y < H - .75) { front(g, W, y, y + .55, mats.front, 0); handleH(g, 0, y + .5, W * .5); y += .55; }
+        doors(g, W, y, H, 1);
+      }
+      return g;
+    }
+    function buildUpper(w, bottom, h, depth, mat, opt) {
+      opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
+      var n = (X.lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
+      if (opt.glass) {                                                                                  // lit display cabinet: warm interior + shelves
+        box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
+        [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
+      }
+      if (X.lift && !opt.glass && !opt.deep) {                                                           // lift-up flaps: joint between flaps is horizontal
+        for (var k = 0; k < 2; k++) {
+          var fy = bottom + h * (k ? .75 : .25);
+          box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
+          if (X.panel && h > .5 && w > .25) box(w - G - .1, h / 2 - .1, .008, fm, 0, fy, depth + FT + .004, g);
+          if (!X.handleless) box(Math.min(.2, w * .55), .012, .014, mats.steel, 0, bottom + h * (k ? .5 : 0) + .05, depth + FT + .007, g);
+        }
+        n = 0;
+      }
+      for (var i = 0; i < n; i++) {
+        var cx = -w / 2 + dw * (i + .5);
+        if (opt.glass) { box(dw - G, h - G, .008, fm, cx, bottom + h / 2, depth + .004, g); box(dw - G, .03, FT, mats.steel, cx, bottom + h - .015, depth + FT / 2, g); box(dw - G, .03, FT, mats.steel, cx, bottom + .015, depth + FT / 2, g); }
+        else { box(dw - G, h - G, FT, fm, cx, bottom + h / 2, depth + FT / 2, g); if (X.panel && h > .3 && dw > .25) box(dw - G - .1, h - .1, .008, fm, cx, bottom + h / 2, depth + FT + .004, g); }
+        if (!X.handleless) box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);
+      }
+      if (X.light && !opt.deep) box(w - .04, .012, .03, mats.led, 0, bottom - .006, depth - .05, g);       // LED strip under uppers
+      return g;
+    }
+
+
+    /* corner unit: a 900 mm unit whose 600 mm inner part sits behind wall 2's first cabinet; only the 300 mm end away from the corner shows a front */
+    function cornerFront(g, W, y0, y1) {
+      var fw = .3 - .004, cx = -W / 2 + .15;
+      front(g, fw + G, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, fw * .8));
+    }
+    /* distance along a wall (mm from the corner end) -> x in that wall's local frame (wall 1 is the mirror image, so its local x runs the other way) */
+    var WALL = { 1: 0, 2: 0 };
+    function lc(wall, sMm) { return wall === 1 ? (WALL[1] - sMm) / 1000 : sMm / 1000; }
+
+    /* ---------------- room */
+    var UPPER = { ub: 1.45, uh: .72, depth: .35 }, TOPROW = { ub: 2.17, uh: .33, depth: D };
+    function buildRoom(inp) {
+      while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
+      var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, H = (inp.heightMm || 2600) / 1000;
+      texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? fin('countertop_finish', inp.cTop, 0, .45) : mats.topDefault;
+      mats.island = inp.cLower !== null && inp.cLower !== undefined ? fin('lower_finish', inp.cLower, -.03) : mats.islandDefault;
+      var bh = UPPER.ub - BH, cx0 = inp.chimney && inp.chimneyBMm ? inp.chimneyBMm / 1000 : 0, cz0 = inp.chimney && inp.chimneyAMm ? inp.chimneyAMm / 1000 : 0;
+      if (inp.showCabinets && inp.x && inp.x.light) {
+        var m1 = new T.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .22 });
+        var g2 = new T.Mesh(new T.PlaneGeometry(L2 - cx0, bh), m1); g2.position.set(cx0 + (L2 - cx0) / 2, (UPPER.ub + BH) / 2, .006); roomGroup.add(g2);
+        var g1 = new T.Mesh(new T.PlaneGeometry(L1 - cz0, bh), m1); g1.rotation.y = Math.PI / 2; g1.position.set(.006, (UPPER.ub + BH) / 2, cz0 + (L1 - cz0) / 2); roomGroup.add(g1);
+      }
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) {
+        var bm = fin('backsplash_finish', inp.cBack, 0, .4);
+        [[2, L2 - cx0, cx0, 0], [1, L1 - cz0, cz0, 1]].forEach(function (s) {
+          var bgm = new T.PlaneGeometry(s[1], bh);
+          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * s[1] / .6, buv.getY(bi) * bh / .6); }
+          var bs = new T.Mesh(bgm, bm);
+          if (s[3]) { bs.rotation.y = Math.PI / 2; bs.position.set(.004, (UPPER.ub + BH) / 2, s[2] + s[1] / 2); } else bs.position.set(s[2] + s[1] / 2, (UPPER.ub + BH) / 2, .004);
+          roomGroup.add(bs);
+        });
+      }
+      var floor = new T.Mesh(new T.PlaneGeometry(L2, L1), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L2 / 2, -.001, L1 / 2); floor.receiveShadow = true; roomGroup.add(floor);
+      function grid(step, color, y, opacity) {
+        var pts = [], v;
+        for (v = 0; v <= L2 + 1e-6; v += step) pts.push(v, 0, 0, v, 0, L1);
+        for (v = 0; v <= L1 + 1e-6; v += step) pts.push(0, 0, v, L2, 0, v);
+        var gm = new T.BufferGeometry(); gm.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
+        var ln = new T.LineSegments(gm, new T.LineBasicMaterial(opacity ? { color: color, transparent: true, opacity: opacity } : { color: color })); ln.position.y = y; roomGroup.add(ln);
+      }
+      grid(.5, 0xb9b6ae, .001, .8); grid(1, 0x8e8b82, .002);
+      var w2 = new T.Mesh(new T.PlaneGeometry(L2, H), mats.wall); w2.position.set(L2 / 2, H / 2, -.001); roomGroup.add(w2);
+      var w1 = new T.Mesh(new T.PlaneGeometry(L1, H), mats.side); w1.rotation.y = Math.PI / 2; w1.position.set(-.001, H / 2, L1 / 2); roomGroup.add(w1);
+      var edges = [0, 0, 0, 0, H, 0, L2, 0, 0, L2, H, 0, 0, 0, L1, 0, H, L1, 0, H, 0, L2, H, 0, 0, H, 0, 0, H, L1, 0, 0, 0, L2, 0, 0, 0, 0, 0, 0, 0, L1];
+      var eg = new T.BufferGeometry(); eg.setAttribute('position', new T.Float32BufferAttribute(edges, 3)); roomGroup.add(new T.LineSegments(eg, new T.LineBasicMaterial({ color: 0x9aa09a })));
+      // dimension lines on the floor in front of each run (wall 2 along x, wall 1 along z) + the height on the corner edge
+      var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 });
+      roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
+        new T.Vector3(0, .004, off), new T.Vector3(L2, .004, off), new T.Vector3(0, .004, off - .07), new T.Vector3(0, .004, off + .07), new T.Vector3(L2, .004, off - .07), new T.Vector3(L2, .004, off + .07),
+        new T.Vector3(off, .004, 0), new T.Vector3(off, .004, L1), new T.Vector3(off - .07, .004, 0), new T.Vector3(off + .07, .004, 0), new T.Vector3(off - .07, .004, L1), new T.Vector3(off + .07, .004, L1),
+        new T.Vector3(.02, 0, .02), new T.Vector3(.02, H, .02)]), gl));
+      var t2 = label('стена 2 · ' + fmt(inp.wall2Mm || 3600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set(L2 / 2, .14, off + .1); roomGroup.add(t2);
+      var t1 = label('стена 1 · ' + fmt(inp.wall1Mm || 3600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(off + .1, .14, L1 / 2); roomGroup.add(t1);
+      var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
+      if (inp.chimney && inp.chimneyAMm && inp.chimneyBMm) {
+        var cb = box(inp.chimneyBMm / 1000, H, inp.chimneyAMm / 1000, mats.chimney, inp.chimneyBMm / 2000, H / 2, inp.chimneyAMm / 2000, roomGroup); cb.castShadow = false;
+      }
+      if (inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm) {
+        var bl = inp.barLenMm / 1000, bw = inp.barWidthMm / 1000, isl = inp.barMode === 'island', ax = inp.barMode === 'wall1' ? 'z' : 'x', gap = 1.2;
+        var ig = new T.Group(), sx = ax === 'x' ? bl : bw, sz = ax === 'x' ? bw : bl;
+        box(sx, BH - WT - .1, sz, mats.island, 0, .1 + (BH - WT - .1) / 2, 0, ig); box(sx - .01, .1, sz - .06, mats.plinth, 0, .05, 0, ig); box(sx + .04, WT, sz + .04, mats.top, 0, BH - WT / 2, 0, ig);
+        var px, pz;
+        if (inp.barMode === 'wall1') { px = D + gap + bw / 2; pz = L1 / 2; }
+        else if (inp.barMode === 'wall2') { px = L2 / 2; pz = D + gap + bw / 2; }
+        else { px = (L2 + D) / 2; pz = D + gap + bw / 2; }
+        ig.position.set(px, 0, pz); roomGroup.add(ig);
+        var it = label((isl ? 'остров ' : 'бар ') + fmt(inp.barLenMm) + ' × ' + fmt(inp.barWidthMm), .16, '#4a4132', 'rgba(255,255,255,.85)'); it.position.set(px, BH + .18, pz); roomGroup.add(it);
+      }
+    }
+
+    /* ---------------- cabinets */
+    var meshById = {};
+    function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
+    function buildCabinets(inp) {
+      while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
+      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; uRuns = [];
+      wg = {}; [1, 2].forEach(function (w) { wg[w] = new T.Group(); cabGroup.add(wg[w]); });
+      WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
+      wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
+      if (!inp.showCabinets) return;
+      plan = planCorner({ wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep });
+      if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
+      var tails = {};
+      [1, 2].forEach(function (w) {
+        var wl = plan.walls[w], ordered = applyOrder(wl.modules, dirty ? order[w] : null); order[w] = ordered.map(function (m) { return m.id; });
+        ordered.forEach(function (m, i) { m.idx = i; });
+        var pos = position(ordered, wl.startMm); pos.items.forEach(function (m) { m.wall = w; items.push(m); }); tails[w] = pos.end;
+      });
+      var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
+      // upper units + their own order (kept only while it still fits the lower layout)
+      [1, 2].forEach(function (w) { upperRuns(w, items.filter(function (m) { return m.wall === w; })).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
+      var useU = !!uorder && uorder.length === uRuns.length;
+      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w || unitById[ids[0]] && unitById[ids[0]].wall !== uRuns[ri].wall) useU = false; }); if (cnt !== total) useU = false; }
+      if (!useU) uorder = null;
+      var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
+      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w }; ux += unitById[id].w; }); });
+      uRuns.forEach(function (r, ri) { r.ids = uIds[ri]; });
+      var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
+      var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
+      items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
+      var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
+      if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'cornerBase'; });
+      if (gb.length) {
+        if (inp.microFree) gb[0].host = ['micro'];
+        if (inp.coffeeFree) { var cg = gb[gb.length - 1]; cg.host = (cg.host || []).concat('coffee'); }
+      }
+      var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined;
+      mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front;
+      items.forEach(function (m) {
+        var w = m.w / 1000, cx = lc(m.wall, m.x + m.w / 2);
+        var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        g.position.x = cx; g.userData = { id: m.id, wall: m.wall, targetX: cx, w: w, type: m.type }; wg[m.wall].add(g); meshById[m.id] = g; addLabel(g, String(m.w / 10));
+      });
+      unitList.forEach(function (id) {
+        var u = upos[id], w = u.w / 1000, ux = lc(u.wall, u.x + u.w / 2);
+        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
+        if (inp.deep) { var dp = buildUpper(w, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true }); dp.position.x = ux; dp.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
+      });
+      // filler panel at the far end of each wall (fixed, not draggable)
+      [1, 2].forEach(function (w) {
+        var wl = plan.walls[w]; if (!wl.fillerMm) return;
+        var fg = new T.Group(); box(wl.fillerMm / 1000, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
+      });
+      // worktop slabs over each consecutive base run (the filler included); wall 2's first slab starts after wall 1's slab so the L is seamless
+      [1, 2].forEach(function (w) {
+        var wl = plan.walls[w], segs = [];
+        items.filter(function (m) { return m.wall === w; }).forEach(function (m) { if (TALL[m.type]) segs.push(null); else if (!segs.length || segs[segs.length - 1] === null) segs.push([m.x, m.x + m.w]); else segs[segs.length - 1][1] = m.x + m.w; });
+        segs.filter(Boolean).forEach(function (s) {
+          var a = s[0], b = s[1];
+          if (wl.fillerMm && Math.abs(b - tails[w]) < 1) b += wl.fillerMm;
+          if (w === 2 && !inp.chimney && a === wl.startMm) a += 20;
+          var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
+        });
+      });
+      var cur = { wall1Mm: plan.wall1Mm, wall2Mm: plan.wall2Mm, walls: {} };
+      [1, 2].forEach(function (w) { cur.walls[w] = { startMm: plan.walls[w].startMm, fillerMm: plan.walls[w].fillerMm, modules: items.filter(function (m) { return m.wall === w; }).map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: unitList.filter(function (id) { return upos[id].wall === w; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) }; });
+      root.agLayout.current = cur;
+    }
+
+    /* ---------------- camera fit + sync */
+    var home = { pos: null, target: null };
+    function fit(inp) {
+      var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, H = (inp.heightMm || 2600) / 1000;
+      var el = renderer && renderer.domElement, asp = el && el.clientHeight ? el.clientWidth / el.clientHeight : 1.6; asp = Math.max(.6, Math.min(2.5, asp));
+      var tv = Math.tan(21 * Math.PI / 180), th = tv * asp, halfW = (L1 + L2) / (2 * Math.SQRT2);
+      var dist = Math.max((halfW * 1.15) / th, (H / 2 * 1.35) / tv, 3.4) + .6;
+      var el26 = 26 * Math.PI / 180, dir = new T.Vector3(Math.SQRT1_2 * Math.cos(el26), Math.sin(el26), Math.SQRT1_2 * Math.cos(el26));
+      home.target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05), L1 / 2); home.pos = home.target.clone().add(dir.multiplyScalar(dist));
+      camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
+    }
+    function sync(force) {
+      if (failed || !renderer) return;
+      var inp = readInputs(), sig = JSON.stringify(inp);
+      var show = card.dataset.previewState === 'planner';
+      host.hidden = !show; stage.classList.toggle('ag-3d-on', show);
+      if (!show) return;
+      if (sig === inputsSig && !force) return;
+      var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
+      if (prev && prev.waterWall !== inp.waterWall) { dirty = false; uorder = null; }   // an explicit water-wall choice re-flows both runs
+      resize(); buildRoom(inp); buildCabinets(inp);
+      var fs = (inp.wall1Mm || 0) + '|' + (inp.wall2Mm || 0) + '|' + (inp.heightMm || 0);
+      if (fs !== fitSig) { fitSig = fs; fit(inp); }
+      hint.textContent = inp.showCabinets ? (moveMode ? 'Хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата. Влачете празно място за въртене.' : 'Завъртане: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; modeBtn.setAttribute('aria-pressed', String(moveMode));
+    }
+
+    /* ---------------- drag & drop (within one wall) */
+    function ndc(ev) { var r = renderer.domElement.getBoundingClientRect(); mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(mouse, camera); }
+    function pickModule(ev) {
+      ndc(ev); var objs = []; Object.keys(meshById).forEach(function (k) { objs.push(meshById[k]); });
+      var hit = ray.intersectObjects(objs, true)[0]; if (!hit) return null;
+      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, wall: o.userData.wall, upper: !!o.userData.upper } : null;
+    }
+    function groundX(ev, wall, upper) {
+      ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3();
+      return ray.ray.intersectPlane(plane, p) ? wg[wall].worldToLocal(p).x : null;
+    }
+    function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
+    function onDown(ev) {
+      if (!moveMode || !items.length || ev.button > 0) return;
+      var pk = pickModule(ev); if (!pk) return;
+      var m0 = pk.upper ? null : items.filter(function (m) { return m.id === pk.id; })[0];
+      if (m0 && m0.type === 'cornerBase') return;                       // the corner unit is fixed
+      var gx = groundX(ev, pk.wall, pk.upper); if (gx === null) return;
+      var m = meshById[pk.upper ? pk.id + ':u' : pk.id]; if (!m) return;
+      drag = { id: pk.id, wall: pk.wall, upper: pk.upper, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
+    }
+    function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
+    function runOf(id) { for (var i = 0; i < uRuns.length; i++) if (uRuns[i].ids.indexOf(id) >= 0) return i; return -1; }
+    function upperSwapOk(a, b) { return upos[a] && upos[b] && upos[a].wall === upos[b].wall && (runOf(a) === runOf(b) || upos[a].w === upos[b].w); }
+    function onMove(ev) {
+      if (!drag) return;
+      var gx = groundX(ev, drag.wall, drag.upper); if (gx === null) return; drag.moved = true;
+      var cx = Math.max(0, Math.min(WALL[drag.wall] / 1000, gx - drag.off)), keys = dragKeys(drag);
+      keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
+      setLift(keys, true);
+      var best = null, bd = 1e9, bc = 0, bw = 0;
+      if (drag.upper) {
+        Object.keys(upos).forEach(function (id) {
+          if (id === drag.id || !upperSwapOk(drag.id, id)) return;
+          var c = lc(drag.wall, upos[id].x + upos[id].w / 2), d = Math.abs(c - cx); if (d < bd) { bd = d; best = id; bc = c; bw = upos[id].w; }
+        });
+      } else {
+        items.forEach(function (m) {
+          if (m.id === drag.id || m.wall !== drag.wall || m.type === 'cornerBase') return;
+          var c = lc(m.wall, m.x + m.w / 2), d = Math.abs(c - cx); if (d < bd) { bd = d; best = m.id; bc = c; bw = m.w; }
+        });
+      }
+      drag.target = best && bd < Math.max(bw / 1000, .45) ? best : null;
+      if (dropMark) {
+        dropMark.visible = !!drag.target;
+        if (drag.target) {
+          wg[drag.wall].add(dropMark);
+          if (drag.upper) { dropMark.rotation.x = 0; dropMark.scale.set(bw / 1000, UPPER.uh / 1.1, 1); dropMark.position.set(bc, UPPER.ub + UPPER.uh / 2, .37); }
+          else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(bw / 1000, 1, 1); dropMark.position.set(bc, .01, D / 2); }
+        }
+      }
+    }
+    function onUp(ev) {
+      if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; if (dropMark) dropMark.visible = false;
+      try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ }
+      if (d.moved && d.target) {
+        if (d.upper) {
+          var r = uRuns.map(function (u) { return u.ids.slice(); }), ra = runOf(d.id), rb = runOf(d.target);
+          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
+        } else {
+          if (!uorder) uorder = uRuns.map(function (u) { return u.ids.slice(); });   // freeze the uppers: only the lower cabinets move
+          order[d.wall] = swapIds(order[d.wall], d.id, d.target); dirty = true;
+        }
+      }
+      setLift(dragKeys(d), false); sync(true); inputsSig = ''; sync(true);
+    }
+
+    /* ---------------- scene setup */
+    function setup() {
+      T = root.THREE; renderer = new T.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = false;
+      host.insertBefore(renderer.domElement, hint); scene = new T.Scene(); scene.background = new T.Color(0xeef0ed);
+      camera = new T.PerspectiveCamera(42, 1, .05, 80); ray = new T.Raycaster(); mouse = new T.Vector2(); setupMats(); mats.chimney = new T.MeshStandardMaterial({ color: 0xcfd2c9, roughness: .95 });
+      scene.add(new T.HemisphereLight(0xffffff, 0xb6b2a8, .95));
+      var sun = new T.DirectionalLight(0xffffff, .75); sun.position.set(5, 6, 5); sun.castShadow = false; scene.add(sun);
+      roomGroup = new T.Group(); cabGroup = new T.Group(); scene.add(roomGroup, cabGroup);
+      dropMark = new T.Mesh(new T.PlaneGeometry(1, 1.1), mats.highlight); dropMark.rotation.x = -Math.PI / 2; dropMark.visible = false; dropMark.position.y = .01; scene.add(dropMark);
+      controls = new T.OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .5; controls.minAzimuthAngle = .08; controls.maxAzimuthAngle = Math.PI / 2 - .08;
+      var el = renderer.domElement; el.addEventListener('pointerdown', onDown, true); el.addEventListener('pointermove', onMove); el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
+      new ResizeObserver(resize).observe(host);
+      (function loop() {
+        requestAnimationFrame(loop); if (host.hidden) return;
+        Object.keys(meshById).forEach(function (k) { var g = meshById[k], u = g.userData; if (u && u.targetX !== undefined && !(drag && drag.id === u.id)) g.position.x += (u.targetX - g.position.x) * .25; });
+        controls.update(); renderer.render(scene, camera);
+      })();
+    }
+    function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    btns.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b || !controls) return; var a = b.dataset.act;
+      if (a === 'reset') { camera.position.copy(home.pos); controls.target.copy(home.target); }
+      else if (a === 'in' || a === 'out') { var v = camera.position.clone().sub(controls.target).multiplyScalar(a === 'in' ? .8 : 1.25); var len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length())); v.setLength(len); camera.position.copy(controls.target).add(v); }
+      else if (a === 'mode') { moveMode = !moveMode; sync(true); inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
+      controls.update();
+    });
+    ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
+    function fail() { failed = true; host.hidden = true; stage.classList.remove('ag-3d-on'); }
+
+    var raf = 0; function soon() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; sync(false); }); }
+    page.addEventListener('change', soon, true); page.addEventListener('input', soon, true);
+    root.agLayout = root.agLayout || { refresh: function () {}, current: null };
+    Promise.resolve(root.THREE || load(THREE_URL)).then(function () { return root.THREE.OrbitControls || load(ORBIT_URL); }).then(function () {
+      setup();
+      new MutationObserver(soon).observe(page, { subtree: true, attributes: true, characterData: true, childList: true, attributeFilter: ['class', 'data-ag-step', 'data-preview-state', 'value'] });
+      page.addEventListener('click', function () { setTimeout(soon, 100); }); page.addEventListener('ag:phase-changed', function () { inputsSig = ''; soon(); }); page.addEventListener('ag:material-chosen', function () { inputsSig = ''; soon(); });
+      root.agLayout = { refresh: soon, current: root.agLayout.current, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      soon();
+    }).catch(fail);
+  }
+  function boot() { var t = 0; (function wait() { if (document.querySelector('.flow-aglova .sticky-cad-wrap .cad-stage') || ++t > 100) { init(); return; } setTimeout(wait, 100); })(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
+})(typeof window !== 'undefined' ? window : globalThis);
