@@ -39,7 +39,7 @@
     }
     page.addEventListener('click', function (e) {
       var next = e.target.closest('[data-prava-nav="next"]');
-      if (!next || !window.pravaFlow || window.pravaFlow.getStep() !== 2) return;
+      if (!next || !window.pravaFlow || window.pravaFlow.getStep() !== 1) return;
       var missing = firstMissing();
       if (!missing) return;
       e.preventDefault(); e.stopImmediatePropagation();
