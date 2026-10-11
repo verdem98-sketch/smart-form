@@ -172,10 +172,10 @@
     /* ---------------- fronts */
     var D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
     function handleH(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
-    function handleV(g, x, y, len) { box(0.012, len, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
+    function handleV(g, x, y, len) { box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
     function front(g, w, y0, y1, mat, x) { var h = y1 - y0 - G; box(w - G, h, FT, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT / 2, g); return h; }
     function doors(g, w, y0, y1, n) {
-      var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleV(g, cx + (n === 2 ? (i === 0 ? dw / 2 - .035 : -dw / 2 + .035) : dw / 2 - .035), (y0 + y1) / 2 + (y1 - y0) * .32, .16); }
+      var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, dw * .55)); }
     }
     function drawers(g, w, y0, y1, heights) {
       var tot = heights.reduce(function (a, b) { return a + b; }, 0), y = y1;
@@ -235,7 +235,7 @@
         } else {
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
           front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, 2.1, mats.front, 0); front(g, W, 2.1, H, mats.front, 0);
-          handleV(g, W / 2 - .04, .95 + .1, .5); handleV(g, W / 2 - .04, .95 - .1, .5);
+          handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
         }
       } else {
         box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
@@ -253,7 +253,7 @@
     function buildUpper(w, bottom, h, depth, mat) {
       var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
       var n = w >= .7 ? 2 : 1, dw = w / n;
-      for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); box(dw - G, h - G, FT, mat, cx, bottom + h / 2, depth + FT / 2, g); box(.012, .14, .014, mats.steel, cx + (n === 2 ? (i === 0 ? dw / 2 - .035 : -dw / 2 + .035) : dw / 2 - .035), bottom + .12, depth + FT + .007, g); }
+      for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); box(dw - G, h - G, FT, mat, cx, bottom + h / 2, depth + FT / 2, g); box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g); }
       return g;
     }
 
@@ -388,11 +388,11 @@
 
     /* ---------------- scene setup */
     function setup() {
-      T = root.THREE; renderer = new T.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+      T = root.THREE; renderer = new T.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = false; renderer.shadowMap.type = T.PCFSoftShadowMap;
       host.insertBefore(renderer.domElement, hint); scene = new T.Scene(); scene.background = new T.Color(0xeef0ed);
       camera = new T.PerspectiveCamera(42, 1, .05, 80); ray = new T.Raycaster(); mouse = new T.Vector2(); setupMats();
       scene.add(new T.HemisphereLight(0xffffff, 0xb6b2a8, .95));
-      var sun = new T.DirectionalLight(0xffffff, .75); sun.position.set(3, 6, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+      var sun = new T.DirectionalLight(0xffffff, .75); sun.position.set(3, 6, 5); sun.castShadow = false; sun.shadow.mapSize.set(2048, 2048);
       sun.shadow.camera.left = -6; sun.shadow.camera.right = 6; sun.shadow.camera.top = 5; sun.shadow.camera.bottom = -3; sun.shadow.bias = -.0004; scene.add(sun);
       roomGroup = new T.Group(); cabGroup = new T.Group(); labelGroup = new T.Group(); scene.add(roomGroup, cabGroup, labelGroup);
       dropMark = new T.Mesh(new T.PlaneGeometry(1, 1.1), mats.highlight); dropMark.rotation.x = -Math.PI / 2; dropMark.visible = false; dropMark.position.y = .01; scene.add(dropMark);
