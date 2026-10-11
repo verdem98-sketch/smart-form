@@ -59,10 +59,10 @@
     function fail(){failed=true;host.hidden=true;stage.classList.remove('prava-3d-on');}
     function refresh(){
       if(failed||!renderer)return;
-      var w=wanted(),key=[w.kitchen,w.deep,w.island].join('|'),myGen=++gen;
+      var w=wanted(),key=[w.kitchen,w.deep,w.island].join('|'),myGen;
       var show=card.dataset.previewState==='planner';
       host.hidden=!show;stage.classList.toggle('prava-3d-on',show);
-      if(key===current||!show)return;current=key;resize();
+      if(key===current||!show)return;current=key;myGen=++gen;resize();
       var list=[];
       if(w.kitchen)list.push(model(w.kitchen,'kitchen'));
       if(w.deep)list.push(model('top-row','deep'));
