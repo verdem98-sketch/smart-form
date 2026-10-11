@@ -122,7 +122,7 @@
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
-    var failed = false, moveMode = true, dirty = false, order = [], items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = true, dirty = false, uorder = null, upos = {}, uRunIds = [], order = [], items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, view = { dist: 0 };
 
     /* ---------------- inputs from the page */
@@ -190,7 +190,7 @@
       var M = function (c, r, m) { return new T.MeshStandardMaterial({ color: c, roughness: r === undefined ? .6 : r, metalness: m || 0 }); };
       mats = { front: M(0xf4f0e6, .5), frontA: M(0xf4f0e6, .5), frontB: M(0xd9cfba, .5), frontAlt: M(0xcfc6b2, .55), carcass: M(0xb9b3a6, .8), plinth: M(0x2f3133, .8), top: M(0xa5875c, .5), steel: M(0xbfc4c8, .35, .7),
         glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
-        upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35 }) };
+        upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35, side: T.DoubleSide }) };
       mats.glassFront = new T.MeshStandardMaterial({ color: 0xcfe3e6, roughness: .1, metalness: .1, transparent: true, opacity: .32 }); mats.glow = new T.MeshBasicMaterial({ color: 0xffe8b0 }); mats.led = new T.MeshBasicMaterial({ color: 0xfff1c2 });
       mats.topDefault = mats.top; mats.islandDefault = mats.island;
     }
@@ -305,14 +305,14 @@
       box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
       box(W - 0.002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
       switch (m.type) {
-        case 'sinkBase': doors(g, W, y0, y1, W >= .55 ? 2 : 1); break;
-        case 'ovenHobBase': drawers(g, W, y1 - .16, y1, [1]); ovenFront(g, W, y0 + .14, y1 - .16 + 0); front(g, W, y0, y0 + .14, mats.front, 0); handleH(g, 0, y0 + .1, W * .5); break;
+        case 'sinkBase': doors(g, W, y0, y1, W > .601 ? 2 : 1); break;
+        case 'ovenHobBase': drawers(g, W, y1 - .12, y1, [1]); ovenFront(g, W, y0 + .2, y1 - .12); front(g, W, y0, y0 + .2, mats.front, 0); handleH(g, 0, y0 + .2 - .04, W * .5); break;   // oven + drawer below it
         case 'hobBase': drawers(g, W, y0, y1, [1, 1, 1.6]); break;
         case 'dishwasher': if (m.free) break; front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
         case 'washingMachine': if (m.free) break; porthole(g, W, y0, y1); break;
         case 'basket': if (X.bottle) { front(g, W, y0, y1, mats.front, 0); for (var bi = -2; bi <= 2; bi++) box(.008, y1 - y0 - .16, .01, mats.steel, bi * Math.min(.02, W / 7), (y0 + y1) / 2, D + FT + .006, g); handleH(g, 0, y1 - .05, W * .5); } else drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
         case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
-        default: if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1.5]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
+        default: if (W <= .601) doors(g, W, y0, y1, 1); else if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1, 1.4]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
       }
       if (m.type === 'ovenHobBase' || m.type === 'hobBase') hobPlate(g, W);
       if (m.type === 'sinkBase') sinkTop(g, W);
@@ -356,13 +356,21 @@
         box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
         [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
       }
+      if (X.lift && !opt.glass && !opt.deep) {                                                           // lift-up flaps: joint between flaps is horizontal
+        for (var k = 0; k < 2; k++) {
+          var fy = bottom + h * (k ? .75 : .25);
+          box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
+          if (X.panel && h > .5 && w > .25) box(w - G - .1, h / 2 - .1, .008, fm, 0, fy, depth + FT + .004, g);
+          if (!X.handleless) box(Math.min(.2, w * .55), .012, .014, mats.steel, 0, bottom + h * (k ? .5 : 0) + .05, depth + FT + .007, g);
+        }
+        n = 0;
+      }
       for (var i = 0; i < n; i++) {
         var cx = -w / 2 + dw * (i + .5);
         if (opt.glass) { box(dw - G, h - G, .008, fm, cx, bottom + h / 2, depth + .004, g); box(dw - G, .03, FT, mats.steel, cx, bottom + h - .015, depth + FT / 2, g); box(dw - G, .03, FT, mats.steel, cx, bottom + .015, depth + FT / 2, g); }
         else { box(dw - G, h - G, FT, fm, cx, bottom + h / 2, depth + FT / 2, g); if (X.panel && h > .3 && dw > .25) box(dw - G - .1, h - .1, .008, fm, cx, bottom + h / 2, depth + FT + .004, g); }
         if (!X.handleless) box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);
       }
-      if (X.lift) [-1, 1].forEach(function (sd) { box(.02, h * .45, .02, mats.steel, sd * (w / 2 - .035), bottom + h * .5, depth + FT + .012, g); });   // lift arms
       if (X.light && !opt.deep) box(w - .04, .012, .03, mats.led, 0, bottom - .006, depth - .05, g);       // LED strip under uppers
       return g;
     }
@@ -413,6 +421,15 @@
       ordered.forEach(function (m, i) { m.idx = i; });
       var pos = position(plan, ordered); items = pos.items;
       var upList = items.filter(function (m) { return !TALL[m.type]; }), glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)].id : null;
+      /* uppers have their own order inside each run between tall columns; it is kept only while it still fits the lower layout */
+      var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
+      var dRuns = [], cr = null;
+      items.forEach(function (m) { if (TALL[m.type]) cr = null; else { if (!cr) { cr = { x0: m.x, ids: [], w: 0 }; dRuns.push(cr); } cr.ids.push(m.id); cr.w += m.w; } });
+      var useU = !!uorder && uorder.length === dRuns.length;
+      if (useU) { var seen = {}, cnt2 = 0; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!byId[id] || TALL[byId[id].type] || seen[id]) useU = false; else { seen[id] = 1; cnt2++; sw += byId[id].w; } }); if (sw !== dRuns[ri].w) useU = false; }); if (cnt2 !== upList.length) useU = false; }
+      if (!useU) uorder = null;
+      uRunIds = (useU ? uorder : dRuns.map(function (r) { return r.ids; })).map(function (a) { return a.slice(); });
+      upos = {}; uRunIds.forEach(function (ids, ri) { var ux0 = dRuns[ri].x0; ids.forEach(function (id) { upos[id] = { x: ux0, w: byId[id].w }; ux0 += byId[id].w; }); });
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
       var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
       if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'edgeFront'; });
@@ -427,8 +444,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = cx; up.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = cx; dp.userData = { id: m.id, upper: true, targetX: cx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; up.userData = { id: m.id, upper: true, targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = ux; dp.userData = { id: m.id, upper: true, targetX: ux }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
@@ -444,7 +461,7 @@
         var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, (a + b) / 2000, BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; cabGroup.add(top);
       });
       // expose layout for the form / AI step
-      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }) });
+      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: items.filter(function (m) { return !TALL[m.type]; }).map(function (m) { return { id: m.id, widthMm: m.w, xMm: upos[m.id].x }; }) });
       var inp2 = q('input[name="kitchen_layout"]'); if (!inp2) { var f = q('form'); if (f) { inp2 = document.createElement('input'); inp2.type = 'hidden'; inp2.name = 'kitchen_layout'; f.appendChild(inp2); } }
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
@@ -468,7 +485,7 @@
       if (!show) return;
       if (sig === inputsSig && !force) return;
       var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
-      if (prev && prev.water !== inp.water) { dirty = false; }   // an explicit water-position choice re-flows the run
+      if (prev && prev.water !== inp.water) { dirty = false; uorder = null; }   // an explicit water-position choice re-flows the run
       resize(); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.lengthMm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
@@ -481,31 +498,54 @@
     function pickModule(ev) {
       ndc(ev); var objs = []; Object.keys(meshById).forEach(function (k) { objs.push(meshById[k]); });
       var hit = ray.intersectObjects(objs, true)[0]; if (!hit) return null;
-      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? o.userData.id : null;
+      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, upper: !!o.userData.upper } : null;
     }
-    function groundX(ev) { ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), -0.45), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
+    function groundX(ev, upper) { ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
+    function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
     function onDown(ev) {
       if (!moveMode || !items.length || ev.button > 0) return;
-      var id = pickModule(ev); if (!id) return;
-      var gx = groundX(ev); if (gx === null) return;
-      var m = meshById[id]; drag = { id: id, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
+      var pk = pickModule(ev); if (!pk) return;
+      var gx = groundX(ev, pk.upper); if (gx === null) return;
+      var m = meshById[pk.upper ? pk.id + ':u' : pk.id]; if (!m) return;
+      drag = { id: pk.id, upper: pk.upper, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
     }
-    function setLift(id, on) { [id, id + ':u', id + ':d'].forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
+    function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
+    function runOf(id) { for (var i = 0; i < uRunIds.length; i++) if (uRunIds[i].indexOf(id) >= 0) return i; return -1; }
+    function upperSwapOk(a, b) { return runOf(a) === runOf(b) || (upos[a] && upos[b] && upos[a].w === upos[b].w); }
     function onMove(ev) {
       if (!drag) return;
-      var gx = groundX(ev); if (gx === null) return; drag.moved = true;
-      var cx = Math.max(0, Math.min(plan.lengthMm / 1000, gx - drag.off));
-      [drag.id, drag.id + ':u', drag.id + ':d'].forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
-      setLift(drag.id, true);
-      var best = null, bd = 1e9; items.forEach(function (m) { if (m.id === drag.id) return; var c = (m.x + m.w / 2) / 1000, d = Math.abs(c - cx); if (d < bd) { bd = d; best = m; } });
+      var gx = groundX(ev, drag.upper); if (gx === null) return; drag.moved = true;
+      var cx = Math.max(0, Math.min(plan.lengthMm / 1000, gx - drag.off)), keys = dragKeys(drag);
+      keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
+      setLift(keys, true);
+      var best = null, bd = 1e9, bc = 0;
+      items.forEach(function (m) {
+        if (m.id === drag.id) return;
+        if (drag.upper && (TALL[m.type] || !upperSwapOk(drag.id, m.id))) return;
+        var c = drag.upper ? (upos[m.id].x + upos[m.id].w / 2) / 1000 : (m.x + m.w / 2) / 1000, d = Math.abs(c - cx); if (d < bd) { bd = d; best = m; bc = c; }
+      });
       drag.target = best && bd < Math.max(best.w / 1000, .45) ? best.id : null;
-      if (dropMark) { dropMark.visible = !!drag.target; if (drag.target) { var tm = items.filter(function (m) { return m.id === drag.target; })[0]; dropMark.scale.set(tm.w / 1000, 1, 1); dropMark.position.set((tm.x + tm.w / 2) / 1000, .0, D / 2); } }
+      if (dropMark) {
+        dropMark.visible = !!drag.target;
+        if (drag.target) {
+          if (drag.upper) { var us = upperSpec(false); dropMark.rotation.x = 0; dropMark.scale.set(best.w / 1000, us.uh / 1.1, 1); dropMark.position.set(bc, us.ub + us.uh / 2, .37); }
+          else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(best.w / 1000, 1, 1); dropMark.position.set((best.x + best.w / 2) / 1000, 0, D / 2); }
+        }
+      }
     }
     function onUp(ev) {
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; if (dropMark) dropMark.visible = false;
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
-      if (d.moved && d.target) { order = swapIds(order, d.id, d.target); dirty = true; }
-      setLift(d.id, false); sync(true); inputsSig = ''; sync(true);
+      if (d.moved && d.target) {
+        if (d.upper) {
+          var r = uRunIds.map(function (a) { return a.slice(); }), ra = runOf(d.id), rb = runOf(d.target);
+          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
+        } else {
+          if (!uorder) uorder = uRunIds.map(function (a) { return a.slice(); });   // freeze the uppers: only the lower cabinets move
+          order = swapIds(order, d.id, d.target); dirty = true;
+        }
+      }
+      setLift(dragKeys(d), false); sync(true); inputsSig = ''; sync(true);
     }
 
     /* ---------------- scene setup */
@@ -534,7 +574,7 @@
       if (a === 'reset') { camera.position.copy(home.pos); controls.target.copy(home.target); }
       else if (a === 'in' || a === 'out') { var v = camera.position.clone().sub(controls.target).multiplyScalar(a === 'in' ? .8 : 1.25); var len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length())); v.setLength(len); camera.position.copy(controls.target).add(v); }
       else if (a === 'mode') { moveMode = !moveMode; sync(true); inputsSig = ''; sync(true); }
-      else if (a === 'auto') { dirty = false; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
