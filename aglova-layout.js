@@ -478,7 +478,16 @@
       var t1 = label('стена 1 · ' + fmt(inp.wall1Mm || 3600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(off + .1, .14, L1 / 2); roomGroup.add(t1);
       var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
       if (inp.chimney && inp.chimneyAMm && inp.chimneyBMm) {
-        var cb = box(inp.chimneyBMm / 1000, H, inp.chimneyAMm / 1000, mats.chimney, inp.chimneyBMm / 2000, H / 2, inp.chimneyAMm / 2000, roomGroup); cb.castShadow = false;
+        var cA = inp.chimneyAMm / 1000, cB = inp.chimneyBMm / 1000, OR = 0xd9822b;
+        var cb = box(cB, H, cA, mats.chimney, cB / 2, H / 2, cA / 2, roomGroup); cb.castShadow = false;
+        var co = new T.LineSegments(new T.EdgesGeometry(cb.geometry), new T.LineBasicMaterial({ color: OR })); co.raycast = function () {}; cb.add(co);
+        // A = along wall 1 (z), B = along wall 2 (x): orange dimension lines on the chimney's top edges, with A / B badges
+        var ty = H + .08, tk = .07;
+        roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
+          new T.Vector3(cB, ty, 0), new T.Vector3(cB, ty, cA), new T.Vector3(cB - tk, ty, 0), new T.Vector3(cB + tk, ty, 0), new T.Vector3(cB - tk, ty, cA), new T.Vector3(cB + tk, ty, cA),
+          new T.Vector3(0, ty, cA), new T.Vector3(cB, ty, cA), new T.Vector3(0, ty, cA - tk), new T.Vector3(0, ty, cA + tk)]), new T.LineBasicMaterial({ color: OR })));
+        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(cB + .12, ty + .12, cA / 2); roomGroup.add(la);
+        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2, ty + .12, cA + .12); roomGroup.add(lb2);
       }
       if (inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm) {
         var bl = inp.barLenMm / 1000, bw = inp.barWidthMm / 1000, isl = inp.barMode === 'island', ax = inp.barMode === 'wall1' ? 'z' : 'x', gap = 1.2;
@@ -660,7 +669,7 @@
     function setup() {
       T = root.THREE; renderer = new T.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 2)); renderer.shadowMap.enabled = false;
       host.insertBefore(renderer.domElement, hint); scene = new T.Scene(); scene.background = new T.Color(0xeef0ed);
-      camera = new T.PerspectiveCamera(42, 1, .05, 80); ray = new T.Raycaster(); mouse = new T.Vector2(); setupMats(); mats.chimney = new T.MeshStandardMaterial({ color: 0xcfd2c9, roughness: .95 });
+      camera = new T.PerspectiveCamera(42, 1, .05, 80); ray = new T.Raycaster(); mouse = new T.Vector2(); setupMats(); mats.chimney = new T.MeshStandardMaterial({ color: 0xe6bd94, roughness: .9 });
       scene.add(new T.HemisphereLight(0xffffff, 0xb6b2a8, .95));
       var sun = new T.DirectionalLight(0xffffff, .75); sun.position.set(5, 6, 5); sun.castShadow = false; scene.add(sun);
       roomGroup = new T.Group(); cabGroup = new T.Group(); scene.add(roomGroup, cabGroup);
