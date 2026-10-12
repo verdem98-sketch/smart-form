@@ -43,7 +43,7 @@
     if (!L1 || !L2) { errors.push('Въведете дължина на стена 1 и на стена 2.'); return res; }
     var chim = !!cfg.chimney, A = cfg.chimneyAMm || 0, B = cfg.chimneyBMm || 0;
     if (chim && (!A || !B)) { errors.push('Въведете размерите A и B на комина.'); return res; }
-    var start1 = chim ? A : 0, cornerUnit = !chim, start2 = chim ? B : BASE_DEPTH;
+    var start1 = chim ? A : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) : BASE_DEPTH;   // a chimney narrower than the 600 mm cabinet depth would let wall 2's run cross wall 1's run: it starts beside it instead
     var avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
     res.walls[1].startMm = start1; res.walls[2].startMm = start2;
     var waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
