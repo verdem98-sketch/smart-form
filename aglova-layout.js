@@ -98,7 +98,7 @@
     var cnt = {};
     [1, 2].forEach(function (w) { res.walls[w].modules.forEach(function (m) { cnt[m.type] = (cnt[m.type] || 0) + 1; m.id = m.type + '#' + (cnt[m.type] - 1); m.wall = w; }); });
     var anyTall = res.walls[1].modules.concat(res.walls[2].modules).some(function (m) { return TALL[m.type]; });
-    var required = Math.max(anyTall ? 2400 : 900, cfg.deep ? 2500 : 2170);
+    var required = anyTall ? 2400 : 900;   // the upper row (standard or deep) always ends at the height of the tall column, never above it
     if (cfg.heightMm && required > cfg.heightMm) errors.push('Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
     return res;
   }
@@ -157,13 +157,14 @@
     var msg = document.createElement('div'); msg.className = 'ag-3d-msg'; msg.hidden = true; host.appendChild(msg);
     var btns = document.createElement('div'); btns.className = 'ag-3d-btns'; host.appendChild(btns);
     function mkBtn(label, title, act) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = b.ariaLabel = title; b.dataset.act = act; btns.appendChild(b); return b; }
-    mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⟲', 'Начален изглед', 'reset');
-    var modeBtn = mkBtn('✥', 'Режим: местене на шкафове / въртене на изгледа', 'mode');
+    mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⌂', 'Начален изглед', 'reset');
+    var rotBtn = mkBtn('⟳', 'Въртене на изгледа (Orbit): влачете за завъртане', 'rotate');
+    var modeBtn = mkBtn('✥', 'Местене на шкафове: хванете шкаф и го пуснете върху друг', 'mode');
     var panBtn = mkBtn('✋', 'Преместване на изгледа (Pan): влачете наляво/надясно и нагоре/надолу. Десен бутон или Shift + влачене също местят изгледа.', 'pan');
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
-    var failed = false, moveMode = true, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, unitById = {};
 
     /* ---------------- inputs from the page */
@@ -440,7 +441,13 @@
     function lc(wall, sMm) { return wall === 1 ? (WALL[1] - sMm) / 1000 : sMm / 1000; }
 
     /* ---------------- room */
-    var UPPER = { ub: 1.45, uh: .72, depth: .35 }, TOPROW = { ub: 2.17, uh: .33, depth: D };
+    var UPPER = { ub: 1.45, uh: .95, depth: .35 }, TOPROW = { ub: 2.07, uh: .33, depth: D };
+    // the top of the upper row (standard or the deep second row) is always flush with the top of the tall column (2.4 m, or the ceiling when lower)
+    function applyHeights(inp) {
+      var top = Math.min(TALLH, (inp.heightMm || 2600) / 1000);
+      if (inp.deep) { TOPROW.uh = .33; TOPROW.ub = top - TOPROW.uh; UPPER.uh = Math.max(.3, TOPROW.ub - UPPER.ub); }
+      else UPPER.uh = Math.max(.3, top - UPPER.ub);
+    }
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, H = (inp.heightMm || 2600) / 1000;
@@ -622,11 +629,11 @@
       if (sig === inputsSig && !force) return;
       var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
       if (prev && prev.waterWall !== inp.waterWall) { dirty = false; uorder = null; }   // an explicit water-wall choice re-flows both runs
-      resize(); buildRoom(inp); buildCabinets(inp);
+      resize(); applyHeights(inp); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.wall1Mm || 0) + '|' + (inp.wall2Mm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
-      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата. Влачете празно място за въртене.' : 'Завъртане: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
-      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode)); panBtn.hidden = false;
+      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; setMode(panMode ? 'pan' : moveMode ? 'move' : 'rotate', true);
     }
 
     /* ---------------- drag & drop (within one wall) */
@@ -710,6 +717,7 @@
         var t = controls.target, cx = Math.max(-.6, Math.min(bounds.x + .6, t.x)), cy = Math.max(0, Math.min(bounds.y, t.y)), cz = Math.max(-.6, Math.min(bounds.z + .6, t.z));
         if (cx !== t.x || cy !== t.y || cz !== t.z) { var dx = cx - t.x, dy = cy - t.y, dz = cz - t.z; t.set(cx, cy, cz); camera.position.x += dx; camera.position.y += dy; camera.position.z += dz; }
       });
+      setMode('rotate', true);
       var el = renderer.domElement; el.addEventListener('pointerdown', onDown, true); el.addEventListener('pointermove', onMove); el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
       new ResizeObserver(resize).observe(host);
       (function loop() {
@@ -719,16 +727,22 @@
       })();
     }
     function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-    function setPan(on) {
-      panMode = !!on; panBtn.setAttribute('aria-pressed', String(panMode));
-      if (controls) { controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE; }
+    function setMode(m, quiet) {
+      moveMode = m === 'move'; panMode = m === 'pan';
+      rotBtn.setAttribute('aria-pressed', String(m === 'rotate')); modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode));
+      if (controls) {
+        controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE;
+        controls.enableRotate = !moveMode;                                   // moving cabinets: an empty drag does nothing (zoom and right-button pan still work)
+      }
+      if (!quiet) { sync(true); inputsSig = ''; sync(true); }
     }
     btns.addEventListener('click', function (ev) {
       var b = ev.target.closest('button'); if (!b || !controls) return; var a = b.dataset.act;
       if (a === 'reset') { camera.position.copy(home.pos); controls.target.copy(home.target); }
       else if (a === 'in' || a === 'out') { var v = camera.position.clone().sub(controls.target).multiplyScalar(a === 'in' ? .8 : 1.25); var len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length())); v.setLength(len); camera.position.copy(controls.target).add(v); }
-      else if (a === 'mode') { moveMode = !moveMode; if (moveMode) setPan(false); sync(true); inputsSig = ''; sync(true); }
-      else if (a === 'pan') { setPan(!panMode); if (panMode) moveMode = false; sync(true); inputsSig = ''; sync(true); }
+      else if (a === 'rotate') setMode('rotate');
+      else if (a === 'mode') setMode('move');
+      else if (a === 'pan') setMode('pan');
       else if (a === 'auto') { dirty = false; uorder = null; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
       controls.update();
     });
