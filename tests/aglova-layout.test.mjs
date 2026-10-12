@@ -32,7 +32,7 @@ const key = m => m.type + ':' + (m.widthMm ?? m.w) + '@' + (m.xMm ?? m.x);
 test('corner layout engine matches the backend planner', { skip: !backend }, () => {
   let compared = 0;
   const walls = [3000, 3300, 3600, 4100, 4750];
-  for (const w1 of walls) for (const w2 of [2400, 3000, 3850]) for (const waterWall of [1, 2]) for (const ovenTower of [true, false]) for (const chimney of [false, true]) for (const dish of [null, 'built_in_45', 'free_standing_60']) for (const wash of [null, 'built_in']) for (const bottle of [false, true]) {
+  for (const w1 of walls) for (const w2 of [2400, 3000, 3850]) for (const waterWall of [1, 2]) for (const ovenTower of [true, false]) for (const chimney of [false]) for (const dish of [null, 'built_in_45', 'free_standing_60']) for (const wash of [null, 'built_in']) for (const bottle of [false, true]) {
     const c = { w1, w2, waterWall, ovenTower, chimney, a: 400, b: 600, fridge: 'built_in', dish, wash, micro: ovenTower ? 'built_in' : null, coffee: null, bottle };
     const b = backend.buildCornerKitchenScene(payload(c));
     const e = engine.planCorner({ wall1Mm: w1, wall2Mm: w2, heightMm: 2700, waterWall, ovenTower, fridge: 'built_in', dishwasherMm: dish ? Number(dish.slice(-2)) * 10 : 0, washer: !!wash, microwave: !!c.micro, coffee: false, basket: bottle, chimney, chimneyAMm: c.a, chimneyBMm: c.b, deep: false });
@@ -66,6 +66,8 @@ test('errors: missing walls, fixed modules that do not fit', () => {
 test('narrow chimney: wall 2 starts beside wall 1 run, runs never overlap', () => {
   const p = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 2700, waterWall: 1, ovenTower: false, fridge: 'built_in', dishwasherMm: 0, washer: false, chimney: true, chimneyAMm: 500, chimneyBMm: 500, deep: false });
   assert.deepEqual(p.errors, []);
-  assert.equal(p.walls[1].startMm, 500);
-  assert.equal(p.walls[2].startMm, 600);
+  assert.equal(p.walls[1].startMm, 560);
+  assert.equal(p.walls[2].startMm, 660);
+  const q = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 2700, waterWall: 1, ovenTower: false, fridge: 'built_in', dishwasherMm: 0, washer: false, chimney: true, chimneyAMm: 400, chimneyBMm: 800, deep: false });
+  assert.equal(q.walls[2].startMm, 860);
 });

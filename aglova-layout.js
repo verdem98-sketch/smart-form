@@ -9,7 +9,7 @@
 
   /* ------------------------------------------------------------------ layout engine (pure) */
   var MAX_FILLER = 150, MIN_CUSTOM = 150, MAX_CUSTOM = 900, STEP = 50;
-  var BASE_DEPTH = 600, CORNER_UNIT = 900, MAX_UPPER = 900;
+  var BASE_DEPTH = 600, CORNER_UNIT = 900, MAX_UPPER = 900, PAS = 60;   // PAS: the 6 cm filler piece that always closes the corner next to a chimney
   var TALL = { fridge: 1, ovenTower: 1, applianceTower: 1 };
 
   function chooseStorage(rem) {
@@ -43,7 +43,10 @@
     if (!L1 || !L2) { errors.push('Въведете дължина на стена 1 и на стена 2.'); return res; }
     var chim = !!cfg.chimney, A = cfg.chimneyAMm || 0, B = cfg.chimneyBMm || 0;
     if (chim && (!A || !B)) { errors.push('Въведете размерите A и B на комина.'); return res; }
-    var start1 = chim ? A : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) : BASE_DEPTH;   // a chimney narrower than the 600 mm cabinet depth would let wall 2's run cross wall 1's run: it starts beside it instead
+    // with a chimney each run starts after a 60 mm filler (пас): wall 1 after the chimney's A, wall 2 after the chimney's B or - when the chimney is
+    // narrower than the 600 mm cabinet depth - after wall 1's run (600), so the runs never cross
+    var start1 = chim ? A + PAS : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) + PAS : BASE_DEPTH;
+    res.pas = chim ? { wall1: { from: A, to: A + PAS }, wall2: { from: start2 - PAS, to: start2 }, fill: B < BASE_DEPTH ? { x0: B, x1: start2 - PAS, depthMm: Math.min(A, BASE_DEPTH) } : null } : null;
     var avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
     res.walls[1].startMm = start1; res.walls[2].startMm = start2;
     var waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
@@ -522,7 +525,7 @@
       });
       var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
       // upper units + their own order (kept only while it still fits the lower layout)
-      [1, 2].forEach(function (w) { upperRuns(w, items.filter(function (m) { return m.wall === w; })).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
+      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       var useU = !!uorder && uorder.length === uRuns.length;
       if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w || unitById[ids[0]] && unitById[ids[0]].wall !== uRuns[ri].wall) useU = false; }); if (cnt !== total) useU = false; }
       if (!useU) uorder = null;
@@ -555,6 +558,12 @@
         var wl = plan.walls[w]; if (!wl.fillerMm) return;
         var fg = new T.Group(); box(wl.fillerMm / 1000, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
       });
+      // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
+      if (plan.pas) {
+        var pf = function (w, a, b, z1) { var fg = new T.Group(); box((b - a) / 1000, BH - PL, z1, mats.frontAlt, 0, PL + (BH - PL) / 2, z1 / 2, fg); fg.position.x = lc(w, (a + b) / 2); fg.userData = { filler: true }; wg[w].add(fg); };
+        pf(1, plan.pas.wall1.from, plan.pas.wall1.to, D - .02); pf(2, plan.pas.wall2.from, plan.pas.wall2.to, D - .02);
+        if (plan.pas.fill) { var f = plan.pas.fill, fd = f.depthMm / 1000; pf(2, f.x0, f.x1, fd); var ft = new T.Group(); box((f.x1 - f.x0) / 1000, WT, fd + .02, mats.top, lc(2, (f.x0 + f.x1) / 2), BH - WT / 2, (fd + .02) / 2, ft); ft.userData = { top: true }; wg[2].add(ft); }
+      }
       // worktop slabs over each consecutive base run (the filler included); wall 2's first slab starts after wall 1's slab so the L is seamless
       [1, 2].forEach(function (w) {
         var wl = plan.walls[w], segs = [];
@@ -562,6 +571,7 @@
         segs.filter(Boolean).forEach(function (s) {
           var a = s[0], b = s[1];
           if (wl.fillerMm && Math.abs(b - tails[w]) < 1) b += wl.fillerMm;
+          if (plan.pas && a === wl.startMm) a -= PAS;
           if (w === 2 && !inp.chimney && a === wl.startMm) a += 20;
           var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
         });
