@@ -425,7 +425,8 @@
         var cx = -w / 2 + dw * (i + .5);
         if (opt.glass) { box(dw - G, h - G, .008, fm, cx, bottom + h / 2, depth + .004, g); box(dw - G, .03, FT, mats.steel, cx, bottom + h - .015, depth + FT / 2, g); box(dw - G, .03, FT, mats.steel, cx, bottom + .015, depth + FT / 2, g); }
         else { box(dw - G, h - G, FT, fm, cx, bottom + h / 2, depth + FT / 2, g); if (X.panel && h > .3 && dw > .25) box(dw - G - .1, h - .1, .008, fm, cx, bottom + h / 2, depth + FT + .004, g); }
-        if (!X.handleless) box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);
+        var hl = Math.min(.2, dw * .55), sMm = opt.s0 === undefined ? 1e9 : (opt.wall === 1 ? opt.s0 + w * 1000 - (i + .5) * dw * 1000 : opt.s0 + (i + .5) * dw * 1000);
+        if (!X.handleless && !(opt.blind && sMm - hl * 500 < opt.blind)) box(hl, .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);   // no handle on a door that is hidden behind the other wall's row
       }
       if (X.light && !opt.deep) box(w - .04, .012, .03, mats.led, 0, bottom - .006, depth - .05, g);       // LED strip under uppers
       return g;
@@ -561,7 +562,7 @@
       if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w || unitById[ids[0]] && unitById[ids[0]].wall !== uRuns[ri].wall) useU = false; }); if (cnt !== total) useU = false; }
       if (!useU) uorder = null;
       var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
-      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w, first: r.first && ux === r.x0 && r.wall === 2 }; ux += unitById[id].w; }); });
+      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += unitById[id].w; }); });
       uRuns.forEach(function (r, ri) { r.ids = uIds[ri]; });
       var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
       var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
@@ -581,8 +582,8 @@
       });
       unitList.forEach(function (id) {
         var u = upos[id], w = u.w / 1000, ux = lc(u.wall, u.x + u.w / 2);
-        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
-        if (inp.deep) { var cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return; var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true }); dp.position.x = ux + cut / 2000 * (u.wall === 2 ? 1 : -1); dp.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
+        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId, wall: u.wall, s0: u.x, blind: u.firstW1 && cA < dS ? dS - 18 : 0 }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
+        if (inp.deep) { var cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return; var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true, wall: u.wall, s0: u.x + (u.first ? cut : 0), blind: u.firstW1 && cA < dD ? dD - 18 : 0 }); var dsx = ux + cut / 2000 * (u.wall === 2 ? 1 : -1); dp.position.x = dsx; dp.userData = { id: id, wall: u.wall, upper: true, targetX: dsx }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
       });
       // no panel at the far end of a wall: the run simply ends with its last cabinet / appliance
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
