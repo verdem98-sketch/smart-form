@@ -442,7 +442,7 @@
     function lc(wall, sMm) { return wall === 1 ? (WALL[1] - sMm) / 1000 : sMm / 1000; }
 
     /* ---------------- room */
-    var UPPER = { ub: 1.45, uh: .95, depth: .35 }, TOPROW = { ub: 2.07, uh: .33, depth: D };
+    var UPPER = { ub: 1.45, uh: .95, depth: .35 }, TOPROW = { ub: 2.07, uh: .33, depth: D - .014 };
     // the top of the upper row (standard or the deep second row) is always flush with the top of the tall column (2.4 m, or the ceiling when lower)
     function applyHeights(inp) {
       var top = Math.min(TALLH, (inp.heightMm || 2600) / 1000);
