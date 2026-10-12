@@ -66,7 +66,7 @@ test('errors: missing walls, fixed modules that do not fit', () => {
 test('narrow chimney: wall 2 starts beside wall 1 run, runs never overlap', () => {
   const p = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 2700, waterWall: 1, ovenTower: false, fridge: 'built_in', dishwasherMm: 0, washer: false, chimney: true, chimneyAMm: 500, chimneyBMm: 500, deep: false });
   assert.deepEqual(p.errors, []);
-  assert.equal(p.walls[1].startMm, 560);
+  assert.equal(p.walls[1].startMm, 660);
   assert.equal(p.walls[2].startMm, 660);
   const q = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 2700, waterWall: 1, ovenTower: false, fridge: 'built_in', dishwasherMm: 0, washer: false, chimney: true, chimneyAMm: 400, chimneyBMm: 800, deep: false });
   assert.equal(q.walls[2].startMm, 860);

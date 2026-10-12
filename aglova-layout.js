@@ -43,10 +43,10 @@
     if (!L1 || !L2) { errors.push('Въведете дължина на стена 1 и на стена 2.'); return res; }
     var chim = !!cfg.chimney, A = cfg.chimneyAMm || 0, B = cfg.chimneyBMm || 0;
     if (chim && (!A || !B)) { errors.push('Въведете размерите A и B на комина.'); return res; }
-    // with a chimney each run starts after a 60 mm filler (пас): wall 1 after the chimney's A, wall 2 after the chimney's B or - when the chimney is
-    // narrower than the 600 mm cabinet depth - after wall 1's run (600), so the runs never cross
-    var start1 = chim ? A + PAS : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) + PAS : BASE_DEPTH;
-    res.pas = chim ? { wall1: { from: A, to: A + PAS }, wall2: { from: start2 - PAS, to: start2 }, fill: B < BASE_DEPTH ? { x0: B, x1: start2 - PAS, depthMm: Math.min(A, BASE_DEPTH) } : null } : null;
+    // with a chimney each run starts after a 60 mm filler (пас). A run never starts closer than the depth of the opposite run (600) + the filler,
+    // i.e. 66 cm from the opposite wall when the chimney is narrower than 60 cm; a wider chimney pushes it out to chimney + filler
+    var start1 = chim ? Math.max(A, BASE_DEPTH) + PAS : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) + PAS : BASE_DEPTH;
+    res.pas = chim ? { wall1: { from: start1 - PAS, to: start1 }, wall2: { from: start2 - PAS, to: start2 }, block: { x1: start2 - PAS, z1: start1 - PAS } } : null;
     var avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
     res.walls[1].startMm = start1; res.walls[2].startMm = start2;
     var waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
@@ -159,10 +159,11 @@
     function mkBtn(label, title, act) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = b.ariaLabel = title; b.dataset.act = act; btns.appendChild(b); return b; }
     mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⟲', 'Начален изглед', 'reset');
     var modeBtn = mkBtn('✥', 'Режим: местене на шкафове / въртене на изгледа', 'mode');
+    var panBtn = mkBtn('✋', 'Преместване на изгледа (Pan): влачете наляво/надясно и нагоре/надолу. Десен бутон или Shift + влачене също местят изгледа.', 'pan');
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
-    var failed = false, moveMode = true, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = true, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, unitById = {};
 
     /* ---------------- inputs from the page */
@@ -262,7 +263,8 @@
     function fmt(mm) { return (mm % 10 === 0 ? mm / 10 : (mm / 10).toFixed(1)) + ' см'; }
 
     /* ---------------- fronts */
-    var TALLH = 2.4, D = 0.6, PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
+    var TALLH = 2.4, D = 0.582,   // carcass depth: with the 18 mm door the unit is 600 mm deep, like the planner's BASE_DEPTH
+       PL = 0.1, BH = 0.9, WT = 0.038, G = 0.004, FT = 0.018;
     var X = {};   /* extras chosen in step 8: handleless, drawers, glass, lift, panel, light, bottle */
     function handleH(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
     function handleV(g, x, y, len) { if (X.handleless) return; box(len, 0.012, 0.014, mats.steel, x, y, D + FT + 0.007, g); }
@@ -579,7 +581,13 @@
       if (plan.pas) {
         var pf = function (w, a, b) { var x = lc(w, (a + b) / 2), lo = pasLower((b - a) / 1000), up = pasUpper((b - a) / 1000); lo.position.x = x; up.position.x = x; lo.userData = { filler: true }; up.userData = { filler: true }; wg[w].add(lo); wg[w].add(up); };
         pf(1, plan.pas.wall1.from, plan.pas.wall1.to); pf(2, plan.pas.wall2.from, plan.pas.wall2.to);
-        if (plan.pas.fill) { var f = plan.pas.fill, fd = f.depthMm / 1000; box((f.x1 - f.x0) / 1000, BH - PL, fd, mats.front, lc(2, (f.x0 + f.x1) / 2), PL + (BH - PL) / 2, fd / 2, wg[2]); var ft = new T.Group(); box((f.x1 - f.x0) / 1000, WT, fd + .02, mats.top, lc(2, (f.x0 + f.x1) / 2), BH - WT / 2, (fd + .02) / 2, ft); ft.userData = { top: true }; wg[2].add(ft); }
+        // the dead corner between the two runs (the chimney stands in it): a solid block with door-plane fronts and a worktop on top
+        var cbk = plan.pas.block, bx = cbk.x1 / 1000, bz = cbk.z1 / 1000;
+        box(bx - .06, PL, bz - .06, mats.plinth, (bx - .06) / 2, PL / 2, (bz - .06) / 2, wg[2]);
+        box(bx, BH - PL - WT, bz, mats.carcass, bx / 2, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);
+        box(.018, BH - PL - WT - G, bz, mats.front, bx + .009 - FT, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);          // face towards wall 2's run (+x)
+        box(bx, BH - PL - WT - G, .018, mats.front, bx / 2, PL + (BH - PL - WT) / 2, bz + .009 - FT, wg[2]);          // face towards wall 1's run (+z)
+        var ct = new T.Group(); box(bx + .02, WT, bz + .02, mats.top, bx / 2 + .01, BH - WT / 2, bz / 2 + .01, ct); ct.userData = { top: true }; wg[2].add(ct);
       }
       // worktop slabs over each consecutive base run (the filler included); wall 2's first slab starts after wall 1's slab so the L is seamless
       [1, 2].forEach(function (w) {
@@ -606,6 +614,7 @@
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp, halfW = (L1 + L2) / (2 * Math.SQRT2);
       var dist = Math.max((halfW * 1.15) / th, (H / 2 * 1.35) / tv, 3.4) + .6;
       var el26 = 26 * Math.PI / 180, dir = new T.Vector3(Math.SQRT1_2 * Math.cos(el26), Math.sin(el26), Math.SQRT1_2 * Math.cos(el26));
+      bounds = { x: L2, y: H, z: L1 };
       home.target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05), L1 / 2); home.pos = home.target.clone().add(dir.multiplyScalar(dist));
       camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
     }
@@ -621,8 +630,8 @@
       resize(); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.wall1Mm || 0) + '|' + (inp.wall2Mm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
-      hint.textContent = inp.showCabinets ? (moveMode ? 'Хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата. Влачете празно място за въртене.' : 'Завъртане: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
-      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; modeBtn.setAttribute('aria-pressed', String(moveMode));
+      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата. Влачете празно място за въртене.' : 'Завъртане: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode)); panBtn.hidden = false;
     }
 
     /* ---------------- drag & drop (within one wall) */
@@ -638,7 +647,7 @@
     }
     function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
     function onDown(ev) {
-      if (!moveMode || !items.length || ev.button > 0) return;
+      if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var m0 = pk.upper ? null : items.filter(function (m) { return m.id === pk.id; })[0];
       if (m0 && m0.type === 'cornerBase') return;                       // the corner unit is fixed
@@ -701,7 +710,11 @@
       var sun = new T.DirectionalLight(0xffffff, .75); sun.position.set(5, 6, 5); sun.castShadow = false; scene.add(sun);
       roomGroup = new T.Group(); cabGroup = new T.Group(); scene.add(roomGroup, cabGroup);
       dropMark = new T.Mesh(new T.PlaneGeometry(1, 1.1), mats.highlight); dropMark.rotation.x = -Math.PI / 2; dropMark.visible = false; dropMark.position.y = .01; scene.add(dropMark);
-      controls = new T.OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .5; controls.minAzimuthAngle = .08; controls.maxAzimuthAngle = Math.PI / 2 - .08;
+      controls = new T.OrbitControls(camera, renderer.domElement); controls.enablePan = true; controls.screenSpacePanning = true; controls.panSpeed = 1; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .5; controls.minAzimuthAngle = .08; controls.maxAzimuthAngle = Math.PI / 2 - .08;
+      controls.addEventListener('change', function () {   // the view can be panned, but never so far that the room is lost
+        var t = controls.target, cx = Math.max(-.6, Math.min(bounds.x + .6, t.x)), cy = Math.max(0, Math.min(bounds.y, t.y)), cz = Math.max(-.6, Math.min(bounds.z + .6, t.z));
+        if (cx !== t.x || cy !== t.y || cz !== t.z) { var dx = cx - t.x, dy = cy - t.y, dz = cz - t.z; t.set(cx, cy, cz); camera.position.x += dx; camera.position.y += dy; camera.position.z += dz; }
+      });
       var el = renderer.domElement; el.addEventListener('pointerdown', onDown, true); el.addEventListener('pointermove', onMove); el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
       new ResizeObserver(resize).observe(host);
       (function loop() {
@@ -711,11 +724,16 @@
       })();
     }
     function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    function setPan(on) {
+      panMode = !!on; panBtn.setAttribute('aria-pressed', String(panMode));
+      if (controls) { controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE; }
+    }
     btns.addEventListener('click', function (ev) {
       var b = ev.target.closest('button'); if (!b || !controls) return; var a = b.dataset.act;
       if (a === 'reset') { camera.position.copy(home.pos); controls.target.copy(home.target); }
       else if (a === 'in' || a === 'out') { var v = camera.position.clone().sub(controls.target).multiplyScalar(a === 'in' ? .8 : 1.25); var len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length())); v.setLength(len); camera.position.copy(controls.target).add(v); }
-      else if (a === 'mode') { moveMode = !moveMode; sync(true); inputsSig = ''; sync(true); }
+      else if (a === 'mode') { moveMode = !moveMode; if (moveMode) setPan(false); sync(true); inputsSig = ''; sync(true); }
+      else if (a === 'pan') { setPan(!panMode); if (panMode) moveMode = false; sync(true); inputsSig = ''; sync(true); }
       else if (a === 'auto') { dirty = false; uorder = null; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
       controls.update();
     });
