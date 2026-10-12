@@ -219,9 +219,11 @@
       var fr = pill('fridge_type_aglova'), fridge = null;
       if (/свободно/i.test(fr)) fridge = 'free_standing'; else if (/вграден/i.test(fr)) fridge = 'built_in';
       var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = (root.agFlow && root.agFlow.getStep && root.agFlow.getStep()) || Number(page.dataset.agFlowStep) || 1, bar = pill('bar_enabled_aglova'), barMode = /остров/i.test(bar) ? 'island' : /стена\s*1/i.test(bar) ? 'wall1' : /стена\s*2/i.test(bar) ? 'wall2' : 'none';
-      var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova');
+      var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova'), cA = dimMm('chimney_a_aglova'), cB = dimMm('chimney_b_aglova'), chim = /^да$/i.test(pill('chimney_exists'));
+      // with a chimney the entered wall lengths run from the chimney outwards (the chimney is not included): the real wall is longer by A (wall 1) and B (wall 2)
+      var phys1 = chim && cA && cB && w1 > 0 && w2 > 0 ? w1 + cA : w1, phys2 = chim && cA && cB && w1 > 0 && w2 > 0 ? w2 + cB : w2;
       return {
-        wall1Mm: w1, wall2Mm: w2, heightMm: dimMm('visochina_aglova') || 2600,
+        wall1Mm: phys1, wall2Mm: phys2, heightMm: dimMm('visochina_aglova') || 2600,
         chimney: /^да$/i.test(pill('chimney_exists')), chimneyAMm: dimMm('chimney_a_aglova'), chimneyBMm: dimMm('chimney_b_aglova'),
         waterWall: /2/.test(pill('water_position_aglova')) ? 2 : 1, ovenTower: /^да$/i.test(pill('oven_tall_unit_aglova')), fridge: fridge,
         deep: pill('deep-cabinets') === 'yes', barMode: barMode,
@@ -473,12 +475,13 @@
       var eg = new T.BufferGeometry(); eg.setAttribute('position', new T.Float32BufferAttribute(edges, 3)); roomGroup.add(new T.LineSegments(eg, new T.LineBasicMaterial({ color: 0x9aa09a })));
       // dimension lines on the floor in front of each run (wall 2 along x, wall 1 along z) + the height on the corner edge
       var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 });
+      var ch = inp.chimney && inp.chimneyAMm && inp.chimneyBMm, s2 = ch ? inp.chimneyBMm / 1000 : 0, s1 = ch ? inp.chimneyAMm / 1000 : 0;   // the wall lengths are measured from the chimney outwards
       roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
-        new T.Vector3(0, .004, off), new T.Vector3(L2, .004, off), new T.Vector3(0, .004, off - .07), new T.Vector3(0, .004, off + .07), new T.Vector3(L2, .004, off - .07), new T.Vector3(L2, .004, off + .07),
-        new T.Vector3(off, .004, 0), new T.Vector3(off, .004, L1), new T.Vector3(off - .07, .004, 0), new T.Vector3(off + .07, .004, 0), new T.Vector3(off - .07, .004, L1), new T.Vector3(off + .07, .004, L1),
+        new T.Vector3(s2, .004, off), new T.Vector3(L2, .004, off), new T.Vector3(s2, .004, off - .07), new T.Vector3(s2, .004, off + .07), new T.Vector3(L2, .004, off - .07), new T.Vector3(L2, .004, off + .07),
+        new T.Vector3(off, .004, s1), new T.Vector3(off, .004, L1), new T.Vector3(off - .07, .004, s1), new T.Vector3(off + .07, .004, s1), new T.Vector3(off - .07, .004, L1), new T.Vector3(off + .07, .004, L1),
         new T.Vector3(.02, 0, .02), new T.Vector3(.02, H, .02)]), gl));
-      var t2 = label('стена 2 · ' + fmt(inp.wall2Mm || 3600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set(L2 / 2, .14, off + .1); roomGroup.add(t2);
-      var t1 = label('стена 1 · ' + fmt(inp.wall1Mm || 3600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(off + .1, .14, L1 / 2); roomGroup.add(t1);
+      var t2 = label('стена 2 · ' + fmt((inp.wall2Mm || 3600) - (ch ? inp.chimneyBMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set((s2 + L2) / 2, .14, off + .1); roomGroup.add(t2);
+      var t1 = label('стена 1 · ' + fmt((inp.wall1Mm || 3600) - (ch ? inp.chimneyAMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(off + .1, .14, (s1 + L1) / 2); roomGroup.add(t1);
       var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
       if (inp.chimney && inp.chimneyAMm && inp.chimneyBMm) {
         var cA = inp.chimneyAMm / 1000, cB = inp.chimneyBMm / 1000, OR = 0xd9822b;

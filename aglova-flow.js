@@ -193,6 +193,14 @@
     const keepVisible = () => { if ((step !== 1 && step !== 2) || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); };
     new MutationObserver(keepVisible).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
     // the legacy engine show()/hide()s these two wrappers when a question is answered; the flow owns phase visibility
+    if (chimQ) {
+      const note = document.createElement('div'); note.className = 'ag-chim-note'; note.hidden = true;
+      note.style.cssText = 'margin:6px 0 10px;font-size:13px;line-height:1.4;color:#6a5a45';
+      note.textContent = 'Размерите на стените се мерят от комина навън — без самия комин.';
+      chimQ.after(note);
+      const upd = () => { note.hidden = !(chimQ.querySelector('.option-pill.active,.option-pill.is-selected') || { dataset: {} }).dataset.value || !/^да$/i.test(chimQ.querySelector('.option-pill.active,.option-pill.is-selected').dataset.value); };
+      chimQ.addEventListener('click', () => setTimeout(upd, 120)); setTimeout(upd, 300);
+    }
     let fixing = false;
     const keepPhase = () => {
       if (fixing) return;

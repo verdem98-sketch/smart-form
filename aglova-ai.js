@@ -135,6 +135,8 @@
       return 'none';
     }
     function mm(d, key) { return d[key] && d[key].totalCm > 0 ? d[key].totalCm * 10 : null; }
+    // entered wall lengths run from the chimney outwards (chimney not included); the planner wants the full wall
+    function fullWall(d, key, chimKey, config) { var w = mm(d, key); return w && yes(config.chimney) ? w + (mm(d, chimKey) || 0) : w; }
     function collect() {
       var config = {
         chimney: selectedChoice('chimney_exists'), waterWall: selectedChoice('water_position_aglova'),
@@ -148,7 +150,7 @@
       return {
         version: 'aglova-ai-visual-v1', kitchenType: 'aglova', configuration: config, dimensions: d,
         technicalRequirements: {
-          wall1LengthMm: mm(d, 'stena1_len_aglova'), wall2LengthMm: mm(d, 'stena2_len_aglova'), roomHeightMm: mm(d, 'visochina_aglova'),
+          wall1LengthMm: fullWall(d, 'stena1_len_aglova', 'chimney_a_aglova', config), wall2LengthMm: fullWall(d, 'stena2_len_aglova', 'chimney_b_aglova', config),   // entered wall lengths run from the chimney outwards; the planner wants the full wall roomHeightMm: mm(d, 'visochina_aglova'),
           chimneyAMm: yes(config.chimney) ? mm(d, 'chimney_a_aglova') : null, chimneyBMm: yes(config.chimney) ? mm(d, 'chimney_b_aglova') : null,
           barLengthMm: mm(d, 'bar_len_aglova'), barWidthMm: mm(d, 'bar_width_aglova'),
           islandLengthMm: mm(d, 'island_len_aglova'), islandWidthMm: mm(d, 'island_width_aglova'),
