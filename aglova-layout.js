@@ -482,12 +482,12 @@
         var cb = box(cB, H, cA, mats.chimney, cB / 2, H / 2, cA / 2, roomGroup); cb.castShadow = false;
         var co = new T.LineSegments(new T.EdgesGeometry(cb.geometry), new T.LineBasicMaterial({ color: OR })); co.raycast = function () {}; cb.add(co);
         // A = along wall 1 (z), B = along wall 2 (x): orange dimension lines on the chimney's top edges, with A / B badges
-        var ty = H + .08, tk = .07;
+        var ty = H + .03, tk = .07;
         roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
           new T.Vector3(cB, ty, 0), new T.Vector3(cB, ty, cA), new T.Vector3(cB - tk, ty, 0), new T.Vector3(cB + tk, ty, 0), new T.Vector3(cB - tk, ty, cA), new T.Vector3(cB + tk, ty, cA),
           new T.Vector3(0, ty, cA), new T.Vector3(cB, ty, cA), new T.Vector3(0, ty, cA - tk), new T.Vector3(0, ty, cA + tk)]), new T.LineBasicMaterial({ color: OR })));
-        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(cB + .12, ty + .12, cA / 2); roomGroup.add(la);
-        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2, ty + .12, cA + .12); roomGroup.add(lb2);
+        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(cB + .3, H - .3, cA / 2); roomGroup.add(la);
+        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2 - .05, H - .62, cA + .34); roomGroup.add(lb2);
       }
       if (inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm) {
         var bl = inp.barLenMm / 1000, bw = inp.barWidthMm / 1000, isl = inp.barMode === 'island', ax = inp.barMode === 'wall1' ? 'z' : 'x', gap = 1.2;
