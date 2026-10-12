@@ -575,7 +575,7 @@
       // filler panel at the far end of each wall (fixed, not draggable)
       [1, 2].forEach(function (w) {
         var wl = plan.walls[w]; if (!wl.fillerMm) return;
-        var fg = pasLower(wl.fillerMm / 1000); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
+        var fg = new T.Group(); box(wl.fillerMm / 1000, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
       });
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
       if (plan.pas) {
