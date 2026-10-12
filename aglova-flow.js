@@ -193,7 +193,6 @@
     const keepVisible = () => { if ((step !== 1 && step !== 2) || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); };
     new MutationObserver(keepVisible).observe(comboWrap, { attributes: true, subtree: true, attributeFilter: ['style', 'hidden', 'class'] });
     // the legacy engine show()/hide()s these two wrappers when a question is answered; the flow owns phase visibility
-    if (chimQ) chimQ.addEventListener('click', e => { if (!e.target.closest('.option-pill')) return; setTimeout(() => { const g = dimWrap.querySelector('.dimensions-group-chimney'); if (g && g.offsetParent) g.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 250); });
     let fixing = false;
     const keepPhase = () => {
       if (fixing) return;

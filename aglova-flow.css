@@ -202,12 +202,3 @@ html body .flow-aglova.flow-aglova .booking-days .booking-slot.active{background
 .ag-summary-material-placeholder strong{display:block;color:#477448;font-size:12px;margin-bottom:4px}
 .ag-summary-material-change{font-size:10px;color:#8a908a;line-height:1.2;white-space:nowrap}
 @media(max-width:767px){#ag-ai-correction-footer{align-items:stretch;flex-direction:column}#ag-ai-correction-submit{width:100%}#ag-step9-summary-grid,.ag-summary-choice-grid{grid-template-columns:1fr}.ag-summary-materials-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-/* step 1: the chimney size block must stand out when it opens */
-.dimensions-phase-wrap .dimensions-group-chimney { border: 2px solid #d9822b; background: #fff6ec; border-radius: 16px; padding: 14px 16px 6px; margin: 14px 0; box-shadow: 0 6px 20px rgba(217,130,43,.18); animation: agChimIn .45s ease; }
-.dimensions-phase-wrap .dimensions-group-chimney::before { content: "Размери на комина — въведете A и B"; display: block; font-weight: 700; font-size: 15px; color: #a85a0f; margin-bottom: 6px; }
-.dimensions-phase-wrap .dimensions-group-chimney .dimension-label { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.dimensions-phase-wrap .dimensions-group-chimney .dimension-label::before { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #d9822b; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
-.dimensions-phase-wrap .dimensions-group-chimney [data-dim="chimney_a_aglova"] .dimension-label::before { content: "A"; }
-.dimensions-phase-wrap .dimensions-group-chimney [data-dim="chimney_b_aglova"] .dimension-label::before { content: "B"; }
-@keyframes agChimIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
