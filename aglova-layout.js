@@ -572,11 +572,7 @@
         var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
         if (inp.deep) { var dp = buildUpper(w, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true }); dp.position.x = ux; dp.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
       });
-      // filler panel at the far end of each wall (fixed, not draggable)
-      [1, 2].forEach(function (w) {
-        var wl = plan.walls[w]; if (!wl.fillerMm) return;
-        var fg = new T.Group(); box(wl.fillerMm / 1000, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
-      });
+      // no panel at the far end of a wall: the run simply ends with its last cabinet / appliance
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
       if (plan.pas) {
         var pf = function (w, a, b) { var x = lc(w, (a + b) / 2), lo = pasLower((b - a) / 1000), up = pasUpper((b - a) / 1000); lo.position.x = x; up.position.x = x; lo.userData = { filler: true }; up.userData = { filler: true }; wg[w].add(lo); wg[w].add(up); };
@@ -595,7 +591,6 @@
         items.filter(function (m) { return m.wall === w; }).forEach(function (m) { if (TALL[m.type]) segs.push(null); else if (!segs.length || segs[segs.length - 1] === null) segs.push([m.x, m.x + m.w]); else segs[segs.length - 1][1] = m.x + m.w; });
         segs.filter(Boolean).forEach(function (s) {
           var a = s[0], b = s[1];
-          if (wl.fillerMm && Math.abs(b - tails[w]) < 1) b += wl.fillerMm;
           if (plan.pas && a === wl.startMm) a -= PAS;
           if (w === 2 && !inp.chimney && a === wl.startMm) a += 20;
           var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
