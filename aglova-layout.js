@@ -505,6 +505,20 @@
       }
     }
 
+    /* ---------------- пас (6 cm filler): a mini cabinet front in the same plane and material as the doors, no handle */
+    function pasLower(w) {
+      var g = new T.Group(), y0 = PL, y1 = BH - WT;
+      box(w - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
+      box(w - .002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
+      var h = y1 - y0 - G; box(w - G, h, FT, mats.front, 0, y0 + h / 2 + G / 2, D + FT / 2, g);
+      return g;
+    }
+    function pasUpper(w) {
+      var g = new T.Group(); box(w - .002, UPPER.uh, UPPER.depth, mats.upper, 0, UPPER.ub + UPPER.uh / 2, UPPER.depth / 2, g);
+      box(w - G, UPPER.uh - G, FT, mats.upper, 0, UPPER.ub + UPPER.uh / 2, UPPER.depth + FT / 2, g);
+      return g;
+    }
+
     /* ---------------- cabinets */
     var meshById = {};
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
@@ -556,13 +570,13 @@
       // filler panel at the far end of each wall (fixed, not draggable)
       [1, 2].forEach(function (w) {
         var wl = plan.walls[w]; if (!wl.fillerMm) return;
-        var fg = new T.Group(); box(wl.fillerMm / 1000, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
+        var fg = pasLower(wl.fillerMm / 1000); fg.position.x = lc(w, tails[w] + wl.fillerMm / 2); fg.userData = { filler: true }; wg[w].add(fg);
       });
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
       if (plan.pas) {
-        var pf = function (w, a, b, z1) { var fg = new T.Group(); box((b - a) / 1000, BH - PL, z1, mats.frontAlt, 0, PL + (BH - PL) / 2, z1 / 2, fg); fg.position.x = lc(w, (a + b) / 2); fg.userData = { filler: true }; wg[w].add(fg); };
-        pf(1, plan.pas.wall1.from, plan.pas.wall1.to, D - .02); pf(2, plan.pas.wall2.from, plan.pas.wall2.to, D - .02);
-        if (plan.pas.fill) { var f = plan.pas.fill, fd = f.depthMm / 1000; pf(2, f.x0, f.x1, fd); var ft = new T.Group(); box((f.x1 - f.x0) / 1000, WT, fd + .02, mats.top, lc(2, (f.x0 + f.x1) / 2), BH - WT / 2, (fd + .02) / 2, ft); ft.userData = { top: true }; wg[2].add(ft); }
+        var pf = function (w, a, b) { var x = lc(w, (a + b) / 2), lo = pasLower((b - a) / 1000), up = pasUpper((b - a) / 1000); lo.position.x = x; up.position.x = x; lo.userData = { filler: true }; up.userData = { filler: true }; wg[w].add(lo); wg[w].add(up); };
+        pf(1, plan.pas.wall1.from, plan.pas.wall1.to); pf(2, plan.pas.wall2.from, plan.pas.wall2.to);
+        if (plan.pas.fill) { var f = plan.pas.fill, fd = f.depthMm / 1000; box((f.x1 - f.x0) / 1000, BH - PL, fd, mats.front, lc(2, (f.x0 + f.x1) / 2), PL + (BH - PL) / 2, fd / 2, wg[2]); var ft = new T.Group(); box((f.x1 - f.x0) / 1000, WT, fd + .02, mats.top, lc(2, (f.x0 + f.x1) / 2), BH - WT / 2, (fd + .02) / 2, ft); ft.userData = { top: true }; wg[2].add(ft); }
       }
       // worktop slabs over each consecutive base run (the filler included); wall 2's first slab starts after wall 1's slab so the L is seamless
       [1, 2].forEach(function (w) {
