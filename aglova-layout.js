@@ -117,13 +117,13 @@
   function position(mods, startMm) { var x = startMm, out = []; mods.forEach(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.x = x; out.push(c); x += m.w; }); return { items: out, end: x }; }
   function swapIds(order, a, b) { var o = order.slice(), i = o.indexOf(a), j = o.indexOf(b); if (i < 0 || j < 0) return o; var t = o[i]; o[i] = o[j]; o[j] = t; return o; }
   /* upper cabinets: every run of consecutive non-tall modules is split into spans of at most 900 mm (same rule as the backend) */
-  function upperRuns(wall, items, lead) {   // lead: a пас of that many mm at the start of the wall's first run (the upper row starts after it)
+  function upperRuns(wall, items, ext) {   // ext: mm by which the wall's first run is stretched towards the corner (upper cabinets meet in the corner, no gap)
     var runs = [], cur = null;
     items.forEach(function (m) {
       if (TALL[m.type]) { cur = null; return; }
       if (cur && cur.x0 + cur.w === m.x) cur.w += m.w; else { cur = { wall: wall, x0: m.x, w: m.w }; runs.push(cur); }
     });
-    if (lead && runs.length && items.length && runs[0].x0 === items[0].x && runs[0].w > lead) { runs[0].x0 += lead; runs[0].w -= lead; runs[0].pas = { from: runs[0].x0 - lead, to: runs[0].x0 }; }
+    if (ext > 0 && runs.length && items.length && runs[0].x0 === items[0].x) { runs[0].x0 -= ext; runs[0].w += ext; runs[0].first = true; }
     runs.forEach(function (r, ri) {
       var parts = Math.max(1, Math.ceil(r.w / MAX_UPPER)), unit = Math.round(r.w / parts / 10) * 10, x = r.x0; r.units = [];
       for (var i = 0; i < parts; i++) { var w = i === parts - 1 ? r.x0 + r.w - x : unit; r.units.push({ id: 'u' + wall + '_' + ri + '_' + i, wall: wall, w: w }); x += w; }
@@ -533,7 +533,7 @@
     }
 
     /* ---------------- cabinets */
-    var meshById = {};
+    var meshById = {}, deepCut = 0;
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
@@ -552,12 +552,16 @@
       });
       var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
       // upper units + their own order (kept only while it still fits the lower layout)
-      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, (!plan.pas && w === 2) ? PAS : 0).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
+      // upper rows meet in the corner: wall 1's run starts at the chimney face (or the corner), wall 2's run starts where wall 1's upper front plane ends - unless the chimney is deep enough to separate them
+      var cA = plan.pas ? (inp.chimneyAMm || 0) : 0, cB = plan.pas ? (inp.chimneyBMm || 0) : 0, dS = Math.round((UPPER.depth + FT) * 1000), dD = Math.round((TOPROW.depth + FT) * 1000);
+      var s2s = cA >= dS ? cB : Math.max(cB, dS), s2d = inp.deep ? (cA >= dD ? cB : Math.max(cB, dD)) : s2s, st1 = plan.walls[1].startMm, st2 = plan.walls[2].startMm;
+      deepCut = Math.max(0, s2d - s2s);
+      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       var useU = !!uorder && uorder.length === uRuns.length;
       if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w || unitById[ids[0]] && unitById[ids[0]].wall !== uRuns[ri].wall) useU = false; }); if (cnt !== total) useU = false; }
       if (!useU) uorder = null;
       var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
-      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w }; ux += unitById[id].w; }); });
+      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w, first: r.first && ux === r.x0 && r.wall === 2 }; ux += unitById[id].w; }); });
       uRuns.forEach(function (r, ri) { r.ids = uIds[ri]; });
       var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
       var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
@@ -578,17 +582,14 @@
       unitList.forEach(function (id) {
         var u = upos[id], w = u.w / 1000, ux = lc(u.wall, u.x + u.w / 2);
         var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
-        if (inp.deep) { var dp = buildUpper(w, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true }); dp.position.x = ux; dp.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
+        if (inp.deep) { var cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return; var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true }); dp.position.x = ux + cut / 2000 * (u.wall === 2 ? 1 : -1); dp.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
       });
       // no panel at the far end of a wall: the run simply ends with its last cabinet / appliance
-      // no chimney: wall 2's upper row starts 6 cm after wall 1's upper row (same пас as the lower row has beside the chimney)
-      if (!plan.pas) uRuns.forEach(function (r) { if (r.pas && r.wall === 2) { var x = lc(2, (r.pas.from + r.pas.to) / 2), pw = (r.pas.to - r.pas.from) / 1000, gs = [pasUpper(pw)]; if (inp.deep) gs.push(pasUpper(pw, true)); gs.forEach(function (g) { g.position.x = x; g.userData = { filler: true }; wg[2].add(g); }); } });
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
       if (plan.pas) {
         var pf = function (w, a, b, onlyUpper) {
           var x = lc(w, (a + b) / 2), parts = [];
           if (!onlyUpper) parts.push(pasLower((b - a) / 1000));
-          parts.push(pasUpper((b - a) / 1000)); if (inp.deep) parts.push(pasUpper((b - a) / 1000, true));
           parts.forEach(function (g) { g.position.x = x; g.userData = { filler: true }; wg[w].add(g); });
         };
         pf(1, plan.pas.wall1.from, plan.pas.wall1.to); pf(2, plan.pas.wall2.from, plan.pas.wall2.to);
