@@ -131,7 +131,47 @@
     return runs;
   }
 
-  var engine = { chooseStorage: chooseStorage, planCorner: planCorner, applyOrder: applyOrder, position: position, swapIds: swapIds, upperRuns: upperRuns, TALL: TALL };
+  /* manual moves of a fixed module (sink, hob, fridge...) to the other wall: the generic storage cabinets of both walls are re-chosen so each wall still adds up.
+     A move is { id, to, at }: the module goes to wall `to` at index `at` (replacing a generic cabinet there); a generic placeholder keeps its old slot. */
+  function applyMoves(plan, moves) {
+    var seq = 0, okMoves = [];
+    function isGen(m) { return m.type === 'genericBase'; }
+    function regen(w) {
+      var wl = plan.walls[w], mods = wl.modules, hasC = mods.some(function (m) { return m.type === 'cornerBase'; });
+      var avail = wl.lengthMm - wl.startMm - (hasC ? CORNER_UNIT : 0);
+      var fixed = sumW(mods.filter(function (m) { return !isGen(m) && m.type !== 'cornerBase'; }));
+      var st = chooseStorage(avail - fixed); if (!st) return false;
+      var gens = mods.filter(isGen);
+      while (gens.length > st.widths.length) {
+        var k = -1; gens.forEach(function (g, i) { if (g.ph) k = i; }); if (k < 0) k = gens.length - 1;
+        mods.splice(mods.indexOf(gens[k]), 1); gens.splice(k, 1);
+      }
+      while (gens.length < st.widths.length) {
+        var at = -1; mods.forEach(function (m, i) { if (isGen(m)) at = i; });
+        if (at < 0) { at = mods.length; mods.forEach(function (m, i) { if (TALL[m.type] && i < at) at = i; }); } else at++;
+        var g = { type: 'genericBase', w: 150, zone: 'storage', locked: false, id: 'genericBase#m' + (seq++), wall: w };
+        mods.splice(at, 0, g); gens.push(g);
+      }
+      gens.forEach(function (g, i) { g.w = st.widths[i]; g.ph = false; });
+      wl.fillerMm = st.filler; return true;
+    }
+    moves.forEach(function (mv) {
+      var snap = [1, 2].map(function (w) { return { mods: plan.walls[w].modules.slice(), fill: plan.walls[w].fillerMm, ws: plan.walls[w].modules.map(function (m) { return [m, m.w, m.wall]; }) }; });
+      function undo() { [1, 2].forEach(function (w, i) { plan.walls[w].modules = snap[i].mods; plan.walls[w].fillerMm = snap[i].fill; snap[i].ws.forEach(function (x) { x[0].w = x[1]; x[0].wall = x[2]; }); }); }
+      var from = 0, fi = -1, m = null;
+      [1, 2].forEach(function (w) { plan.walls[w].modules.forEach(function (x, i) { if (x.id === mv.id) { from = w; fi = i; m = x; } }); });
+      if (!m || from === mv.to || isGen(m) || m.type === 'cornerBase') return;
+      var fm = plan.walls[from].modules, tm = plan.walls[mv.to].modules, floor = (mv.to === 1 && tm.some(function (x) { return x.type === 'cornerBase'; })) ? 1 : 0;
+      fm[fi] = { type: 'genericBase', w: 150, zone: 'storage', locked: false, id: 'genericBase#m' + (seq++), wall: from, ph: true };
+      var k = Math.max(floor, Math.min(mv.at, tm.length));
+      if (tm[k] && isGen(tm[k])) tm[k] = m; else tm.splice(k, 0, m);
+      m.wall = mv.to;
+      if (regen(from) && regen(mv.to)) okMoves.push(mv); else undo();
+    });
+    return okMoves;
+  }
+
+  var engine = { applyMoves: applyMoves, chooseStorage: chooseStorage, planCorner: planCorner, applyOrder: applyOrder, position: position, swapIds: swapIds, upperRuns: upperRuns, TALL: TALL };
   if (typeof module !== 'undefined' && module.exports) { module.exports = engine; }
   root.AglovaLayoutEngine = engine;
   if (typeof document === 'undefined') return;
@@ -535,7 +575,7 @@
     }
 
     /* ---------------- cabinets */
-    var meshById = {}, deepCut = 0, xfer = [];
+    var meshById = {}, deepCut = 0, xfer = [], lastApplied = [], moveCheck = null;
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
@@ -544,17 +584,14 @@
       WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
       if (!inp.showCabinets) return;
-      plan = planCorner({ wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep });
+      var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep }; plan = planCorner(cfgPlan);
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
-      xfer = xfer.filter(function (p) {   // cross-wall swaps made by the user: re-applied on every rebuild while they still fit
-        var wa = 0, wb = 0, ia = -1, ib = -1;
-        [1, 2].forEach(function (w) { plan.walls[w].modules.forEach(function (m, i) { if (m.id === p[0]) { wa = w; ia = i; } if (m.id === p[1]) { wb = w; ib = i; } }); });
-        if (!wa || !wb || wa === wb) return false;
-        var ma = plan.walls[wa].modules[ia], mb = plan.walls[wb].modules[ib];
-        if (plan.walls[wa].fillerMm + ma.w - mb.w < 0 || plan.walls[wb].fillerMm + mb.w - ma.w < 0) return false;
-        plan.walls[wa].fillerMm += ma.w - mb.w; plan.walls[wb].fillerMm += mb.w - ma.w;
-        plan.walls[wa].modules[ia] = mb; plan.walls[wb].modules[ib] = ma; ma.wall = wb; mb.wall = wa; return true;
-      });
+      lastApplied = applyMoves(plan, xfer);
+      if (moveCheck && !moveCheck.mv.every(function (m) { return lastApplied.indexOf(m) >= 0; })) {   // the move does not fit: undo it
+        var mc = moveCheck; xfer = mc.old.xfer; order = mc.old.order; uorder = mc.old.uorder; plan = planCorner(cfgPlan); lastApplied = applyMoves(plan, xfer);
+        msg.textContent = 'Размяната не е възможна: шкафовете на стената не се побират след нея.'; msg.hidden = false; setTimeout(function () { msg.hidden = true; }, 4500);
+      }
+      moveCheck = null; xfer = lastApplied;   // cross-wall moves made by the user are re-applied on every rebuild while they still fit
       var tails = {};
       [1, 2].forEach(function (w) {
         var wl = plan.walls[w], ordered = applyOrder(wl.modules, dirty ? order[w] : null); order[w] = ordered.map(function (m) { return m.id; });
@@ -569,10 +606,10 @@
       deepCut = Math.max(0, s2d - s2s);
       [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       var useU = !!uorder && uorder.length === uRuns.length;
-      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w) useU = false; }); if (cnt !== total) useU = false; }
+      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; } }); if (ids.length !== uRuns[ri].units.length) useU = false; }); if (cnt !== total) useU = false; }
       if (!useU) uorder = null;
       var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
-      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += unitById[id].w; }); });
+      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id, si) { var sw = r.units[si].w; upos[id] = { wall: r.wall, x: ux, w: sw, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += sw; }); });
       uRuns.forEach(function (r, ri) { r.ids = uIds[ri]; });
       var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
       var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
@@ -682,11 +719,11 @@
     }
     function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
     function runOf(id) { for (var i = 0; i < uRuns.length; i++) if (uRuns[i].ids.indexOf(id) >= 0) return i; return -1; }
-    function upperSwapOk(a, b) { return upos[a] && upos[b] && (upos[a].wall === upos[b].wall ? (runOf(a) === runOf(b) || upos[a].w === upos[b].w) : upos[a].w === upos[b].w); }
-    // lower modules on different walls can trade places when both walls still fit (the leftover on each wall absorbs the width difference)
+    function upperSwapOk(a, b) { return !!(upos[a] && upos[b]); }   // an upper unit takes the width of the slot it moves into
+    // lower modules on different walls can trade places (the generic cabinets of both walls are re-sized to fit); two generic cabinets are interchangeable, so that is a no-op
     function crossOk(a, b) {
-      var ma = items.filter(function (m) { return m.id === a; })[0], mb = items.filter(function (m) { return m.id === b; })[0]; if (!ma || !mb || ma.wall === mb.wall) return false;
-      return plan.walls[ma.wall].fillerMm + ma.w - mb.w >= 0 && plan.walls[mb.wall].fillerMm + mb.w - ma.w >= 0;
+      var ma = items.filter(function (m) { return m.id === a; })[0], mb = items.filter(function (m) { return m.id === b; })[0];
+      return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase'));
     }
     function onMove(ev) {
       if (!drag) return;
@@ -727,13 +764,19 @@
           if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
         } else {
           if (!uorder) uorder = uRuns.map(function (u) { return u.ids.slice(); });   // freeze the uppers: only the lower cabinets move
-          var tm = items.filter(function (m) { return m.id === d.target; })[0];
-          if (tm && tm.wall !== d.wall) {
+          var tm = items.filter(function (m) { return m.id === d.target; })[0], sm = items.filter(function (m) { return m.id === d.id; })[0];
+          if (tm && sm && tm.wall !== sm.wall) {
             if (crossOk(d.id, d.target)) {
-              xfer.push([d.id, d.target]);
-              order[d.wall] = order[d.wall].map(function (id) { return id === d.id ? d.target : id; });
-              order[tm.wall] = order[tm.wall].map(function (id) { return id === d.target ? d.id : id; });
-              dirty = true; uorder = null;
+              var dIdx = function (id, w) { var r = -1; plan.walls[w].modules.forEach(function (m, i) { if (m.id === id) r = i; }); return r; };
+              var gen = function (m) { return m.type === 'genericBase'; }, mv = [], before = JSON.stringify(xfer);
+              if (gen(tm)) mv.push({ id: sm.id, to: tm.wall, at: dIdx(tm.id, tm.wall) });
+              else if (gen(sm)) mv.push({ id: tm.id, to: sm.wall, at: dIdx(sm.id, sm.wall) });
+              else { var ia = dIdx(sm.id, sm.wall), ib = dIdx(tm.id, tm.wall); mv.push({ id: sm.id, to: tm.wall, at: ib }, { id: tm.id, to: sm.wall, at: ia }); }
+              var oldOrder = { 1: order[1].slice(), 2: order[2].slice() }, oldX = xfer, oldU = uorder;
+              xfer = xfer.concat(mv); uorder = null;
+              if (!gen(tm) && !gen(sm)) { order[sm.wall] = order[sm.wall].map(function (id) { return id === sm.id ? tm.id : id; }); order[tm.wall] = order[tm.wall].map(function (id) { return id === tm.id ? sm.id : id; }); }
+              else { var fx = gen(tm) ? sm : tm, gn = gen(tm) ? tm : sm; order[fx.wall] = order[fx.wall].filter(function (id) { return id !== fx.id; }); order[gn.wall] = order[gn.wall].map(function (id) { return id === gn.id ? fx.id : id; }); }
+              dirty = true; moveCheck = { mv: mv, old: { order: oldOrder, xfer: oldX, uorder: oldU } };
             }
           } else { order[d.wall] = swapIds(order[d.wall], d.id, d.target); dirty = true; }
         }

@@ -71,3 +71,15 @@ test('narrow chimney: wall 2 starts beside wall 1 run, runs never overlap', () =
   const q = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 2700, waterWall: 1, ovenTower: false, fridge: 'built_in', dishwasherMm: 0, washer: false, chimney: true, chimneyAMm: 400, chimneyBMm: 800, deep: false });
   assert.equal(q.walls[2].startMm, 860);
 });
+
+test('cross-wall move re-sizes the generic cabinets so both walls still add up', () => {
+  const cfg = { wall1Mm: 3000, wall2Mm: 4000, heightMm: 3000, waterWall: 1, ovenTower: true, fridge: 'built_in', dishwasherMm: 450, washer: false, basket: true };
+  const plan = engine.planCorner(cfg);
+  const ok = engine.applyMoves(plan, [{ id: 'dishwasher#0', to: 2, at: 1 }, { id: 'basket#0', to: 1, at: 1 }]);
+  assert.equal(ok.length, 2);
+  [1, 2].forEach((w) => {
+    const wl = plan.walls[w], corner = wl.modules.some((m) => m.type === 'cornerBase') ? 900 : 0;
+    assert.equal(wl.modules.filter((m) => m.type !== 'cornerBase').reduce((s, m) => s + m.w, 0) + wl.fillerMm, wl.lengthMm - wl.startMm - corner);
+  });
+  assert.ok(plan.walls[2].modules.some((m) => m.id === 'dishwasher#0'));
+});
