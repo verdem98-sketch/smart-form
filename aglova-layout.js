@@ -146,7 +146,8 @@
     if (!stage || root.agLayout) return;
     var host = document.createElement('div'); host.className = 'ag-3d'; host.hidden = true; stage.appendChild(host);
     var st = document.createElement('style');
-    st.textContent = '.flow-aglova .ag-3d{position:absolute;inset:0;z-index:8;background:#eef0ed;touch-action:none}.flow-aglova .ag-3d canvas{display:block;width:100%;height:100%;cursor:grab}' +
+    var ROT_CUR = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="5"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v5h-5"/></g><g stroke="#222" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v5h-5"/></g></svg>') + '") 14 14, alias';   // rotate cursor
+    st.textContent = '.flow-aglova .ag-3d{position:absolute;inset:0;z-index:8;background:#eef0ed;touch-action:none}.flow-aglova .ag-3d canvas{display:block;width:100%;height:100%;cursor:' + ROT_CUR + '}.flow-aglova .ag-3d[data-mode=move] canvas{cursor:move}.flow-aglova .ag-3d[data-mode=pan] canvas{cursor:grab}.flow-aglova .ag-3d[data-mode=pan] canvas:active{cursor:grabbing}' +
       '.flow-aglova .ag-3d-hint{position:absolute;left:10px;bottom:8px;max-width:calc(100% - 20px);font:11px/1.35 sans-serif;color:#606760;background:rgba(255,255,255,.88);padding:4px 9px;border-radius:8px;pointer-events:none}' +
       '.flow-aglova .ag-3d-msg{position:absolute;left:110px;right:56px;top:10px;font:12px/1.4 sans-serif;color:#7a2d1f;background:#fff1ec;border:1px solid #e6b8ab;padding:8px 10px;border-radius:10px;pointer-events:none}' +
       '.flow-aglova .ag-3d-btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}' +
@@ -738,7 +739,7 @@
     }
     function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
     function setMode(m, quiet) {
-      moveMode = m === 'move'; panMode = m === 'pan';
+      moveMode = m === 'move'; panMode = m === 'pan'; host.setAttribute('data-mode', m);
       rotBtn.setAttribute('aria-pressed', String(m === 'rotate')); modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode));
       if (controls) {
         controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE;
