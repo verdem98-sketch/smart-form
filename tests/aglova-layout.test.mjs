@@ -83,3 +83,11 @@ test('cross-wall move re-sizes the generic cabinets so both walls still add up',
   });
   assert.ok(plan.walls[2].modules.some((m) => m.id === 'dishwasher#0'));
 });
+
+test('two ordinary cabinets on different walls trade widths and the others absorb the difference', () => {
+  const plan = engine.planCorner({ wall1Mm: 3000, wall2Mm: 4000, heightMm: 3000, waterWall: 1, ovenTower: true, fridge: 'built_in', dishwasherMm: 0, washer: false });
+  const ok = engine.applyMoves(plan, [{ gs: ['genericBase#0', 'genericBase#2'] }]);
+  assert.equal(ok.length, 1);
+  [1, 2].forEach((w) => { const wl = plan.walls[w], corner = wl.modules.some((m) => m.type === 'cornerBase') ? 900 : 0; assert.equal(wl.modules.filter((m) => m.type !== 'cornerBase').reduce((s, m) => s + m.w, 0) + wl.fillerMm, wl.lengthMm - wl.startMm - corner); });
+  assert.equal(plan.walls[1].modules.find((m) => m.id === 'genericBase#0').w, 800);
+});

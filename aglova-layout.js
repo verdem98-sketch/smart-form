@@ -158,6 +158,22 @@
     moves.forEach(function (mv) {
       var snap = [1, 2].map(function (w) { return { mods: plan.walls[w].modules.slice(), fill: plan.walls[w].fillerMm, ws: plan.walls[w].modules.map(function (m) { return [m, m.w, m.wall]; }) }; });
       function undo() { [1, 2].forEach(function (w, i) { plan.walls[w].modules = snap[i].mods; plan.walls[w].fillerMm = snap[i].fill; snap[i].ws.forEach(function (x) { x[0].w = x[1]; x[0].wall = x[2]; }); }); }
+      if (mv.gs) {   // two ordinary cabinets on different walls trade widths; the other ordinary cabinets of each wall absorb the difference
+        var ga = null, gb = null;
+        [1, 2].forEach(function (w) { plan.walls[w].modules.forEach(function (x) { if (x.id === mv.gs[0]) ga = x; if (x.id === mv.gs[1]) gb = x; }); });
+        if (!ga || !gb || ga.wall === gb.wall || ga.w === gb.w) return;
+        var ok = true;
+        function absorb(w, skip, delta) {   // add delta to the other ordinary cabinets of wall w (or to the leftover when there are none)
+          var wl = plan.walls[w], others = wl.modules.filter(function (x) { return isGen(x) && x !== skip; }), left = delta;
+          if (!others.length) { if (wl.fillerMm + left < 0) return false; wl.fillerMm += left; return true; }
+          for (var i = others.length - 1; i >= 0 && left !== 0; i--) { var nw = Math.max(MIN_CUSTOM, Math.min(MAX_CUSTOM, others[i].w + left)); left -= nw - others[i].w; others[i].w = nw; }
+          return left === 0;
+        }
+        var wa = ga.w, wb = gb.w; ga.w = wb; gb.w = wa;
+        ok = absorb(ga.wall, ga, wa - wb) && absorb(gb.wall, gb, wb - wa);
+        if (ok) okMoves.push(mv); else undo();
+        return;
+      }
       var from = 0, fi = -1, m = null;
       [1, 2].forEach(function (w) { plan.walls[w].modules.forEach(function (x, i) { if (x.id === mv.id) { from = w; fi = i; m = x; } }); });
       if (!m || from === mv.to || isGen(m) || m.type === 'cornerBase') return;
@@ -729,10 +745,10 @@
     }
     function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
     function runOf(id) { for (var i = 0; i < uRuns.length; i++) if (uRuns[i].ids.indexOf(id) >= 0) return i; return -1; }
-    // lower modules on different walls can trade places (the generic cabinets of both walls are re-sized to fit); two generic cabinets are interchangeable, so that is a no-op
+    // lower modules on different walls can trade places (the ordinary cabinets of both walls are re-sized to fit); two ordinary cabinets trade widths
     function crossOk(a, b) {
       var ma = items.filter(function (m) { return m.id === a; })[0], mb = items.filter(function (m) { return m.id === b; })[0];
-      return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase'));
+      return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase' && ma.w === mb.w));
     }
     function onMove(ev) {
       if (!drag) return;
@@ -760,14 +776,15 @@
     }
     /* green tint on the cabinet whose place the dragged one will take (materials are cloned, the shared ones stay untouched) */
     var hl = { key: null, saved: [] };
-    function clearHL() { hl.saved.forEach(function (x) { if (x[0].material !== x[1]) x[0].material.dispose(); x[0].material = x[1]; }); hl.saved = []; hl.key = null; }
+    function clearHL() { hl.saved.forEach(function (o) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); o.material.dispose(); }); hl.saved = []; hl.key = null; }
     function setHL(key) {
       if (hl.key === key) return; clearHL(); if (!key || !meshById[key]) return;
-      meshById[key].traverse(function (o) {
-        if (!o.isMesh) return; var m = o.material.clone(); hl.saved.push([o, o.material]);
-        if (m.emissive) { m.emissive.setHex(0x1f9d55); m.emissiveIntensity = .6; } else if (m.color) m.color.setHex(0x7ed6a0);
-        o.material = m;
-      }); hl.key = key;
+      var g = meshById[key], box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
+      g.traverse(function (o) { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)); } });
+      if (box.isEmpty()) return;
+      var sz = box.getSize(new T.Vector3()), c = box.getCenter(new T.Vector3());
+      var ov = new T.Mesh(new T.BoxGeometry(sz.x + .012, sz.y + .012, sz.z + .012), new T.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: .5, depthWrite: false }));
+      ov.position.copy(c); ov.renderOrder = 5; g.add(ov); hl.saved.push(ov); hl.key = key;   // a translucent green shell over the whole cabinet, front included
     }
     function onUp(ev) {
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
@@ -784,12 +801,14 @@
             if (crossOk(d.id, d.target)) {
               var dIdx = function (id, w) { var r = -1; plan.walls[w].modules.forEach(function (m, i) { if (m.id === id) r = i; }); return r; };
               var gen = function (m) { return m.type === 'genericBase'; }, mv = [], before = JSON.stringify(xfer);
-              if (gen(tm)) mv.push({ id: sm.id, to: tm.wall, at: dIdx(tm.id, tm.wall) });
+              if (gen(tm) && gen(sm)) mv.push({ gs: [sm.id, tm.id] });
+              else if (gen(tm)) mv.push({ id: sm.id, to: tm.wall, at: dIdx(tm.id, tm.wall) });
               else if (gen(sm)) mv.push({ id: tm.id, to: sm.wall, at: dIdx(sm.id, sm.wall) });
               else { var ia = dIdx(sm.id, sm.wall), ib = dIdx(tm.id, tm.wall); mv.push({ id: sm.id, to: tm.wall, at: ib }, { id: tm.id, to: sm.wall, at: ia }); }
               var oldOrder = { 1: order[1].slice(), 2: order[2].slice() }, oldX = xfer, oldU = uorder, oldD = dorder;
               xfer = xfer.concat(mv); uorder = null; dorder = null;
-              if (!gen(tm) && !gen(sm)) { order[sm.wall] = order[sm.wall].map(function (id) { return id === sm.id ? tm.id : id; }); order[tm.wall] = order[tm.wall].map(function (id) { return id === tm.id ? sm.id : id; }); }
+              if (gen(tm) && gen(sm)) { /* ids stay on their walls: order unchanged */ }
+              else if (!gen(tm) && !gen(sm)) { order[sm.wall] = order[sm.wall].map(function (id) { return id === sm.id ? tm.id : id; }); order[tm.wall] = order[tm.wall].map(function (id) { return id === tm.id ? sm.id : id; }); }
               else { var fx = gen(tm) ? sm : tm, gn = gen(tm) ? tm : sm; order[fx.wall] = order[fx.wall].filter(function (id) { return id !== fx.id; }); order[gn.wall] = order[gn.wall].map(function (id) { return id === gn.id ? fx.id : id; }); }
               dirty = true; moveCheck = { mv: mv, old: { order: oldOrder, xfer: oldX, uorder: oldU, dorder: oldD } };
             }
