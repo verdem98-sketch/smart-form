@@ -123,7 +123,7 @@
       if (TALL[m.type]) { cur = null; return; }
       if (cur && cur.x0 + cur.w === m.x) cur.w += m.w; else { cur = { wall: wall, x0: m.x, w: m.w }; runs.push(cur); }
     });
-    if (ext > 0 && runs.length && items.length && runs[0].x0 === items[0].x) { runs[0].x0 -= ext; runs[0].w += ext; runs[0].first = true; }
+    if (runs.length && items.length && runs[0].x0 === items[0].x) { runs[0].first = true; if (ext > 0) { runs[0].x0 -= ext; runs[0].w += ext; } }
     runs.forEach(function (r, ri) {
       var parts = Math.max(1, Math.ceil(r.w / MAX_UPPER)), unit = Math.round(r.w / parts / 10) * 10, x = r.x0; r.units = [];
       for (var i = 0; i < parts; i++) { var w = i === parts - 1 ? r.x0 + r.w - x : unit; r.units.push({ id: 'u' + wall + '_' + ri + '_' + i, wall: wall, w: w }); x += w; }
@@ -206,7 +206,7 @@
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
-    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, dorder = null, dpos = {}, layerIds = { u: [], d: [] }, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, unitById = {};
 
     /* ---------------- inputs from the page */
@@ -579,7 +579,7 @@
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
-      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; uRuns = [];
+      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = [];
       wg = {}; [1, 2].forEach(function (w) { wg[w] = new T.Group(); cabGroup.add(wg[w]); });
       WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
@@ -588,7 +588,7 @@
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
       lastApplied = applyMoves(plan, xfer);
       if (moveCheck && !moveCheck.mv.every(function (m) { return lastApplied.indexOf(m) >= 0; })) {   // the move does not fit: undo it
-        var mc = moveCheck; xfer = mc.old.xfer; order = mc.old.order; uorder = mc.old.uorder; plan = planCorner(cfgPlan); lastApplied = applyMoves(plan, xfer);
+        var mc = moveCheck; xfer = mc.old.xfer; order = mc.old.order; uorder = mc.old.uorder; dorder = mc.old.dorder; plan = planCorner(cfgPlan); lastApplied = applyMoves(plan, xfer);
         msg.textContent = 'Размяната не е възможна: шкафовете на стената не се побират след нея.'; msg.hidden = false; setTimeout(function () { msg.hidden = true; }, 4500);
       }
       moveCheck = null; xfer = lastApplied;   // cross-wall moves made by the user are re-applied on every rebuild while they still fit
@@ -605,12 +605,18 @@
       var s2s = cA >= dS ? cB : Math.max(cB, dS), s2d = inp.deep ? (cA >= dD ? cB : Math.max(cB, dD)) : s2s, st1 = plan.walls[1].startMm, st2 = plan.walls[2].startMm;
       deepCut = Math.max(0, s2d - s2s);
       [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
-      var useU = !!uorder && uorder.length === uRuns.length;
-      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; } }); if (ids.length !== uRuns[ri].units.length) useU = false; }); if (cnt !== total) useU = false; }
-      if (!useU) uorder = null;
-      var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
-      uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id, si) { var sw = r.units[si].w; upos[id] = { wall: r.wall, x: ux, w: sw, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += sw; }); });
-      uRuns.forEach(function (r, ri) { r.ids = uIds[ri]; });
+      // the standard upper row and the deep row above it are two independent layers, each with its own order (slots keep their widths, the unit moves into the slot)
+      function layer(ord) {
+        var ok = !!ord && ord.length === uRuns.length;
+        if (ok) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; ord.forEach(function (ids, ri) { ids.forEach(function (id) { if (!unitById[id] || seen[id]) ok = false; else { seen[id] = 1; cnt++; } }); if (ids.length !== uRuns[ri].units.length) ok = false; }); if (cnt !== total) ok = false; }
+        var ids = (ok ? ord : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); }), pos = {};
+        uRuns.forEach(function (r, ri) { var ux = r.x0; ids[ri].forEach(function (id, si) { var sw = r.units[si].w; pos[id] = { wall: r.wall, x: ux, w: sw, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += sw; }); });
+        return { ok: ok, ids: ids, pos: pos };
+      }
+      var LU = layer(uorder), LD = layer(dorder);
+      if (!LU.ok) uorder = null; if (!LD.ok) dorder = null;
+      upos = LU.pos; dpos = LD.pos; layerIds = { u: LU.ids, d: LD.ids };
+      uRuns.forEach(function (r, ri) { r.ids = LU.ids[ri]; });
       var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
       var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
@@ -629,8 +635,12 @@
       });
       unitList.forEach(function (id) {
         var u = upos[id], w = u.w / 1000, ux = lc(u.wall, u.x + u.w / 2);
-        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId, wall: u.wall, s0: u.x, blind: u.firstW1 && cA < dS ? dS - 18 : 0 }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
-        if (inp.deep) { var cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return; var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true, wall: u.wall, s0: u.x + (u.first ? cut : 0), blind: u.firstW1 && cA < dD ? dD - 18 : 0 }); var dsx = ux + cut / 2000 * (u.wall === 2 ? 1 : -1); dp.position.x = dsx; dp.userData = { id: id, wall: u.wall, upper: true, targetX: dsx }; wg[u.wall].add(dp); meshById[id + ':d'] = dp; }
+        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId, wall: u.wall, s0: u.x, blind: u.firstW1 && cA < dS ? dS - 18 : 0 }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, layer: 'u', targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
+      });
+      if (inp.deep) Object.keys(dpos).forEach(function (id) {
+        var u = dpos[id], ux = lc(u.wall, u.x + u.w / 2), cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return;
+        var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true, wall: u.wall, s0: u.x + cut, blind: u.firstW1 && cA < dD ? dD - 18 : 0 }), dsx = ux + cut / 2000 * (u.wall === 2 ? 1 : -1);
+        dp.position.x = dsx; dp.userData = { id: id, wall: u.wall, upper: true, layer: 'd', targetX: dsx }; wg[u.wall].add(dp); meshById[id + ':d'] = dp;
       });
       // no panel at the far end of a wall: the run simply ends with its last cabinet / appliance
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
@@ -685,7 +695,7 @@
       if (!show) return;
       if (sig === inputsSig && !force) return;
       var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
-      if (prev && prev.waterWall !== inp.waterWall) { dirty = false; uorder = null; }   // an explicit water-wall choice re-flows both runs
+      if (prev && prev.waterWall !== inp.waterWall) { dirty = false; uorder = null; dorder = null; }   // an explicit water-wall choice re-flows both runs
       resize(); applyHeights(inp); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.wall1Mm || 0) + '|' + (inp.wall2Mm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
@@ -698,7 +708,7 @@
     function pickModule(ev) {
       ndc(ev); var objs = []; Object.keys(meshById).forEach(function (k) { objs.push(meshById[k]); });
       var hit = ray.intersectObjects(objs, true)[0]; if (!hit) return null;
-      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, wall: o.userData.wall, upper: !!o.userData.upper } : null;
+      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, wall: o.userData.wall, upper: !!o.userData.upper, layer: o.userData.layer || 'u' } : null;
     }
     function groundWorld(ev, upper) {
       ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3();
@@ -707,19 +717,18 @@
     function groundX(ev, wall, upper) { var p = groundWorld(ev, upper); return p ? wg[wall].worldToLocal(p).x : null; }
     // world position (x, z) of the centre of a lower module / upper unit, to find the nearest drop target on either wall
     function centreWorld(wall, sMm, wMm, z) { var v = new T.Vector3(lc(wall, sMm + wMm / 2), 0, z); wg[wall].updateMatrixWorld(true); return wg[wall].localToWorld(v); }
-    function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
+    function dragKeys(d) { return d.upper ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var m0 = pk.upper ? null : items.filter(function (m) { return m.id === pk.id; })[0];
       if (m0 && m0.type === 'cornerBase') return;                       // the corner unit is fixed
       var gx = groundX(ev, pk.wall, pk.upper); if (gx === null) return;
-      var m = meshById[pk.upper ? pk.id + ':u' : pk.id]; if (!m) return;
-      drag = { id: pk.id, wall: pk.wall, upper: pk.upper, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
+      var m = meshById[pk.upper ? pk.id + ':' + pk.layer : pk.id]; if (!m) return;
+      drag = { id: pk.id, wall: pk.wall, upper: pk.upper, layer: pk.layer, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
     }
     function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
     function runOf(id) { for (var i = 0; i < uRuns.length; i++) if (uRuns[i].ids.indexOf(id) >= 0) return i; return -1; }
-    function upperSwapOk(a, b) { return !!(upos[a] && upos[b]); }   // an upper unit takes the width of the slot it moves into
     // lower modules on different walls can trade places (the generic cabinets of both walls are re-sized to fit); two generic cabinets are interchangeable, so that is a no-op
     function crossOk(a, b) {
       var ma = items.filter(function (m) { return m.id === a; })[0], mb = items.filter(function (m) { return m.id === b; })[0];
@@ -733,9 +742,10 @@
       setLift(keys, true);
       var best = null, bd = 1e9, bc = 0, bw = 0, bwall = drag.wall, pw = groundWorld(ev, drag.upper);
       if (drag.upper) {
-        Object.keys(upos).forEach(function (id) {
-          if (id === drag.id || !upperSwapOk(drag.id, id)) return;
-          var u = upos[id], cw = pw ? centreWorld(u.wall, u.x, u.w, .2) : null, d = cw ? Math.hypot(cw.x - pw.x, cw.z - pw.z) : 1e9;
+        var P = drag.layer === 'd' ? dpos : upos;
+        Object.keys(P).forEach(function (id) {
+          if (id === drag.id) return;
+          var u = P[id], cw = pw ? centreWorld(u.wall, u.x, u.w, .2) : null, d = cw ? Math.hypot(cw.x - pw.x, cw.z - pw.z) : 1e9;
           if (d < bd) { bd = d; best = id; bc = lc(u.wall, u.x + u.w / 2); bw = u.w; bwall = u.wall; }
         });
       } else {
@@ -750,7 +760,7 @@
         dropMark.visible = !!drag.target;
         if (drag.target) {
           wg[drag.targetWall].add(dropMark);
-          if (drag.upper) { dropMark.rotation.x = 0; dropMark.scale.set(bw / 1000, UPPER.uh / 1.1, 1); dropMark.position.set(bc, UPPER.ub + UPPER.uh / 2, .37); }
+          if (drag.upper) { var R = drag.layer === 'd' ? TOPROW : UPPER; dropMark.rotation.x = 0; dropMark.scale.set(bw / 1000, R.uh / 1.1, 1); dropMark.position.set(bc, R.ub + R.uh / 2, .37); }
           else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(bw / 1000, 1, 1); dropMark.position.set(bc, .01, D / 2); }
         }
       }
@@ -760,10 +770,11 @@
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ }
       if (d.moved && d.target) {
         if (d.upper) {
-          var r = uRuns.map(function (u) { return u.ids.slice(); }), ra = runOf(d.id), rb = runOf(d.target);
-          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
+          var L = d.layer || 'u', r = layerIds[L].map(function (x) { return x.slice(); }), ra = -1, rb = -1;
+          r.forEach(function (ids, i) { if (ids.indexOf(d.id) >= 0) ra = i; if (ids.indexOf(d.target) >= 0) rb = i; });
+          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; if (L === 'd') dorder = r; else uorder = r; if (L === 'u' && !dorder) dorder = layerIds.d.map(function (x) { return x.slice(); }); if (L === 'd' && !uorder) uorder = layerIds.u.map(function (x) { return x.slice(); }); }
         } else {
-          if (!uorder) uorder = uRuns.map(function (u) { return u.ids.slice(); });   // freeze the uppers: only the lower cabinets move
+          if (!uorder) uorder = layerIds.u.map(function (x) { return x.slice(); }); if (!dorder) dorder = layerIds.d.map(function (x) { return x.slice(); });   // freeze the uppers: only the lower cabinets move
           var tm = items.filter(function (m) { return m.id === d.target; })[0], sm = items.filter(function (m) { return m.id === d.id; })[0];
           if (tm && sm && tm.wall !== sm.wall) {
             if (crossOk(d.id, d.target)) {
@@ -772,11 +783,11 @@
               if (gen(tm)) mv.push({ id: sm.id, to: tm.wall, at: dIdx(tm.id, tm.wall) });
               else if (gen(sm)) mv.push({ id: tm.id, to: sm.wall, at: dIdx(sm.id, sm.wall) });
               else { var ia = dIdx(sm.id, sm.wall), ib = dIdx(tm.id, tm.wall); mv.push({ id: sm.id, to: tm.wall, at: ib }, { id: tm.id, to: sm.wall, at: ia }); }
-              var oldOrder = { 1: order[1].slice(), 2: order[2].slice() }, oldX = xfer, oldU = uorder;
-              xfer = xfer.concat(mv); uorder = null;
+              var oldOrder = { 1: order[1].slice(), 2: order[2].slice() }, oldX = xfer, oldU = uorder, oldD = dorder;
+              xfer = xfer.concat(mv); uorder = null; dorder = null;
               if (!gen(tm) && !gen(sm)) { order[sm.wall] = order[sm.wall].map(function (id) { return id === sm.id ? tm.id : id; }); order[tm.wall] = order[tm.wall].map(function (id) { return id === tm.id ? sm.id : id; }); }
               else { var fx = gen(tm) ? sm : tm, gn = gen(tm) ? tm : sm; order[fx.wall] = order[fx.wall].filter(function (id) { return id !== fx.id; }); order[gn.wall] = order[gn.wall].map(function (id) { return id === gn.id ? fx.id : id; }); }
-              dirty = true; moveCheck = { mv: mv, old: { order: oldOrder, xfer: oldX, uorder: oldU } };
+              dirty = true; moveCheck = { mv: mv, old: { order: oldOrder, xfer: oldX, uorder: oldU, dorder: oldD } };
             }
           } else { order[d.wall] = swapIds(order[d.wall], d.id, d.target); dirty = true; }
         }
@@ -824,7 +835,7 @@
       else if (a === 'rotate') setMode('rotate');
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
-      else if (a === 'auto') { dirty = false; uorder = null; xfer = []; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; dorder = null; xfer = []; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
