@@ -579,7 +579,7 @@
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
-      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = [];
+      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = [];
       wg = {}; [1, 2].forEach(function (w) { wg[w] = new T.Group(); cabGroup.add(wg[w]); });
       WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
@@ -711,7 +711,7 @@
       var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, wall: o.userData.wall, upper: !!o.userData.upper, layer: o.userData.layer || 'u' } : null;
     }
     function groundWorld(ev, upper) {
-      ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3();
+      ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper === 'd' ? -2.2 : upper ? -1.75 : -0.45), p = new T.Vector3();
       return ray.ray.intersectPlane(plane, p) ? p : null;
     }
     function groundX(ev, wall, upper) { var p = groundWorld(ev, upper); return p ? wg[wall].worldToLocal(p).x : null; }
@@ -723,7 +723,7 @@
       var pk = pickModule(ev); if (!pk) return;
       var m0 = pk.upper ? null : items.filter(function (m) { return m.id === pk.id; })[0];
       if (m0 && m0.type === 'cornerBase') return;                       // the corner unit is fixed
-      var gx = groundX(ev, pk.wall, pk.upper); if (gx === null) return;
+      var gx = groundX(ev, pk.wall, pk.upper ? pk.layer : null); if (gx === null) return;
       var m = meshById[pk.upper ? pk.id + ':' + pk.layer : pk.id]; if (!m) return;
       drag = { id: pk.id, wall: pk.wall, upper: pk.upper, layer: pk.layer, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
     }
@@ -736,11 +736,11 @@
     }
     function onMove(ev) {
       if (!drag) return;
-      var gx = groundX(ev, drag.wall, drag.upper); if (gx === null) return; drag.moved = true;
+      var gx = groundX(ev, drag.wall, drag.upper ? drag.layer : null); if (gx === null) return; drag.moved = true;
       var cx = Math.max(0, Math.min(WALL[drag.wall] / 1000, gx - drag.off)), keys = dragKeys(drag);
       keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
       setLift(keys, true);
-      var best = null, bd = 1e9, bc = 0, bw = 0, bwall = drag.wall, pw = groundWorld(ev, drag.upper);
+      var best = null, bd = 1e9, bc = 0, bw = 0, bwall = drag.wall, pw = groundWorld(ev, drag.upper ? drag.layer : null);
       if (drag.upper) {
         var P = drag.layer === 'd' ? dpos : upos;
         Object.keys(P).forEach(function (id) {
@@ -756,17 +756,21 @@
         });
       }
       drag.target = best && bd < Math.max(bw / 1000, .45) ? best : null; drag.targetWall = bwall;
-      if (dropMark) {
-        dropMark.visible = !!drag.target;
-        if (drag.target) {
-          wg[drag.targetWall].add(dropMark);
-          if (drag.upper) { var R = drag.layer === 'd' ? TOPROW : UPPER; dropMark.rotation.x = 0; dropMark.scale.set(bw / 1000, R.uh / 1.1, 1); dropMark.position.set(bc, R.ub + R.uh / 2, .37); }
-          else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(bw / 1000, 1, 1); dropMark.position.set(bc, .01, D / 2); }
-        }
-      }
+      setHL(drag.target ? (drag.upper ? drag.target + ':' + drag.layer : drag.target) : null);   // the cabinet that will be replaced turns green
+    }
+    /* green tint on the cabinet whose place the dragged one will take (materials are cloned, the shared ones stay untouched) */
+    var hl = { key: null, saved: [] };
+    function clearHL() { hl.saved.forEach(function (x) { if (x[0].material !== x[1]) x[0].material.dispose(); x[0].material = x[1]; }); hl.saved = []; hl.key = null; }
+    function setHL(key) {
+      if (hl.key === key) return; clearHL(); if (!key || !meshById[key]) return;
+      meshById[key].traverse(function (o) {
+        if (!o.isMesh) return; var m = o.material.clone(); hl.saved.push([o, o.material]);
+        if (m.emissive) { m.emissive.setHex(0x1f9d55); m.emissiveIntensity = .6; } else if (m.color) m.color.setHex(0x7ed6a0);
+        o.material = m;
+      }); hl.key = key;
     }
     function onUp(ev) {
-      if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; if (dropMark) dropMark.visible = false;
+      if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ }
       if (d.moved && d.target) {
         if (d.upper) {
