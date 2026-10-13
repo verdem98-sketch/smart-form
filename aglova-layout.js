@@ -535,7 +535,7 @@
     }
 
     /* ---------------- cabinets */
-    var meshById = {}, deepCut = 0;
+    var meshById = {}, deepCut = 0, xfer = [];
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
@@ -546,6 +546,15 @@
       if (!inp.showCabinets) return;
       plan = planCorner({ wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
+      xfer = xfer.filter(function (p) {   // cross-wall swaps made by the user: re-applied on every rebuild while they still fit
+        var wa = 0, wb = 0, ia = -1, ib = -1;
+        [1, 2].forEach(function (w) { plan.walls[w].modules.forEach(function (m, i) { if (m.id === p[0]) { wa = w; ia = i; } if (m.id === p[1]) { wb = w; ib = i; } }); });
+        if (!wa || !wb || wa === wb) return false;
+        var ma = plan.walls[wa].modules[ia], mb = plan.walls[wb].modules[ib];
+        if (plan.walls[wa].fillerMm + ma.w - mb.w < 0 || plan.walls[wb].fillerMm + mb.w - ma.w < 0) return false;
+        plan.walls[wa].fillerMm += ma.w - mb.w; plan.walls[wb].fillerMm += mb.w - ma.w;
+        plan.walls[wa].modules[ia] = mb; plan.walls[wb].modules[ib] = ma; ma.wall = wb; mb.wall = wa; return true;
+      });
       var tails = {};
       [1, 2].forEach(function (w) {
         var wl = plan.walls[w], ordered = applyOrder(wl.modules, dirty ? order[w] : null); order[w] = ordered.map(function (m) { return m.id; });
@@ -560,7 +569,7 @@
       deepCut = Math.max(0, s2d - s2s);
       [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       var useU = !!uorder && uorder.length === uRuns.length;
-      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w || unitById[ids[0]] && unitById[ids[0]].wall !== uRuns[ri].wall) useU = false; }); if (cnt !== total) useU = false; }
+      if (useU) { var seen = {}, cnt = 0, total = Object.keys(unitById).length; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!unitById[id] || seen[id]) useU = false; else { seen[id] = 1; cnt++; sw += unitById[id].w; } }); if (sw !== uRuns[ri].w) useU = false; }); if (cnt !== total) useU = false; }
       if (!useU) uorder = null;
       var uIds = (useU ? uorder : uRuns.map(function (r) { return r.units.map(function (u) { return u.id; }); })).map(function (a) { return a.slice(); });
       uRuns.forEach(function (r, ri) { var ux = r.x0; uIds[ri].forEach(function (id) { upos[id] = { wall: r.wall, x: ux, w: unitById[id].w, first: r.first && ux === r.x0 && r.wall === 2, firstW1: r.first && ux === r.x0 && r.wall === 1 }; ux += unitById[id].w; }); });
@@ -643,7 +652,7 @@
       resize(); applyHeights(inp); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.wall1Mm || 0) + '|' + (inp.wall2Mm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
-      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг на същата стена, за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг (и на другата стена, ако се побира), за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
       modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; setMode(panMode ? 'pan' : moveMode ? 'move' : 'rotate', true);
     }
 
@@ -654,10 +663,13 @@
       var hit = ray.intersectObjects(objs, true)[0]; if (!hit) return null;
       var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, wall: o.userData.wall, upper: !!o.userData.upper } : null;
     }
-    function groundX(ev, wall, upper) {
+    function groundWorld(ev, upper) {
       ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3();
-      return ray.ray.intersectPlane(plane, p) ? wg[wall].worldToLocal(p).x : null;
+      return ray.ray.intersectPlane(plane, p) ? p : null;
     }
+    function groundX(ev, wall, upper) { var p = groundWorld(ev, upper); return p ? wg[wall].worldToLocal(p).x : null; }
+    // world position (x, z) of the centre of a lower module / upper unit, to find the nearest drop target on either wall
+    function centreWorld(wall, sMm, wMm, z) { var v = new T.Vector3(lc(wall, sMm + wMm / 2), 0, z); wg[wall].updateMatrixWorld(true); return wg[wall].localToWorld(v); }
     function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
     function onDown(ev) {
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
@@ -670,30 +682,37 @@
     }
     function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
     function runOf(id) { for (var i = 0; i < uRuns.length; i++) if (uRuns[i].ids.indexOf(id) >= 0) return i; return -1; }
-    function upperSwapOk(a, b) { return upos[a] && upos[b] && upos[a].wall === upos[b].wall && (runOf(a) === runOf(b) || upos[a].w === upos[b].w); }
+    function upperSwapOk(a, b) { return upos[a] && upos[b] && (upos[a].wall === upos[b].wall ? (runOf(a) === runOf(b) || upos[a].w === upos[b].w) : upos[a].w === upos[b].w); }
+    // lower modules on different walls can trade places when both walls still fit (the leftover on each wall absorbs the width difference)
+    function crossOk(a, b) {
+      var ma = items.filter(function (m) { return m.id === a; })[0], mb = items.filter(function (m) { return m.id === b; })[0]; if (!ma || !mb || ma.wall === mb.wall) return false;
+      return plan.walls[ma.wall].fillerMm + ma.w - mb.w >= 0 && plan.walls[mb.wall].fillerMm + mb.w - ma.w >= 0;
+    }
     function onMove(ev) {
       if (!drag) return;
       var gx = groundX(ev, drag.wall, drag.upper); if (gx === null) return; drag.moved = true;
       var cx = Math.max(0, Math.min(WALL[drag.wall] / 1000, gx - drag.off)), keys = dragKeys(drag);
       keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
       setLift(keys, true);
-      var best = null, bd = 1e9, bc = 0, bw = 0;
+      var best = null, bd = 1e9, bc = 0, bw = 0, bwall = drag.wall, pw = groundWorld(ev, drag.upper);
       if (drag.upper) {
         Object.keys(upos).forEach(function (id) {
           if (id === drag.id || !upperSwapOk(drag.id, id)) return;
-          var c = lc(drag.wall, upos[id].x + upos[id].w / 2), d = Math.abs(c - cx); if (d < bd) { bd = d; best = id; bc = c; bw = upos[id].w; }
+          var u = upos[id], cw = pw ? centreWorld(u.wall, u.x, u.w, .2) : null, d = cw ? Math.hypot(cw.x - pw.x, cw.z - pw.z) : 1e9;
+          if (d < bd) { bd = d; best = id; bc = lc(u.wall, u.x + u.w / 2); bw = u.w; bwall = u.wall; }
         });
       } else {
         items.forEach(function (m) {
-          if (m.id === drag.id || m.wall !== drag.wall || m.type === 'cornerBase') return;
-          var c = lc(m.wall, m.x + m.w / 2), d = Math.abs(c - cx); if (d < bd) { bd = d; best = m.id; bc = c; bw = m.w; }
+          if (m.id === drag.id || m.type === 'cornerBase' || (m.wall !== drag.wall && !crossOk(drag.id, m.id))) return;
+          var cw = pw ? centreWorld(m.wall, m.x, m.w, .3) : null, d = cw ? Math.hypot(cw.x - pw.x, cw.z - pw.z) : 1e9;
+          if (d < bd) { bd = d; best = m.id; bc = lc(m.wall, m.x + m.w / 2); bw = m.w; bwall = m.wall; }
         });
       }
-      drag.target = best && bd < Math.max(bw / 1000, .45) ? best : null;
+      drag.target = best && bd < Math.max(bw / 1000, .45) ? best : null; drag.targetWall = bwall;
       if (dropMark) {
         dropMark.visible = !!drag.target;
         if (drag.target) {
-          wg[drag.wall].add(dropMark);
+          wg[drag.targetWall].add(dropMark);
           if (drag.upper) { dropMark.rotation.x = 0; dropMark.scale.set(bw / 1000, UPPER.uh / 1.1, 1); dropMark.position.set(bc, UPPER.ub + UPPER.uh / 2, .37); }
           else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(bw / 1000, 1, 1); dropMark.position.set(bc, .01, D / 2); }
         }
@@ -708,7 +727,15 @@
           if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
         } else {
           if (!uorder) uorder = uRuns.map(function (u) { return u.ids.slice(); });   // freeze the uppers: only the lower cabinets move
-          order[d.wall] = swapIds(order[d.wall], d.id, d.target); dirty = true;
+          var tm = items.filter(function (m) { return m.id === d.target; })[0];
+          if (tm && tm.wall !== d.wall) {
+            if (crossOk(d.id, d.target)) {
+              xfer.push([d.id, d.target]);
+              order[d.wall] = order[d.wall].map(function (id) { return id === d.id ? d.target : id; });
+              order[tm.wall] = order[tm.wall].map(function (id) { return id === d.target ? d.id : id; });
+              dirty = true; uorder = null;
+            }
+          } else { order[d.wall] = swapIds(order[d.wall], d.id, d.target); dirty = true; }
         }
       }
       setLift(dragKeys(d), false); sync(true); inputsSig = ''; sync(true);
@@ -754,7 +781,7 @@
       else if (a === 'rotate') setMode('rotate');
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
-      else if (a === 'auto') { dirty = false; uorder = null; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; xfer = []; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
