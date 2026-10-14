@@ -1031,10 +1031,13 @@
           if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
           var tone = l < .18 ? 'very dark ' : l < .35 ? 'dark ' : l > .85 ? 'very light ' : l > .68 ? 'light ' : '';
           var hue;
-          if (sat < .12 || d < .06) hue = l < .12 ? 'black' : l > .9 ? 'white' : 'grey';
+          var greyish = sat < .2 && d >= .05 ? 'greyish ' : '';
+          if (sat < .05 || d < .035) hue = l < .12 ? 'black' : l > .9 ? 'white' : 'grey';
           else if (h < 15 || h >= 345) hue = 'red'; else if (h < 40) hue = l > .6 ? 'beige' : 'brown'; else if (h < 65) hue = l > .6 ? 'cream' : 'olive yellow';
           else if (h < 160) hue = 'green'; else if (h < 200) hue = 'teal'; else if (h < 245) hue = 'blue'; else if (h < 275) hue = 'indigo'; else if (h < 320) hue = 'purple'; else hue = 'pink';
+          if (hue === 'black' || hue === 'white' || hue === 'grey') greyish = '';
           if (hue === 'black' || hue === 'white') tone = '';
+          hue = greyish + hue;
           return tone + hue + ' (hex ' + ('00000' + c.toString(16)).slice(-6) + ')';
         }
         function surf(name, field, grain, col) {
