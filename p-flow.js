@@ -169,10 +169,12 @@
       if (!builtNote.isConnected) applCard.append(builtNote);
     }
     const value = q => { const p = q.querySelector('.option-pill.is-selected'); return p ? p.dataset.value : ''; };
+    // the Webflow classes of these groups are display:none by default: show them with an inline style
+    function showGroup(g, on) { g.classList.toggle('is-hidden', !on); if (on) g.style.setProperty('display', 'block', 'important'); else g.style.setProperty('display', 'none', 'important'); }
     function syncDependent() {
       const ch = value(qChim);
-      gChim.classList.toggle('is-hidden', !ch || ch === 'none'); chimNote.hidden = !ch || ch === 'none';
-      gIsland.classList.toggle('is-hidden', value(qIsland) !== 'yes');
+      showGroup(gChim, !!ch && ch !== 'none'); chimNote.hidden = !ch || ch === 'none';
+      showGroup(gIsland, value(qIsland) === 'yes');
       const up = hasUppers(); qDeep.hidden = !up;   // no upper cabinets: no deep row question and no "Горен ред" step
       if (!up) qDeep.querySelectorAll('.option-pill.is-selected').forEach(p => { p.classList.remove('is-selected'); p.setAttribute('aria-pressed', 'false'); });
       const dv = value(qDeep); if ((dv === 'yes') !== deepBox.checked) { deepBox.checked = dv === 'yes'; deepBox.dispatchEvent(new Event('change', { bubbles: true })); }
