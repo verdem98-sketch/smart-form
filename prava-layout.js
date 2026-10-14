@@ -428,11 +428,13 @@
         box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
         [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
       }
-      if (lift && !opt.glass && !opt.deep) {                                                           // lift-up flaps: joint between flaps is horizontal
+      if (lift && !opt.deep) {                                                                         // lift-up flaps: joint between flaps is horizontal; with glass = two small display cabinets one above the other
+        if (opt.glass) box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h / 2, depth / 2 + .02, g);
         for (var k = 0; k < 2; k++) {
           var fy = bottom + h * (k ? .75 : .25);
-          box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
-          if (X.panel && h > .5 && w > .25) box(w - G - .1, h / 2 - .1, .008, fm, 0, fy, depth + FT + .004, g);
+          if (opt.glass) { box(w - G, h / 2 - G, .008, fm, 0, fy, depth + .004, g); box(w - G, .03, FT, mats.steel, 0, fy + h / 4 - .015, depth + FT / 2, g); box(w - G, .03, FT, mats.steel, 0, fy - h / 4 + .015, depth + FT / 2, g); }
+          else box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
+          if (X.panel && !opt.glass && h > .5 && w > .25) box(w - G - .1, h / 2 - .1, .008, fm, 0, fy, depth + FT + .004, g);
           if (!X.handleless) box(Math.min(.2, w * .55), .012, .014, mats.steel, 0, bottom + h * (k ? .5 : 0) + .05, depth + FT + .007, g);
         }
         n = 0;
@@ -499,12 +501,14 @@
       var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
       var dRuns = [], cr = null;
       items.forEach(function (m) { if (TALL[m.type]) cr = null; else { if (!cr) { cr = { x0: m.x, ids: [], w: 0 }; dRuns.push(cr); } cr.ids.push(m.id); cr.w += m.w; } });
+      // upper cabinet widths: the lower width unless changed in the ✎ editor (the neighbour in the same run takes up the difference)
+      var uW = {}; items.forEach(function (m) { uW[m.id] = m.w; }); edApplySlotsPrava(dRuns, uW);
       /* each layer (standard / deep) keeps its own order; it is kept only while it still fits the lower layout */
       function layerOf(ord) {
         var use = !!ord && ord.length === dRuns.length;
-        if (use) { var seen = {}, cnt2 = 0; ord.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!byId[id] || TALL[byId[id].type] || seen[id]) use = false; else { seen[id] = 1; cnt2++; sw += byId[id].w; } }); if (sw !== dRuns[ri].w) use = false; }); if (cnt2 !== upList.length) use = false; }
+        if (use) { var seen = {}, cnt2 = 0; ord.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!byId[id] || TALL[byId[id].type] || seen[id]) use = false; else { seen[id] = 1; cnt2++; sw += uW[id]; } }); if (sw !== dRuns[ri].w) use = false; }); if (cnt2 !== upList.length) use = false; }
         var ids = (use ? ord : dRuns.map(function (r) { return r.ids; })).map(function (a) { return a.slice(); }), pos2 = {};
-        ids.forEach(function (rr, ri) { var ux0 = dRuns[ri].x0; rr.forEach(function (id) { pos2[id] = { x: ux0, w: byId[id].w }; ux0 += byId[id].w; }); });
+        ids.forEach(function (rr, ri) { var ux0 = dRuns[ri].x0; rr.forEach(function (id) { pos2[id] = { x: ux0, w: uW[id] }; ux0 += uW[id]; }); });
         return { ok: use, ids: ids, pos: pos2 };
       }
       curDeep = !!inp.deep;
@@ -520,8 +524,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(m.id), lift: uLift(m.id) }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(m.id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(upos[m.id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(m.id), lift: uLift(m.id) }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(dpos[m.id].w / 1000, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(m.id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
@@ -537,7 +541,7 @@
         var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, (a + b) / 2000, BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; cabGroup.add(top);
       });
       // expose layout for the form / AI step
-      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: items.filter(function (m) { return !TALL[m.type]; }).map(function (m) { return { id: m.id, widthMm: m.w, xMm: upos[m.id].x }; }) });
+      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: items.filter(function (m) { return !TALL[m.type]; }).map(function (m) { return { id: m.id, widthMm: upos[m.id].w, xMm: upos[m.id].x }; }) });
       var inp2 = q('input[name="kitchen_layout"]'); if (!inp2) { var f = q('form'); if (f) { inp2 = document.createElement('input'); inp2.type = 'hidden'; inp2.name = 'kitchen_layout'; f.appendChild(inp2); } }
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
@@ -635,7 +639,19 @@
       setLift(dragKeys(d), false); sync(true); inputsSig = ''; sync(true);
     }
 
-    var edSlots = false, lastInp = {}, edGlassId = null;
+    var edSlots = true, lastInp = {}, edGlassId = null;
+    function edSlotFor(s) { var P = s.layer === 'd' ? dpos : upos; return P && P[s.id] ? { id: s.id, w: P[s.id].w } : null; }
+    function edApplySlotsPrava(runs, uW) {
+      runs.forEach(function (r) {
+        r.ids.forEach(function (id, i) {
+          var want = EDIT.slot[id]; if (!want || want === uW[id]) return;
+          var nb = r.ids[i + 1] || r.ids[i - 1]; if (!nb) { EDIT.slot[id] = uW[id]; edNote = 'Този горен шкаф е сам в реда си: ширината му следва долния ред.'; return; }
+          var d = Math.max(MIN_W, Math.min(MAX_W, want)) - uW[id], nbw = Math.max(MIN_W, Math.min(MAX_W, uW[nb] - d)); d = uW[nb] - nbw;
+          if (!d) { EDIT.slot[id] = uW[id]; edNote = 'Няма място: съседният горен шкаф вече е на минимална или максимална ширина.'; return; }
+          uW[id] += d; uW[nb] -= d; EDIT.slot[id] = uW[id];
+        });
+      });
+    }
     function edGlassDefault() { return edGlassId; }
     function curDeepRow() { return !!lastInp.deep; }
     function edWhere(id, upper) {   // '3rd lower unit from the left'
@@ -647,6 +663,8 @@
        Edits are kept per cabinet id and re-applied on every rebuild; the sketch picture and its key carry them to the AI. */
     var EDIT = { low: {}, up: {}, slot: {} }, sel = null, editMode = false, edDown = null, edNote = '';
     var STEP_W = 50, MIN_W = 150, MAX_W = 900;
+    function wLim(t) { return t === 'sinkBase' ? [450, 1200] : [MIN_W, MAX_W]; }   // ordinary cabinets 15-90 cm, sink base 45-120 cm
+    function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase'); }
     var edBox = document.createElement('div'); edBox.className = 'prava-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
     ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
     // the editor cursor is the same pencil as the ✎ button (tip = hot spot)
@@ -688,8 +706,8 @@
     }
     function edApplyLow(list, fill, maxFill) {   // returns the new filler width of that run
       list.forEach(function (m) {
-        var e = EDIT.low[m.id]; if (!e || !e.w || m.type !== 'genericBase' || e.w === m.w) return;
-        var want = Math.max(MIN_W, Math.min(MAX_W, e.w)), r = edAbsorb(list, m, want - m.w, fill, maxFill);
+        var e = EDIT.low[m.id]; if (!e || !e.w || !canResize(m) || e.w === m.w) return;
+        var lim = wLim(m.type), want = Math.max(lim[0], Math.min(lim[1], e.w)), r = edAbsorb(list, m, want - m.w, fill, maxFill);
         if (r.ok) { m.w = want; e.w = want; fill = r.filler; } else { e.w = m.w; edNote = 'Няма място: другите шкафове на тази стена вече са на минимална или максимална ширина.'; }
       });
       return fill;
@@ -706,7 +724,7 @@
       });
     }
     function edSlotOf(s) {   // the slot (position) the selected upper unit sits in
-      if (!edSlots) return null; var L = layerIds && layerIds[s.layer === 'd' ? 'd' : 'u']; if (!L) return null;
+      if (!edSlots) return null; if (typeof edSlotFor === 'function') return edSlotFor(s); var L = layerIds && layerIds[s.layer === 'd' ? 'd' : 'u']; if (!L) return null;
       for (var ri = 0; ri < L.length; ri++) { var si = L[ri].indexOf(s.id); if (si >= 0 && uRuns[ri] && uRuns[ri].units[si]) return uRuns[ri].units[si]; }
       return null;
     }
@@ -716,19 +734,20 @@
       if (!sel.upper && !m) { edClose(); return; }
       if (sel.upper && !p) { edClose(); return; }
       var w = sel.upper ? p.w : m.w, title = sel.upper ? (sel.layer === 'd' ? 'Горен шкаф (дълбок ред)' : 'Горен шкаф') : (TALL[m.type] ? 'Колона' : 'Долен шкаф');
-      var canW = sel.upper ? !!edSlots : m.type === 'genericBase';
+      var canW = sel.upper ? !!edSlots : canResize(m), lim = sel.upper ? [MIN_W, MAX_W] : wLim(m.type);
       html += '<div class="prava-3d-edit-head"><span>' + title + '</span><button type="button" class="prava-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>';
-      html += '<div class="prava-3d-edit-row"><span>Ширина</span><span class="prava-3d-edit-w">' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w-" aria-label="По-тесен с 5 см"' + (w <= MIN_W ? ' disabled' : '') + '>−</button>' : '') +
-        '<b>' + (w / 10) + ' см</b>' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w+" aria-label="По-широк с 5 см"' + (w >= MAX_W ? ' disabled' : '') + '>+</button>' : '') + '</span></div>';
+      html += '<div class="prava-3d-edit-row"><span>Ширина</span><span class="prava-3d-edit-w">' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w-" aria-label="По-тесен с 5 см"' + (w <= lim[0] ? ' disabled' : '') + '>−</button>' : '') +
+        '<b>' + (w / 10) + ' см</b>' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w+" aria-label="По-широк с 5 см"' + (w >= lim[1] ? ' disabled' : '') + '>+</button>' : '') + '</span></div>';
       if (!sel.upper && m.type === 'genericBase') {
         var f = frontOf(m, m.w / 1000), opts = [['doors', 'Врати'], ['d2', '2 чекм.'], ['d3', '3 чекм.'], ['d4', '4 чекм.']];
         html += '<div class="prava-3d-edit-lbl">' + (f === 'doors' ? 'Шкаф с врати – смени на чекмеджета:' : 'Шкаф с чекмеджета – смени на:') + '</div><div class="prava-3d-edit-seg">' +
           opts.map(function (o) { return '<button type="button" class="prava-3d-ed' + (o[0] === f ? ' is-on' : '') + '" data-ed="front" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
-      } else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
+      } else if (!sel.upper && m.type === 'sinkBase') html += '<div class="prava-3d-edit-info">Шкаф за мивка: сменя се само ширината (45–120 см).</div>';
+      else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
       if (sel.upper) {
-        var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));
+        var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));   // both on = two glass flaps one above the other
         if (sel.layer !== 'd') html += '<div class="prava-3d-edit-lbl">Отваряне:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (!lift ? ' is-on' : '') + '" data-ed="lift" data-v="0">Обикновени врати</button><button type="button" class="prava-3d-ed' + (lift ? ' is-on' : '') + '" data-ed="lift" data-v="1">Повдигащ механизъм</button></div>';
-        html += '<div class="prava-3d-edit-lbl">Витрина:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (gl ? ' is-on' : '') + '" data-ed="glass">' + (gl ? 'Витрина с осветление ✓' : 'Направи витрина') + '</button></div>';
+        html += '<div class="prava-3d-edit-lbl">Витрина:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (gl ? ' is-on' : '') + '" data-ed="glass">' + (gl ? (lift ? 'Две витрини една над друга ✓' : 'Витрина с осветление ✓') : 'Направи витрина') + '</button></div>';
         if (!edSlots) html += '<div class="prava-3d-edit-info">Ширината на горния шкаф следва долния шкаф под него.</div>';
       }
       if (edNote) html += '<div class="prava-3d-edit-note">' + edNote + '</div>';
@@ -775,7 +794,7 @@
       var fronts = [], liftOn = [], liftOff = [], glass = [];
       items.forEach(function (m) { var e = EDIT.low[m.id]; if (m.type === 'genericBase' && e && e.front) fronts.push(edWhere(m.id, false) + ': ' + ({ doors: 'doors', d2: '2 drawers', d3: '3 drawers', d4: '4 drawers' })[e.front]); });
       Object.keys(upos || {}).forEach(function (id) {
-        var e = EDIT.up[id]; if (uGlass(id)) glass.push(edWhere(id, true));
+        var e = EDIT.up[id]; if (uGlass(id)) glass.push(edWhere(id, true) + (uLift(id) ? ' (two small glass display flaps one above the other, lift-up)' : ''));
         if (e && e.lift !== undefined && e.lift !== !!X.lift && !uGlass(id)) (e.lift ? liftOn : liftOff).push(edWhere(id, true));
         if (curDeepRow() && uGlass(id + ':d')) glass.push(edWhere(id, true) + ' (deep top row)');
       });
