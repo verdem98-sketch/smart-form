@@ -139,12 +139,13 @@
     function chk(name) { var e = q('input[name="' + name + '"]'); return !!(e && e.checked); }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
     /* ---------------- material colours (steps 3-6) */
-    var catalog = null, colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0;
+    var catalog = null, colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0, grainCache = {}, catKind = {}, curInp = null;
     function catalogMap() {
       if (catalog) return catalog; catalog = {};
       page.querySelectorAll('script[data-prava-catalog]').forEach(function (s) {
-        try { var j = JSON.parse(s.textContent), w = s.closest('[data-field]'), f = w && w.dataset.field; if (!f) return; var m = catalog[f] = {}; j.items.forEach(function (r) { m[r[0]] = j.base ? j.base + encodeURIComponent(r[5]) : r[4]; }); } catch (e) { /* ignore */ }
+        try { var j = JSON.parse(s.textContent), w = s.closest('[data-field]'), f = w && w.dataset.field; if (!f) return; var m = catalog[f] = {}, ck = catKind[f] = {}; j.items.forEach(function (r) { m[r[0]] = j.base ? j.base + encodeURIComponent(r[5]) : r[4]; ck[r[0]] = j.base ? r[2] : r[6]; }); } catch (e) { /* ignore */ }
       });
+      if (catalog.upper_finish && !catalog.deep_finish) { catalog.deep_finish = catalog.upper_finish; catKind.deep_finish = catKind.upper_finish; }
       return catalog;
     }
     function colourOf(field) {
@@ -160,6 +161,7 @@
           var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
           for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
           if (im.naturalWidth >= 64 && im.naturalHeight >= 64) { var tx = new T.Texture(im); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.anisotropy = 4; tx.needsUpdate = true; texCache[u] = tx; }   // real decor image (solids are only 16x16 swatches: flat colour is exact)
+          try { var gc = document.createElement('canvas'); gc.width = gc.height = 48; var gx = gc.getContext('2d'); gx.drawImage(im, 0, 0, 48, 48); var gd = gx.getImageData(0, 0, 48, 48).data, ddx = 0, ddy = 0; for (var yy = 0; yy < 47; yy++) for (var xx = 0; xx < 47; xx++) { var i0 = (yy * 48 + xx) * 4, l0 = gd[i0] + gd[i0 + 1] + gd[i0 + 2], lx = gd[i0 + 4] + gd[i0 + 5] + gd[i0 + 6], ly = gd[i0 + 192] + gd[i0 + 193] + gd[i0 + 194]; ddx += Math.abs(lx - l0); ddy += Math.abs(ly - l0); } grainCache[u] = ddx > ddy ? 'v' : 'h'; } catch (e2) { /* no grain info */ }
           if (n) { colCache[u] = (r / n << 16) | (gg / n << 8) | (b / n); sync(true); }
         } catch (e) { /* tainted canvas: keep default colour */ }
       };
@@ -167,11 +169,26 @@
     }
     function decorUrl(field) { var id = fieldVal(field); if (!id) return null; var u = (catalogMap()[field] || {})[id]; return u ? u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/') : null; }
     /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
-    function fin(field, hex, shift, rough) {
+    function fin(field, hex, shift, rough, grain) {
       var u = decorUrl(field), tx = u && texCache[u];
       if (!tx) return tone(hex, shift, rough);
-      var k = u + '|' + (rough || 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      var swap = grain && grainCache[u] && grainCache[u] !== grain ? 1 : 0;
+      var k = u + '|' + (rough || 0) + '|' + swap + '|' + (grain ? 1 : 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; if (grain) { texMat[k].userData.planar = true; texMat[k].userData.swap = swap; } }
       return texMat[k];
+    }
+    /* cabinet fronts: map the decor in world space so the pattern runs on across neighbouring doors; swap the axes for a horizontal grain */
+    function worldUV(g) {
+      g.children.forEach(function (m) {
+        var mat = m.material; if (!m.isMesh || !mat || !mat.userData || !mat.userData.planar) return;
+        var geo = m.geometry, pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv, tile = mat.userData.tile, sw = mat.userData.swap;
+        for (var i = 0; i < pos.count; i++) {
+          var x = pos.getX(i) + m.position.x + g.position.x, y = pos.getY(i) + m.position.y + g.position.y, z = pos.getZ(i) + m.position.z, nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i)), nz = Math.abs(nor.getZ(i)), a, b;
+          if (nz >= nx && nz >= ny) { a = x; b = y; } else if (ny >= nx) { a = x; b = z; } else { a = z; b = y; }
+          if (sw) { var t = a; a = b; b = t; }
+          uv.setXY(i, a / tile, b / tile);
+        }
+        uv.needsUpdate = true;
+      });
     }
     function scaleUV(geo, w, h, d, tile, off) {
       var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
@@ -184,6 +201,8 @@
       return (toneCache[k] = new T.MeshStandardMaterial({ color: col, roughness: rough === undefined ? .5 : rough, metalness: 0 }));
     }
 
+    function grainOf(k) { var v = fieldVal(k + '_grain'); return v === 'h' || v === 'horizontal' ? 'h' : 'v'; }
+    function isGloss(field) { var id = fieldVal(field); return !!(id && root.pravaGloss && root.pravaGloss.has(id)); }
     function readInputs() {
       var fr = pill('fridge_type'), fridge = null;
       if (/вграден/i.test(fr) && !/свободно/i.test(fr)) fridge = 'built_in'; else if (/свободно/i.test(fr)) fridge = 'free_standing';
@@ -198,7 +217,7 @@
         microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
         x: { handleless: chk('handleless'), drawers: chk('more_drawers'), glass: chk('glass_display'), lift: chk('lift_mechanisms'), panel: chk('panel_doors'), light: chk('counter_lighting'), bottle: chk('bottle_rack') },
         showCabinets: step >= 2,
-        cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
+        cUpper: colourOf('upper_finish'), cDeep: colourOf('deep_finish'), gU: grainOf('upper'), gL: grainOf('lower'), gD: grainOf('deep'), glU: isGloss('upper_finish'), glL: isGloss('lower_finish'), glD: isGloss('deep_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
     }
 
@@ -463,13 +482,13 @@
       }
       var runs = [], cur = null;
       items.forEach(function (m) {
-        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front; var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
-        g.position.x = cx; g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
+        var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!fieldVal('deep_finish'); mats.front = hasL ? fin('lower_finish', inp.cLower, 0, inp.glL ? .12 : undefined, inp.gL) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gU) : mats.front; mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, inp.glD ? .12 : undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gD) : mats.front); var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
+        g.position.x = cx; worldUV(g); g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = dx; dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
@@ -503,7 +522,7 @@
     }
     function sync(force) {
       if (failed || !renderer) return;
-      var inp = readInputs(), sig = JSON.stringify(inp);
+      var inp = readInputs(), sig = JSON.stringify(inp); curInp = inp;
       var show = card.dataset.previewState === 'planner';
       host.hidden = !show; stage.classList.toggle('prava-3d-on', show);
       if (!show) return;
@@ -655,6 +674,16 @@
       function sketchLegend() {
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout' };
         var out = items.filter(function (m) { return nm[m.type]; }).map(function (m) { return nm[m.type]; });
+        var ci = curInp || {};
+        function surf(name, field, gloss, grain, has) {
+          if (!has) return; var id = fieldVal(field); if (!id) return; var isWood = (catKind[field] || {})[id] === 'wood', parts = [name + ':'];
+          parts.push(isWood ? 'wood, ' + (grain === 'h' ? 'horizontal' : 'vertical') + ' grain, continuous across doors,' : 'plain colour,');
+          parts.push(gloss ? 'HIGH GLOSS' : 'matte');
+          out.push(parts.join(' '));
+        }
+        surf('lower fronts', 'lower_finish', ci.glL, ci.gL, ci.cLower !== null && ci.cLower !== undefined);
+        surf('upper fronts', 'upper_finish', ci.glU, ci.gU, ci.cUpper !== null && ci.cUpper !== undefined);
+        if (ci.deep && fieldVal('deep_finish')) surf('deep upper row', 'deep_finish', ci.glD, ci.gD, ci.cDeep !== null && ci.cDeep !== undefined);
         if (X.handleless) out.push('handleless fronts');
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
