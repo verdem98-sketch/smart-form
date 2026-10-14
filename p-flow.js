@@ -176,7 +176,7 @@
       const up = hasUppers(); qDeep.hidden = !up;   // no upper cabinets: no deep row question and no "Горен ред" step
       if (!up) qDeep.querySelectorAll('.option-pill.is-selected').forEach(p => { p.classList.remove('is-selected'); p.setAttribute('aria-pressed', 'false'); });
       const dv = value(qDeep); if ((dv === 'yes') !== deepBox.checked) { deepBox.checked = dv === 'yes'; deepBox.dispatchEvent(new Event('change', { bubbles: true })); }
-      syncBuiltIn();
+      syncBuiltIn(); if (typeof paintProgress === 'function' && phases) paintProgress();
     }
     page.addEventListener('click', e => {
       const pill = e.target.closest('.p-flow .question-wrap[data-field] .option-pill'); if (!pill) return;
@@ -252,13 +252,7 @@
       page.style.setProperty('--p-sticky-top', (nh + Math.ceil(progress.getBoundingClientRect().height) + 16) + 'px');
     }
     window.addEventListener('resize', stickyOffset, { passive: true });
-    function render(scroll) {
-      if (deepShown && (step !== 3 || !deepOn())) deepShown = false;
-      phases.forEach((n, i) => show(n, i === step - 1 && !(deepShown && n === vision[0])));
-      show(deepPhase, deepShown);
-      flow.classList.toggle('p-flow-done', step === LAST);
-      page.dataset.pFlowStep = String(step); flow.dataset.pFlowStep = String(step);
-      stickyOffset();
+    function paintProgress() {   // also called when an answer adds / removes the upper-row or deep-row step
       const on = deepOn(), skipUp = !hasUppers(), total = N + (on ? 1 : 0) - (skipUp ? 1 : 0);
       const shown = deepShown ? 4 : step + (on && step >= 4 ? 1 : 0) - (skipUp && step > 3 ? 1 : 0), title = deepShown ? 'Дълбок горен ред' : titles[step - 1];
       segs[2].hidden = skipUp;
@@ -267,6 +261,15 @@
       track.style.setProperty('--p-steps', total); track.style.gridTemplateColumns = 'repeat(' + total + ',minmax(0,1fr))';
       segs.forEach((s, i) => { s.classList.toggle('is-done', i < step - 1 || (deepShown && i === 2)); s.classList.toggle('is-active', i === step - 1 && !deepShown); });
       deepSeg.hidden = !on; deepSeg.classList.toggle('is-active', deepShown); deepSeg.classList.toggle('is-done', on && step >= 4);
+    }
+    function render(scroll) {
+      if (deepShown && (step !== 3 || !deepOn())) deepShown = false;
+      phases.forEach((n, i) => show(n, i === step - 1 && !(deepShown && n === vision[0])));
+      show(deepPhase, deepShown);
+      flow.classList.toggle('p-flow-done', step === LAST);
+      page.dataset.pFlowStep = String(step); flow.dataset.pFlowStep = String(step);
+      stickyOffset();
+      paintProgress();
       clearValidation(); back.disabled = step === 1; nav.hidden = step === LAST;   // the last step has its own Назад (finalNav)
       tools.hidden = step !== 2;
       page.dispatchEvent(new CustomEvent('p:phase-changed', { detail: { step, deep: deepShown } }));
