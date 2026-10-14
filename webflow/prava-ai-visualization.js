@@ -430,23 +430,10 @@
       try{
         var endpoint=location.origin+'/contract-automation/api/kitchen-visual';
 
-        // The interactive sketch is the single reference for the artist: one picture, no planner and no material images.
-        // Without a picture (viewer unavailable or layout invalid) the request falls back to the planner path.
-        var requestBody={payload:payload};
-        try{
-          if(window.pravaLayout&&typeof window.pravaLayout.capture==='function'){
-            var sketch=window.pravaLayout.capture();
-            if(sketch){
-              requestBody.sketchImage=sketch;
-              requestBody.sketchLegend=typeof window.pravaLayout.sketchLegend==='function'?window.pravaLayout.sketchLegend():[];
-            }
-          }
-        }catch(sketchError){}
-
         var startResponse=await fetch(endpoint,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(requestBody)
+          body:JSON.stringify({payload:payload})
         });
 
         var startParsed=await readJson(startResponse);
