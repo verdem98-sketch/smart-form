@@ -34,7 +34,10 @@
   };
   var cache = {};
   function load(file) {
-    if (!cache[file]) cache[file] = fetch(base + 'catalog/' + file + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    // the CDN sometimes drops the first request for a freshly published commit: retry a few times before keeping the old style cards
+    function get(n) { return fetch(base + 'catalog/' + file + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(function (e) { if (n >= 4) throw e; return new Promise(function (ok) { setTimeout(ok, 600 * (n + 1)); }).then(function () { return get(n + 1); }); }); }
+    if (!cache[file]) cache[file] = get(0);
     return cache[file];
   }
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
