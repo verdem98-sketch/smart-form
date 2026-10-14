@@ -1022,6 +1022,8 @@
         out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') + ', the other walls have no upper cabinets, plain wall above the backsplash' : 'no upper cabinets on any wall, only the base run and backsplash');
         if (inp.chimney) out.push('CHIMNEY: a plastered wall column ' + Math.round(inp.chimneyBMm / 10) + ' x ' + Math.round(inp.chimneyAMm / 10) + ' cm, floor to ceiling, standing out in the ' + inp.chimney + ' back corner; cabinets and worktop fitted around it');
         if (inp.island && inp.islandLenMm) out.push('free-standing island in the middle of the U');
+        var counter = []; if (inp.microFree) counter.push('a black free-standing microwave'); if (inp.coffeeFree) counter.push('a black free-standing coffee machine');
+        if (counter.length) out.push('on the worktop, as drawn: ' + counter.join(' and '));
         function colourWords(c) {   // the decor's average colour in plain words + hex, so the colour survives even if the picture is unclear
           if (c === null || c === undefined) return '';
           var r = (c >> 16 & 255) / 255, g = (c >> 8 & 255) / 255, b = (c & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
