@@ -125,7 +125,7 @@
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
-    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, upos = {}, uRunIds = [], order = [], items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, dorder = null, upos = {}, dpos = {}, uRunIds = [], dRunIds = [], curDeep = false, order = [], items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, view = { dist: 0 };
 
     /* ---------------- inputs from the page */
@@ -442,11 +442,18 @@
       var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
       var dRuns = [], cr = null;
       items.forEach(function (m) { if (TALL[m.type]) cr = null; else { if (!cr) { cr = { x0: m.x, ids: [], w: 0 }; dRuns.push(cr); } cr.ids.push(m.id); cr.w += m.w; } });
-      var useU = !!uorder && uorder.length === dRuns.length;
-      if (useU) { var seen = {}, cnt2 = 0; uorder.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!byId[id] || TALL[byId[id].type] || seen[id]) useU = false; else { seen[id] = 1; cnt2++; sw += byId[id].w; } }); if (sw !== dRuns[ri].w) useU = false; }); if (cnt2 !== upList.length) useU = false; }
-      if (!useU) uorder = null;
-      uRunIds = (useU ? uorder : dRuns.map(function (r) { return r.ids; })).map(function (a) { return a.slice(); });
-      upos = {}; uRunIds.forEach(function (ids, ri) { var ux0 = dRuns[ri].x0; ids.forEach(function (id) { upos[id] = { x: ux0, w: byId[id].w }; ux0 += byId[id].w; }); });
+      /* each layer (standard / deep) keeps its own order; it is kept only while it still fits the lower layout */
+      function layerOf(ord) {
+        var use = !!ord && ord.length === dRuns.length;
+        if (use) { var seen = {}, cnt2 = 0; ord.forEach(function (ids, ri) { var sw = 0; ids.forEach(function (id) { if (!byId[id] || TALL[byId[id].type] || seen[id]) use = false; else { seen[id] = 1; cnt2++; sw += byId[id].w; } }); if (sw !== dRuns[ri].w) use = false; }); if (cnt2 !== upList.length) use = false; }
+        var ids = (use ? ord : dRuns.map(function (r) { return r.ids; })).map(function (a) { return a.slice(); }), pos2 = {};
+        ids.forEach(function (rr, ri) { var ux0 = dRuns[ri].x0; rr.forEach(function (id) { pos2[id] = { x: ux0, w: byId[id].w }; ux0 += byId[id].w; }); });
+        return { ok: use, ids: ids, pos: pos2 };
+      }
+      curDeep = !!inp.deep;
+      var lu = layerOf(uorder), ld = layerOf(dorder);
+      if (!lu.ok) uorder = null; if (!ld.ok) dorder = null;
+      uRunIds = lu.ids; upos = lu.pos; dRunIds = ld.ids; dpos = ld.pos;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
       var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
       if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'edgeFront'; });
@@ -461,8 +468,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; up.userData = { id: m.id, upper: true, targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = ux; dp.userData = { id: m.id, upper: true, targetX: ux }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = dx; dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
@@ -502,7 +509,7 @@
       if (!show) return;
       if (sig === inputsSig && !force) return;
       var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
-      if (prev && prev.water !== inp.water) { dirty = false; uorder = null; }   // an explicit water-position choice re-flows the run
+      if (prev && prev.water !== inp.water) { dirty = false; uorder = null; dorder = null; }   // an explicit water-position choice re-flows the run
       resize(); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.lengthMm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
@@ -515,34 +522,36 @@
     function pickModule(ev) {
       ndc(ev); var objs = []; Object.keys(meshById).forEach(function (k) { objs.push(meshById[k]); });
       var hit = ray.intersectObjects(objs, true)[0]; if (!hit) return null;
-      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, upper: !!o.userData.upper } : null;
+      var o = hit.object; while (o && !(o.userData && o.userData.id)) o = o.parent; return o ? { id: o.userData.id, upper: !!o.userData.upper, layer: o.userData.layer || null } : null;
     }
-    function groundX(ev, upper) { ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
-    function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
+    function groundX(ev, layer) { ndc(ev); var y = layer === 'd' ? TALLH - .165 : layer === 'u' ? (curDeep ? (1.45 + TALLH - .33) / 2 : 1.9) : .45, plane = new T.Plane(new T.Vector3(0, 1, 0), -y), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
+    function dragKeys(d) { return d.layer ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
-      var gx = groundX(ev, pk.upper); if (gx === null) return;
-      var m = meshById[pk.upper ? pk.id + ':u' : pk.id]; if (!m) return;
-      drag = { id: pk.id, upper: pk.upper, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
+      var gx = groundX(ev, pk.layer); if (gx === null) return;
+      var m = meshById[pk.layer ? pk.id + ':' + pk.layer : pk.id]; if (!m) return;
+      drag = { id: pk.id, upper: pk.upper, layer: pk.layer, off: gx - m.position.x, moved: false, target: null }; controls.enabled = false; renderer.domElement.setPointerCapture(ev.pointerId); renderer.domElement.style.cursor = 'grabbing';
     }
     function setLift(keys, on) { keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.z = on ? .08 : 0; } }); }
-    function runOf(id) { for (var i = 0; i < uRunIds.length; i++) if (uRunIds[i].indexOf(id) >= 0) return i; return -1; }
-    function upperSwapOk(a, b) { return runOf(a) === runOf(b) || (upos[a] && upos[b] && upos[a].w === upos[b].w); }
+    function runsOf(layer) { return layer === 'd' ? dRunIds : uRunIds; }
+    function posOf(layer) { return layer === 'd' ? dpos : upos; }
+    function runOf(id, layer) { var R = runsOf(layer); for (var i = 0; i < R.length; i++) if (R[i].indexOf(id) >= 0) return i; return -1; }
+    function upperSwapOk(a, b, layer) { var P = posOf(layer); return runOf(a, layer) === runOf(b, layer) || (P[a] && P[b] && P[a].w === P[b].w); }
     function onMove(ev) {
       if (!drag) return;
-      var gx = groundX(ev, drag.upper); if (gx === null) return; drag.moved = true;
+      var gx = groundX(ev, drag.layer); if (gx === null) return; drag.moved = true;
       var cx = Math.max(0, Math.min(plan.lengthMm / 1000, gx - drag.off)), keys = dragKeys(drag);
       keys.forEach(function (k) { var g = meshById[k]; if (g) { g.position.x = cx; g.userData.targetX = cx; } });
       setLift(keys, true);
       var best = null, bd = 1e9, bc = 0;
       items.forEach(function (m) {
         if (m.id === drag.id) return;
-        if (drag.upper && (TALL[m.type] || !upperSwapOk(drag.id, m.id))) return;
-        var c = drag.upper ? (upos[m.id].x + upos[m.id].w / 2) / 1000 : (m.x + m.w / 2) / 1000, d = Math.abs(c - cx); if (d < bd) { bd = d; best = m; bc = c; }
+        if (drag.upper && (TALL[m.type] || !upperSwapOk(drag.id, m.id, drag.layer))) return;
+        var c = drag.upper ? (posOf(drag.layer)[m.id].x + posOf(drag.layer)[m.id].w / 2) / 1000 : (m.x + m.w / 2) / 1000, d = Math.abs(c - cx); if (d < bd) { bd = d; best = m; bc = c; }
       });
       drag.target = best && bd < Math.max(best.w / 1000, .45) ? best.id : null;
-      setHL(drag.target ? (drag.upper ? drag.target + ':u' : drag.target) : null);   // the cabinet that will be replaced turns green
+      setHL(drag.target ? (drag.upper ? drag.target + ':' + drag.layer : drag.target) : null);   // the cabinet that will be replaced turns green
     }
     /* green tint on the cabinet whose place the dragged one will take (materials are cloned, the shared ones stay untouched) */
     function clearHL() { hl.saved.forEach(function (o) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); o.material.dispose(); }); hl.saved = []; hl.key = null; }
@@ -560,10 +569,11 @@
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
       if (d.moved && d.target) {
         if (d.upper) {
-          var r = uRunIds.map(function (a) { return a.slice(); }), ra = runOf(d.id), rb = runOf(d.target);
-          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; uorder = r; }
+          var r = runsOf(d.layer).map(function (a) { return a.slice(); }), ra = runOf(d.id, d.layer), rb = runOf(d.target, d.layer);
+          if (ra >= 0 && rb >= 0) { var ia = r[ra].indexOf(d.id), ib = r[rb].indexOf(d.target); r[ra][ia] = d.target; r[rb][ib] = d.id; if (d.layer === 'd') dorder = r; else uorder = r; }
         } else {
-          if (!uorder) uorder = uRunIds.map(function (a) { return a.slice(); });   // freeze the uppers: only the lower cabinets move
+          if (!uorder) uorder = uRunIds.map(function (a) { return a.slice(); });   // freeze both upper rows: only the lower cabinets move
+          if (!dorder) dorder = dRunIds.map(function (a) { return a.slice(); });
           order = swapIds(order, d.id, d.target); dirty = true;
         }
       }
@@ -612,7 +622,7 @@
       else if (a === 'rotate') setMode('rotate');
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
-      else if (a === 'auto') { dirty = false; uorder = null; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
