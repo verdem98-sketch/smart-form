@@ -272,6 +272,7 @@
       if (!check.valid) { showState('error', 'Липсва: ' + check.missing.join(', ')); return; }
       // The picture of the interactive 3D sketch is the only reference for the render (no planner, no four material images).
       var layout = window.pLayout, sketchImage = null, sketchLegend = [];
+      if (layout && typeof layout.whenReady === 'function') { try { await layout.whenReady(); } catch (e) { /* capture what is there */ } }
       try { sketchImage = layout && typeof layout.capture === 'function' ? layout.capture() : null; } catch (e) { sketchImage = null; }
       try { sketchLegend = layout && typeof layout.sketchLegend === 'function' ? layout.sketchLegend() : []; } catch (e) { sketchLegend = []; }
       if (!sketchImage) { showState('error', 'Скицата на кухнята не можа да бъде снимана. Презаредете страницата и опитайте отново.'); return; }

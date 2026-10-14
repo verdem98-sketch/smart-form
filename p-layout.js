@@ -261,6 +261,7 @@
     function chk(field) { var e = q('[data-field="' + field + '"] input[type="checkbox"]'); return !!(e && e.checked); }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
     /* ---------------- material colours + real decor textures (steps 3-6) */
+    var pendingLoads = 0;   // decor images still loading (the AI picture waits for them)
     var colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0, grainCache = {};
     function decorUrl(field) {
       var rec = root.pMaterialSelections && root.pMaterialSelections.get(field), u = rec && rec.sampleImageUrl;
@@ -269,9 +270,11 @@
     function colourOf(field) {
       var u = decorUrl(field); if (!u) return null;
       if (colCache[u] !== undefined) return colCache[u];
-      colCache[u] = null;
+      colCache[u] = null; pendingLoads++;
       var im = new Image(); im.crossOrigin = 'anonymous';
+      im.onerror = function () { pendingLoads = Math.max(0, pendingLoads - 1); };
       im.onload = function () {
+        pendingLoads = Math.max(0, pendingLoads - 1);
         try {
           var c = document.createElement('canvas'); c.width = c.height = 8; var g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
           var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
@@ -1017,22 +1020,37 @@
         out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') + ', the other walls have no upper cabinets, plain wall above the backsplash' : 'no upper cabinets on any wall, only the base run and backsplash');
         if (inp.chimney) out.push('CHIMNEY: a plastered wall column ' + Math.round(inp.chimneyBMm / 10) + ' x ' + Math.round(inp.chimneyAMm / 10) + ' cm, floor to ceiling, standing out in the ' + inp.chimney + ' back corner; cabinets and worktop fitted around it');
         if (inp.island && inp.islandLenMm) out.push('free-standing island in the middle of the U');
-        function surf(name, field, grain) {
+        function colourWords(c) {   // the decor's average colour in plain words + hex, so the colour survives even if the picture is unclear
+          if (c === null || c === undefined) return '';
+          var r = (c >> 16 & 255) / 255, g = (c >> 8 & 255) / 255, b = (c & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+          var sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1)), h = 0;
+          if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
+          var tone = l < .18 ? 'very dark ' : l < .35 ? 'dark ' : l > .85 ? 'very light ' : l > .68 ? 'light ' : '';
+          var hue;
+          if (sat < .12 || d < .06) hue = l < .12 ? 'black' : l > .9 ? 'white' : 'grey';
+          else if (h < 15 || h >= 345) hue = 'red'; else if (h < 40) hue = l > .6 ? 'beige' : 'brown'; else if (h < 65) hue = l > .6 ? 'cream' : 'olive yellow';
+          else if (h < 160) hue = 'green'; else if (h < 200) hue = 'teal'; else if (h < 245) hue = 'blue'; else if (h < 275) hue = 'indigo'; else if (h < 320) hue = 'purple'; else hue = 'pink';
+          if (hue === 'black' || hue === 'white') tone = '';
+          return tone + hue + ' (hex ' + ('00000' + c.toString(16)).slice(-6) + ')';
+        }
+        function surf(name, field, grain, col) {
           var rec = root.pMaterialSelections && root.pMaterialSelections.get(field); if (!rec) return;
-          var gloss = !!(root.pGloss && root.pGloss.has(rec.id));
-          out.push(name + ': ' + (rec.category === 'wood' ? 'wood, ' + (grain === 'h' ? 'horizontal' : 'vertical') + ' grain, continuous across doors,' : 'plain colour,') + ' ' + (gloss ? 'HIGH GLOSS' : 'matte'));
+          var gloss = !!(root.pGloss && root.pGloss.has(rec.id)), cw = colourWords(col), code = [rec.manufacturer, rec.decorCode].filter(Boolean).join(' ');
+          var kind = rec.category === 'wood' ? 'wood' + (grain ? ', ' + (grain === 'h' ? 'horizontal' : 'vertical') + ' grain, continuous across doors' : '') : rec.category === 'stone' ? 'stone look' : 'plain colour';
+          out.push(name + ': ' + (cw ? cw + ', ' : '') + kind + (grain !== undefined ? ', ' + (gloss ? 'HIGH GLOSS' : 'matte') : '') + (code ? ' (' + code + ')' : ''));
         }
-        surf('lower fronts', 'lower_finish', inp.gL); if (inp.anyUpper) surf('upper fronts', 'upper_finish', inp.gU);
+        surf('lower fronts', 'lower_finish', inp.gL, inp.cLower); if (inp.anyUpper) surf('upper fronts', 'upper_finish', inp.gU, inp.cUpper);
         if (inp.deep) {
-          if (root.pMaterialSelections && root.pMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish', inp.gD);
-          else surf('deep upper row (same decor as the upper fronts)', 'upper_finish', inp.gD);
+          if (root.pMaterialSelections && root.pMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish', inp.gD, inp.cDeep);
+          else surf('deep upper row (same decor as the upper fronts)', 'upper_finish', inp.gD, inp.cUpper);
         }
+        surf('worktop', 'countertop_finish', undefined, inp.cTop); surf('wall backsplash', 'backsplash_finish', undefined, inp.cBack);
         if (items.some(function (m) { return (m.type === 'fridge' && m.applianceType !== 'free_standing') || ((m.type === 'dishwasher' || m.type === 'washingMachine') && !m.free); })) out.push('BUILT-IN appliances are hidden behind cabinet fronts in the door decor: draw them as plain doors, never as visible appliances');
         out.push('appliance finish: all black (washing machine white)');
-        if (X.handleless) out.push('handleless fronts');
-        if (X.drawers) out.push('extra drawers on lower storage');
-        if (X.panel) out.push('framed panel doors');
-        if (X.lift) out.push('lift-up fronts on the lower upper row only');
+        var opts = [];   // one line for the small options, so the key stays within its 18 lines
+        if (X.handleless) opts.push('handleless fronts'); if (X.drawers) opts.push('extra drawers on lower storage'); if (X.panel) opts.push('framed panel doors');
+        if (X.lift && inp.anyUpper) opts.push('lift-up fronts on the lower upper row'); if (X.light && inp.anyUpper) opts.push('LED strip under the upper cabinets');
+        if (opts.length) out.push('options: ' + opts.join(', '));
         if (X.glass) {
           // say exactly which upper cabinet it is (counted from the corner): the glass is hard to see in the sketch against the wall
           var gu = glassPick && upos[glassPick], where = '';
@@ -1043,10 +1061,14 @@
           }
           out.push('glass display cabinet' + where + ': clear glass door, warm LED light inside, glass shelves and neat dishes; all other upper doors solid');   // under the 200-character limit
         }
-        if (X.light) out.push('under-cabinet lighting');
         return out;
       }
-      root.pLayout = { refresh: soon, current: root.pLayout.current, capture: capture, sketchLegend: sketchLegend, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      /* resolves once the chosen decor pictures have loaded (or after 6 s), so the AI picture shows the real colours */
+      function whenReady() {
+        var t0 = Date.now();
+        return new Promise(function (ok) { (function poll() { readInputs(); if (!pendingLoads || Date.now() - t0 > 6000) { inputsSig = ''; try { sync(true); } catch (e) { /* keep */ } ok(); return; } setTimeout(poll, 120); })(); });
+      }
+      root.pLayout = { refresh: soon, current: root.pLayout.current, capture: capture, sketchLegend: sketchLegend, whenReady: whenReady, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
   }
