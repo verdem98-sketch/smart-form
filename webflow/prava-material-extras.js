@@ -161,6 +161,33 @@
     }
   }
 
+  /* ---------- quote request: add grain and deep-row colour to the preview link / note that the company receives */
+  function describe(field, role) {
+    var input = $('input[name="' + field + '"]'), id = input && input.value, row = null;
+    for (var i = 0; i < cat.items.length; i++) if (cat.items[i][0] === id) row = cat.items[i];
+    var grain = $('input[name="' + role + '_grain"]'), parts = [];
+    if (row) parts.push([row[1], row[3], row[4]].filter(Boolean).join(' ') + (isGloss(id) ? ', гланц' : ''));
+    if (row && row[2] === 'wood' && grain) parts.push('шарка ' + (grain.value === 'h' ? 'хоризонтална' : 'вертикална'));
+    return parts.join(', ');
+  }
+  function onSubmit(e) {
+    var form = e.target, link = form && form.querySelector && form.querySelector('[name="preview_link"]');
+    if (!link || !link.value || link.value.indexOf('Допълнително:') >= 0) return;
+    var qs = new URLSearchParams(), notes = [];
+    ['upper', 'lower'].forEach(function (role) {
+      var g = $('input[name="' + role + '_grain"]'); if (g && categoryOf(($('input[name="' + role + '_finish"]') || {}).value) === 'wood') { qs.set(role + '_grain', g.value); notes.push((role === 'upper' ? 'Горен ред' : 'Долен ред') + ': шарка ' + (g.value === 'h' ? 'хоризонтална' : 'вертикална')); }
+    });
+    if (deepOn()) {
+      var d = describe('deep_finish', 'deep');
+      if (deepInput && deepInput.value) { qs.set('deep_finish', deepInput.value); qs.set('deep_grain', deepGrainInput.value); }
+      notes.push('Дълбок горен ред: ' + (d || 'същият като горния ред'));
+    }
+    if (!notes.length) return;
+    var end = '\n=== КРАЙ НА ЛИНКА ===', q = qs.toString();
+    if (q && link.value.indexOf(end) > 0) link.value = link.value.replace(end, '&' + q + end);
+    link.value += '\nДопълнително: ' + notes.join('; ');
+  }
+
   function init() {
     page = document.querySelector('.sf-page-prava'); flow = window.pravaFlow;
     upperWrap = $('.question-wrap-vision[data-field="upper_finish"]'); lowerWrap = $('.question-wrap-vision[data-field="lower_finish"]');
@@ -169,6 +196,7 @@
     css(); setupRow(upperWrap, 'upper'); setupRow(lowerWrap, 'lower');
     buildPanel();
     page.addEventListener('click', onClick, true);
+    var form = page.querySelector('form'); if (form) form.addEventListener('submit', onSubmit, true);
     page.addEventListener('prava:phase-changed', function () { if (deepShown) hideDeep(); setTimeout(relabel, 0); });
     page.addEventListener('change', function () { setTimeout(relabel, 0); }); relabel();
   }
