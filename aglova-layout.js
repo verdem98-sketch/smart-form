@@ -869,15 +869,15 @@
     var edBox = document.createElement('div'); edBox.className = 'ag-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
     ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
     var edCss = document.createElement('style');
-    edCss.textContent = '.flow-aglova .ag-3d-edit{position:absolute;z-index:12;min-width:210px;max-width:250px;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:10px 12px;font:13px/1.35 sans-serif;color:#2f372f}' +
+    edCss.textContent = '.flow-aglova .ag-3d-edit{position:absolute;z-index:12;min-width:190px;max-width:236px;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:8px 10px;font:12px/1.3 sans-serif;color:#2f372f}' +
       '.flow-aglova .ag-3d-edit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-weight:700}' +
       '.flow-aglova .ag-3d-edit-x{width:26px;height:26px;border:0;border-radius:8px;background:#f1f3f0;color:#2f372f;font:600 15px/1 sans-serif;cursor:pointer}' +
       '.flow-aglova .ag-3d-edit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}' +
       '.flow-aglova .ag-3d-edit-w{display:flex;align-items:center;gap:6px}.flow-aglova .ag-3d-edit-w b{min-width:58px;text-align:center;font-variant-numeric:tabular-nums}' +
-      '.flow-aglova .ag-3d-edit button.ag-3d-ed{min-height:30px;padding:4px 9px;border:1px solid #cfd4cb;border-radius:8px;background:#fff;color:#2f372f;font:600 12px/1.2 sans-serif;cursor:pointer}' +
+      '.flow-aglova .ag-3d-edit button.ag-3d-ed{min-height:26px;padding:3px 7px;border:1px solid #cfd4cb;border-radius:7px;background:#fff;color:#2f372f;font:600 11px/1.2 sans-serif;cursor:pointer}' +
       '.flow-aglova .ag-3d-edit button.ag-3d-ed:hover{border-color:#477448}.flow-aglova .ag-3d-edit button.ag-3d-ed.is-on{background:#477448;border-color:#477448;color:#fff}' +
       '.flow-aglova .ag-3d-edit button.ag-3d-ed:disabled{opacity:.4;cursor:not-allowed}' +
-      '.flow-aglova .ag-3d-edit-seg{display:flex;flex-wrap:wrap;gap:6px}.flow-aglova .ag-3d-edit-lbl{font-size:12px;color:#606760;margin:8px 0 4px}' +
+      '.flow-aglova .ag-3d-edit-seg{display:flex;flex-wrap:wrap;gap:4px}.flow-aglova .ag-3d-edit-lbl{font-size:11px;color:#606760;margin:6px 0 3px}' +
       '.flow-aglova .ag-3d-edit-note{font-size:11px;color:#7a2d1f;margin-top:6px}.flow-aglova .ag-3d-edit-info{font-size:11px;color:#606760;margin-top:6px}';
     document.head.appendChild(edCss);
     function edKey(s) { return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
@@ -907,7 +907,7 @@
       list.forEach(function (m) {
         var e = EDIT.low[m.id]; if (!e || !e.w || m.type !== 'genericBase' || e.w === m.w) return;
         var want = Math.max(MIN_W, Math.min(MAX_W, e.w)), r = edAbsorb(list, m, want - m.w, fill, maxFill);
-        if (r.ok) { m.w = want; fill = r.filler; } else { e.w = m.w; edNote = 'Няма място: другите шкафове на тази стена вече са на минимална или максимална ширина.'; }
+        if (r.ok) { m.w = want; e.w = want; fill = r.filler; } else { e.w = m.w; edNote = 'Няма място: другите шкафове на тази стена вече са на минимална или максимална ширина.'; }
       });
       return fill;
     }
@@ -938,7 +938,7 @@
       html += '<div class="ag-3d-edit-row"><span>Ширина</span><span class="ag-3d-edit-w">' + (canW ? '<button type="button" class="ag-3d-ed" data-ed="w-" aria-label="По-тесен с 5 см"' + (w <= MIN_W ? ' disabled' : '') + '>−</button>' : '') +
         '<b>' + (w / 10) + ' см</b>' + (canW ? '<button type="button" class="ag-3d-ed" data-ed="w+" aria-label="По-широк с 5 см"' + (w >= MAX_W ? ' disabled' : '') + '>+</button>' : '') + '</span></div>';
       if (!sel.upper && m.type === 'genericBase') {
-        var f = frontOf(m, m.w / 1000), opts = [['doors', 'Врати'], ['d2', '2 чекмеджета'], ['d3', '3 чекмеджета'], ['d4', '4 чекмеджета']];
+        var f = frontOf(m, m.w / 1000), opts = [['doors', 'Врати'], ['d2', '2 чекм.'], ['d3', '3 чекм.'], ['d4', '4 чекм.']];
         html += '<div class="ag-3d-edit-lbl">' + (f === 'doors' ? 'Шкаф с врати – смени на чекмеджета:' : 'Шкаф с чекмеджета – смени на:') + '</div><div class="ag-3d-edit-seg">' +
           opts.map(function (o) { return '<button type="button" class="ag-3d-ed' + (o[0] === f ? ' is-on' : '') + '" data-ed="front" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
       } else if (!sel.upper) html += '<div class="ag-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
@@ -993,10 +993,10 @@
       items.forEach(function (m) { var e = EDIT.low[m.id]; if (m.type === 'genericBase' && e && e.front) fronts.push(edWhere(m.id, false) + ': ' + ({ doors: 'doors', d2: '2 drawers', d3: '3 drawers', d4: '4 drawers' })[e.front]); });
       Object.keys(upos || {}).forEach(function (id) {
         var e = EDIT.up[id]; if (uGlass(id)) glass.push(edWhere(id, true));
-        if (e && e.lift !== undefined && e.lift !== !!X.lift) (e.lift ? liftOn : liftOff).push(edWhere(id, true));
+        if (e && e.lift !== undefined && e.lift !== !!X.lift && !uGlass(id)) (e.lift ? liftOn : liftOff).push(edWhere(id, true));
         if (curDeepRow() && uGlass(id + ':d')) glass.push(edWhere(id, true) + ' (deep top row)');
       });
-      function chunk(head, list) { var line = head; list.forEach(function (s) { if ((line + s).length > 190) { out.push(line.replace(/, $/, '')); line = head; } line += s + ', '; }); if (line !== head) out.push(line.replace(/, $/, '')); }
+      function chunk(head, list) { var line = head; list.forEach(function (s) { if ((line + s).length > 190) { out.push(line.replace(/ \+ $/, '')); line = head; } line += s + ' + '; }); if (line !== head) out.push(line.replace(/ \+ $/, '')); }
       chunk('lower cabinet fronts changed by the client: ', fronts);
       chunk('lift-up flap fronts on: ', liftOn); chunk('ordinary hinged doors, not lift-up, on: ', liftOff);
       if (glass.length) { chunk('glass display cabinet' + (glass.length > 1 ? 's' : '') + ' at: ', glass); out.push(glassText); }
