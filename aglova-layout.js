@@ -951,7 +951,16 @@
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
         if (X.lift) out.push('lift-up fronts on the lower upper row only');
-        if (X.glass) { var gu = glassPick && upos[glassPick]; out.push('glass display cabinet in the standard upper row' + (gu ? ' on the ' + (gu.wall === 1 ? 'left' : 'right') + ' wall, where the sketch shows it' : '') + ': clear glass door, warm LED light inside, glass shelves and neat dishes behind the glass'); }   // under the 200-character limit of a feature-key line
+        if (X.glass) {
+          // say exactly which upper cabinet it is (counted from the corner): the glass is hard to see in the sketch against the wall
+          var gu = glassPick && upos[glassPick], where = '';
+          if (gu) {
+            var onWall = Object.keys(upos).filter(function (id) { return upos[id].wall === gu.wall; }).sort(function (a, b) { return upos[a].x - upos[b].x; });
+            var nth = onWall.indexOf(glassPick) + 1, ord = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth'][nth - 1] || (nth + 'th');
+            where = ' (' + (gu.wall === 1 ? 'left' : 'right') + ' wall, ' + ord + ' upper cabinet from the corner, of ' + onWall.length + ')';
+          }
+          out.push('glass display cabinet' + where + ': clear glass door, warm LED light inside, glass shelves and neat dishes; all other upper doors solid');   // under the 200-character limit
+        }
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }
