@@ -13,7 +13,13 @@
       ...['upper','lower','countertop','backsplash'].map(role => page.querySelector('[data-field="'+role+'_finish"]')),
       cards[0], cards[1], page.querySelector('.seo-text'), page.querySelector('.final-phase-prava')];
     if (phases.some(node => !node)) throw new Error('Straight Kitchen phase contract is incomplete');
-    const titles = ['Конфигурация','Размери','Горен ред','Долен ред','Плот','Гръб','Електроуреди','Допълнителни екстри','AI визуализация','Последна стъпка'];
+    const titles = ['Размери','Конфигурация','Горен ред','Долен ред','Плот','Гръб','Електроуреди','Допълнителни екстри','AI визуализация','Последна стъпка'];
+    // Display order: step 1 = dimensions (phases[1]), step 2 = configuration (phases[0]); legacy data-prava-phase numbers are unchanged.
+    const ORDER=[1,0,2,3,4,5,6,7,8,9];
+    const legacyToStep=n=>n===1?2:n===2?1:n;
+    // The island question moves next to the dimensions so its size rows can appear before cabinets are laid out.
+    const islandQuestion=page.querySelector('.question-wrap-prava[data-field="island"]');
+    if(islandQuestion&&islandQuestion.closest('.combo-phase-prava'))phases[1].append(islandQuestion);
     const finalTitle=page.querySelector('.final-title-subtitle');if(finalTitle)phases[9].prepend(finalTitle);
     const finalBack=document.createElement('button');finalBack.type='button';finalBack.dataset.pravaNav='back';finalBack.textContent='← Назад';
     const finalNav=document.createElement('div');finalNav.className='prava-navigation prava-final-nav';finalNav.append(finalBack);phases[9].prepend(finalNav);
@@ -37,6 +43,8 @@
     progress.replaceChildren(progressHead,progressTrack);columns.before(progress);
     const header=document.createElement('div');header.className='prava-step-header';header.append(heading);right.prepend(header);
     const configQuestions=[...phases[0].querySelectorAll('.question-wrap-prava[data-field]')];
+    const dimQuestions=islandQuestion?[islandQuestion]:[];
+    [islandQuestion].filter(Boolean).forEach(q=>{q.querySelectorAll('.question-head').forEach(n=>{n.hidden=true;n.inert=true;});});
     configQuestions.forEach(question=>{
       question.querySelectorAll('[data-action="reset-prava"]').forEach(node=>node.remove());
       question.querySelectorAll('.question-head').forEach(node=>{node.hidden=true;node.inert=true;});
@@ -106,11 +114,12 @@
       if(question&&question.querySelector('.option-pill.is-selected,.option-pill.active'))clearQuestionValidation(question);
     });
     function check() {
-      if(step===1) {
+      if(step===2) {
         const missing=firstMissingQuestion();
         if(missing) return 'Изберете вариант за всеки въпрос.';
       }
-      if(step===2) {
+      if(step===1) {
+        if(dimQuestions.some(q=>!q.querySelector('.option-pill.is-selected,.option-pill.active'))) return 'Изберете дали желаете остров.';
         const keys=['len_prava_3','height_prava_3'];
         if(islandEnabled()) keys.push('island_len_3a','island_width_3a');
         for(const key of keys) {
@@ -123,11 +132,11 @@
     }
     function render(scroll) {
       clearConfigValidation();
-      phases.forEach((node,i)=>visible(node,i===step-1));
+      phases.forEach((node,i)=>visible(node,i===ORDER[step-1]));
       visible(columns,step!==10); visible(aiParent,step===9); visible(nav,step!==10); visible(heading,step!==10);
       const standard=page.querySelector('.sf-header-center'), final=page.querySelector('.final-title-subtitle');
       visible(standard,step!==10); visible(final,step===10);
-      page.dataset.pravaStep=String(step); page.dataset.pravaFlow=step===10?'final':step===1?'config':step===2?'dimensions':'vision';
+      page.dataset.pravaStep=String(step); page.dataset.pravaFlow=step===10?'final':step===2?'config':step===1?'dimensions':'vision';
       page.dataset.pravaMaterialStep=String(Math.max(0,step-3));
       heading.textContent=titles[step-1];
       progressTitle.textContent=titles[step-1];progressCount.textContent='Стъпка '+step+' от '+titles.length;
@@ -145,10 +154,10 @@
       const control=event.target.closest('[data-prava-nav],.prava-back-control-v3'); if(!control)return;
       event.preventDefault();
       if(control.dataset.pravaNav==='next') {
-        const message=check(); if(message){if(step===1)showMissingQuestion(firstMissingQuestion());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
+        const message=check(); if(message){if(step===2)showMissingQuestion(firstMissingQuestion());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
       } else if(step>1) go(step-1);
     });
-    window.pravaGoToStep=go;
+    window.pravaGoToStep=function(n,scroll){go(legacyToStep(Number(n)),scroll===undefined?true:scroll);};
     window.pravaFlow={getStep:()=>step,validate:check};
     render(false);
   }
