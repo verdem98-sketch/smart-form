@@ -294,7 +294,7 @@
         microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
         x: { handleless: chk('handleless'), drawers: chk('more_drawers'), glass: chk('glass_display'), lift: chk('lift_mechanisms'), panel: chk('panel_doors'), light: chk('counter_lighting'), bottle: chk('bottle_rack') },
         showCabinets: step >= 2 && w1 > 0 && w2 > 0,
-        cUpper: colourOf('upper_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
+        cUpper: colourOf('upper_finish'), cDeep: colourOf('deep_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
     }
 
@@ -643,7 +643,8 @@
         if (inp.coffeeFree) { var cg = gb[gb.length - 1]; cg.host = (cg.host || []).concat('coffee'); }
       }
       var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined;
-      mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = mats.deep = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front;
+      var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!(root.agMaterialSelections && root.agMaterialSelections.get('deep_finish'));
+      mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front; mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0) : mats.upper;
       items.forEach(function (m) {
         var w = m.w / 1000, cx = lc(m.wall, m.x + m.w / 2);
         var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
@@ -871,7 +872,63 @@
       setup();
       new MutationObserver(soon).observe(page, { subtree: true, attributes: true, characterData: true, childList: true, attributeFilter: ['class', 'data-ag-flow-step', 'data-preview-state', 'value'] });
       page.addEventListener('click', function () { setTimeout(soon, 100); }); page.addEventListener('ag:phase-changed', function () { inputsSig = ''; soon(); }); page.addEventListener('ag:material-chosen', function () { inputsSig = ''; soon(); });
-      root.agLayout = { refresh: soon, current: root.agLayout.current, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      /* picture of the interactive sketch for the AI visualization: fixed camera into the corner, no grid lines or labels, same textures as on screen */
+      function capture() {
+        if (!T || !scene || !plan || !items.length) return null;
+        var inp = readInputs(), W = 1536, H = 1024, r = null, hide = [], prev = [];
+        var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, RH = (inp.heightMm || 2600) / 1000;
+        try {
+          clearHL();
+          scene.traverse(function (o) { if (o.type === 'LineSegments' || o.type === 'Sprite') hide.push(o); });
+          if (dropMark) hide.push(dropMark);
+          hide.forEach(function (o) { prev.push(o.visible); o.visible = false; });
+          var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+          r = new T.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H, false);
+          var cam = new T.PerspectiveCamera(42, W / H, .05, 80);
+          // same framing as the on-screen home view (fit), computed for the 3:2 picture: looking into the corner, both walls in view
+          var tv = Math.tan(21 * Math.PI / 180), th = tv * (W / H), halfW = (L1 + L2) / (2 * Math.SQRT2);
+          var dist = Math.max((halfW * 1.12) / th, (RH / 2 * 1.3) / tv, 3.2) + .4, el = 20 * Math.PI / 180;
+          var target = new T.Vector3(L2 / 2, Math.min(RH * .45, 1.1), L1 / 2);
+          var dir = new T.Vector3(Math.SQRT1_2 * Math.cos(el), Math.sin(el), Math.SQRT1_2 * Math.cos(el));
+          cam.position.copy(target).add(dir.multiplyScalar(dist)); cam.lookAt(target); cam.updateMatrixWorld(true);
+          r.render(scene, cam);
+          var url = cv.toDataURL('image/jpeg', .9);
+          return url && url.length > 4000 ? url : null;
+        } catch (e) { return null; }
+        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); }
+      }
+      /* short feature key for the AI prompt: appliances per wall from the corner outwards, then surfaces and extras (data only) */
+      function sketchLegend() {
+        var inp = readInputs(), out = [];
+        var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout', cornerBase: 'corner base unit' };
+        [[1, 'left wall'], [2, 'right wall']].forEach(function (wl) {
+          var list = items.filter(function (m) { return m.wall === wl[0] && nm[m.type]; }).sort(function (a, b) { return a.x - b.x; }).map(function (m) { return nm[m.type]; });
+          if (list.length) out.push(wl[1] + ' from the corner outwards: ' + list.join(', '));
+        });
+        if (inp.chimney) out.push('chimney block in the corner, cabinets fitted around it');
+        if (inp.barMode === 'island') out.push('free-standing island');
+        else if (inp.barMode === 'wall1') out.push('bar along the left wall');
+        else if (inp.barMode === 'wall2') out.push('bar along the right wall');
+        function surf(name, field) {
+          var rec = root.agMaterialSelections && root.agMaterialSelections.get(field); if (!rec) return;
+          var gloss = !!(root.agGloss && root.agGloss.has(rec.id));
+          out.push(name + ': ' + (rec.category === 'wood' ? 'wood decor, grain continuous across doors,' : 'plain colour,') + ' ' + (gloss ? 'HIGH GLOSS' : 'matte'));
+        }
+        surf('lower fronts', 'lower_finish'); surf('upper fronts', 'upper_finish');
+        if (inp.deep) {
+          if (root.agMaterialSelections && root.agMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish');
+          else out.push('deep upper row: same decor as the upper fronts');
+        }
+        out.push('appliance finish: all black (washing machine white)');
+        if (X.handleless) out.push('handleless fronts');
+        if (X.drawers) out.push('extra drawers on lower storage');
+        if (X.panel) out.push('framed panel doors');
+        if (X.lift) out.push('lift-up fronts on the lower upper row only');
+        if (X.glass) out.push('one display cabinet with a clear glass door in the standard upper row: warm LED light inside, glass shelves and neat dishes visible through the glass');
+        if (X.light) out.push('under-cabinet lighting');
+        return out;
+      }
+      root.agLayout = { refresh: soon, current: root.agLayout.current, capture: capture, sketchLegend: sketchLegend, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
   }

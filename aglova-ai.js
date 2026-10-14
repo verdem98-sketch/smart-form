@@ -146,6 +146,7 @@
       if (ap.washingMachine.enabled && !hasExtra(extras, 'washing_machine')) extras.push({ field: 'washing_machine', label: ap.washingMachine.type || 'washing_machine' });
       var materials = { upper: material('upper_finish'), lower: material('lower_finish'), countertop: material('countertop_finish'), backsplash: material('backsplash_finish') };
       var deep = hasExtra(extras, 'deep_cabinets');
+      materials.deep = deep ? material('deep_finish') : null;   // own decor of the deep upper row; null = same as the upper row
       var dw = ap.dishwasher.type && /45$/.test(ap.dishwasher.type) ? 450 : ap.dishwasher.type && /60$/.test(ap.dishwasher.type) ? 600 : 0;
       return {
         version: 'aglova-ai-visual-v1', kitchenType: 'aglova', configuration: config, dimensions: d,
@@ -265,10 +266,15 @@
       var payload = collect(), check = validate(payload);
       window.__agAiPayload = payload;
       if (!check.valid) { showState('error', 'Липсва: ' + check.missing.join(', ')); return; }
+      // The picture of the interactive 3D sketch is the only reference for the render (no planner, no four material images).
+      var layout = window.agLayout, sketchImage = null, sketchLegend = [];
+      try { sketchImage = layout && typeof layout.capture === 'function' ? layout.capture() : null; } catch (e) { sketchImage = null; }
+      try { sketchLegend = layout && typeof layout.sketchLegend === 'function' ? layout.sketchLegend() : []; } catch (e) { sketchLegend = []; }
+      if (!sketchImage) { showState('error', 'Скицата на кухнята не можа да бъде снимана. Презаредете страницата и опитайте отново.'); return; }
       showState('loading');
       btn.dataset.aiBusy = '1'; btn.disabled = true; btn.textContent = 'Създаваме визуализацията…';
       try {
-        var startResponse = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: payload }) });
+        var startResponse = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: payload, sketchImage: sketchImage, sketchLegend: sketchLegend }) });
         var startParsed = await readJson(startResponse), startData = startParsed.data;
         if (!startResponse.ok || !startData.ok) {
           var details = Array.isArray(startData && startData.plannerErrors) ? startData.plannerErrors.filter(Boolean) : [];
@@ -399,6 +405,12 @@
         var body = img ? '<img src="' + esc(img) + '" alt="' + esc(label) + '">' : '<div class="ag-summary-material-placeholder"><div><strong>Добави материал</strong>Избери материал за ' + esc(label.toLowerCase()) + '</div></div>';
         return '<div class="ag-summary-material-card" data-summary-step="' + step + '" data-summary-target="field:' + role + '_finish" role="button" tabindex="0"><div class="ag-summary-material-label">' + esc(label) + '</div>' + body + '<div class="ag-summary-material-change">' + (img ? 'промени избора' : 'добави материал') + '</div></div>';
       }
+      function deepCard() {
+        if (!hasExtra(checkedExtras(), 'deep_cabinets')) return '';
+        var m = material('deep_finish'), up = material('upper_finish'), img = (m || up || {}).sampleImageUrl;
+        var body = img ? '<img src="' + esc(img) + '" alt="Дълбок горен ред">' : '<div class="ag-summary-material-placeholder"><div><strong>Като горния ред</strong></div></div>';
+        return '<div class="ag-summary-material-card" data-summary-step="3" data-summary-target="deep:deep_finish" role="button" tabindex="0"><div class="ag-summary-material-label">Дълбок горен ред' + (m ? '' : ' (като горния)') + '</div>' + body + '<div class="ag-summary-material-change">промени избора</div></div>';
+      }
       function render() {
         var c = collect().configuration, mode = barMode(c.bar), html = '';
         html += row('Комин', pill('chimney_exists'), 1, 'field:chimney_exists');
@@ -413,7 +425,7 @@
         if (mode === 'wall1' || mode === 'wall2') { html += row('Бар дължина', dim('bar_len_aglova'), 2, 'dim:bar_len_aglova'); html += row('Бар ширина', dim('bar_width_aglova'), 2, 'dim:bar_width_aglova'); }
         if (mode === 'island') { html += row('Остров дължина', dim('island_len_aglova'), 2, 'dim:island_len_aglova'); html += row('Остров ширина', dim('island_width_aglova'), 2, 'dim:island_width_aglova'); }
         html += '<div class="ag-summary-materials"><div class="ag-summary-block-title">Материали</div><div class="ag-summary-materials-grid">' +
-          matCard('Горен ред', 'upper', 3) + matCard('Долен ред', 'lower', 4) + matCard('Плот', 'countertop', 5) + matCard('Гръб', 'backsplash', 6) + '</div></div>';
+          matCard('Горен ред', 'upper', 3) + deepCard() + matCard('Долен ред', 'lower', 4) + matCard('Плот', 'countertop', 5) + matCard('Гръб', 'backsplash', 6) + '</div></div>';
         var ap = row('Миялна', applianceText('dishwasher_type'), 7, 'field:dishwasher_type') + row('Пералня', applianceText('washing_machine_type'), 7, 'field:washing_machine_type') +
           row('Микровълнова', applianceText('microwave_type'), 7, 'field:microwave_type') + row('Кафе машина', applianceText('coffee_machine_type'), 7, 'field:coffee_machine_type');
         if (ap) html += '<div class="ag-summary-choice-block"><div class="ag-summary-block-title">Уреди</div><div class="ag-summary-choice-grid">' + ap + '</div></div>';
@@ -424,7 +436,9 @@
       }
       function jump(source) {
         var step = parseInt(source.getAttribute('data-summary-step'), 10), target = source.getAttribute('data-summary-target') || '';
-        editReturn = true; window.agGoToStep(step, false); syncBack(step);
+        editReturn = true; window.agGoToStep(step, false);
+        if (target.indexOf('deep:') === 0 && window.agFlow && window.agFlow.showDeep) window.agFlow.showDeep(false);
+        syncBack(step);
         setTimeout(function () {
           var node = null;
           if (target.indexOf('field:') === 0) node = fieldNodes(target.slice(6)).filter(function (n) { return n.offsetParent !== null; })[0] || page.querySelector('[data-field="' + target.slice(6) + '"]');

@@ -43,6 +43,32 @@
     page.querySelectorAll('.aglova-workspace').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     page.querySelectorAll('.aglova-right').forEach(n => { if (!n.querySelector('.ag-stepnode')) n.dataset.agHide = '1'; });
     const resetBtn = page.querySelector('.nav-reset');
+    // Deep upper row colour (same idea as Prava): an extra sub-step between "Горен ред" (3) and "Долен ред" (4), shown only when
+    // the deep row is chosen. The other steps keep their numbers; aglova-catalog.js builds the decor gallery inside this node.
+    const deepPhase = document.createElement('div');
+    deepPhase.className = 'question-wrap question-wrap-vision ag-deep-phase ag-stepnode';
+    deepPhase.dataset.field = 'deep_finish'; deepPhase.hidden = true; deepPhase.inert = true;
+    deepPhase.innerHTML = '<p class="ag-deep-copy">Изберете цвят за дълбокия горен ред. Ако не изберете, ще е същият като горния ред.</p>' +
+      '<div class="ag-deep-actions"><button type="button" class="ag-deep-same is-on" aria-pressed="true">Като горния ред</button></div>' +
+      '<input type="hidden" name="deep_finish" value="">';
+    vision[0].after(deepPhase);
+    const deepSame = deepPhase.querySelector('.ag-deep-same'), deepInput = deepPhase.querySelector('input[name="deep_finish"]');
+    const deepCss = document.createElement('style');
+    deepCss.textContent = '.flow-aglova .ag-deep-copy{margin:0 0 12px;font-size:14px;line-height:1.45;color:#2f372f}' +
+      '.flow-aglova .ag-deep-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}' +
+      '.flow-aglova .ag-deep-same{min-height:38px;padding:6px 14px;border:1px solid #cfd4cb;border-radius:6px;background:#fff;color:#2f372f;font:inherit;font-size:13px;cursor:pointer}' +
+      '.flow-aglova .ag-deep-same.is-on{background:#2f372f;border-color:#2f372f;color:#fff}' +
+      '.flow-aglova .ag-global-progress-seg[hidden]{display:none}';
+    document.head.append(deepCss);
+    function paintDeepSame() { const same = !deepInput.value; deepSame.classList.toggle('is-on', same); deepSame.setAttribute('aria-pressed', String(same)); }
+    deepSame.addEventListener('click', e => {
+      e.preventDefault();
+      if (window.agMaterialSelections && window.agMaterialSelections.clear) window.agMaterialSelections.clear('deep_finish');
+      else { deepInput.value = ''; deepInput.dispatchEvent(new Event('change', { bubbles: true })); }
+      paintDeepSame();
+    });
+    deepInput.addEventListener('change', paintDeepSame); page.addEventListener('ag:material-chosen', () => setTimeout(paintDeepSame, 0));
+    let deepShown = false;
     // Deep upper row: a step-1 question in Prava ("Дълбок горен ред" НЕ/ДА). Aglova's template only has an empty placeholder,
     // so build the question here; the answer drives the hidden "deep_cabinets" extras checkbox the AI payload and summary already read.
     const deepQ = comboWrap.querySelector('.question-deep-cabinets');
@@ -58,6 +84,7 @@
         deepBox.dispatchEvent(new Event('change', { bubbles: true }));
       });
     }
+    const deepOn = () => !!(deepBox && deepBox.checked);
     const questions = [...comboWrap.querySelectorAll('[data-field]')].filter(q => q.querySelector('.option-pill'));   // step 2
     const chimQ = dimWrap.querySelector('.question-chimney');                                                     // step 1 (with the wall sizes)
     const allQuestions = chimQ ? [chimQ, ...questions] : questions;
@@ -70,6 +97,7 @@
     head.append(pTitle, pCount);
     const track = document.createElement('div'); track.className = 'ag-global-progress-track'; track.style.setProperty('--ag-steps', N);
     const segs = titles.map((_, i) => { const s = document.createElement('div'); s.className = 'ag-global-progress-seg'; track.append(s); return s; });
+    const deepSeg = document.createElement('div'); deepSeg.className = 'ag-global-progress-seg'; deepSeg.dataset.extra = 'deep'; deepSeg.hidden = true; segs[2].after(deepSeg);
     progress.append(head, track);
     const grid = page.querySelector('.aglova-left');
     grid.parentNode.insertBefore(progress, grid);
@@ -114,17 +142,22 @@
       return '';
     }
     function render(scroll) {
-      phases.forEach((n, i) => show(n, i === step - 1));
+      if (deepShown && (step !== 3 || !deepOn())) deepShown = false;
+      phases.forEach((n, i) => show(n, i === step - 1 && !(deepShown && n === vision[0])));
+      show(deepPhase, deepShown);
       if (step === 1 || step === 2) unhideQuestions();
       page.dataset.agStep = String(step); page.dataset.agFlowStep = String(step);   // agStep is also written by the legacy engine; agFlowStep is ours
       stickyOffset();
-      heading.textContent = titles[step - 1];
-      pTitle.textContent = titles[step - 1]; pCount.textContent = 'Стъпка ' + step + ' от ' + N;
-      progress.setAttribute('aria-valuenow', String(step));
-      segs.forEach((s, i) => { s.classList.toggle('is-done', i < step - 1); s.classList.toggle('is-active', i === step - 1); });
+      const on = deepOn(), total = on ? N + 1 : N, shown = deepShown ? 4 : (on && step >= 4 ? step + 1 : step), title = deepShown ? 'Дълбок горен ред' : titles[step - 1];
+      heading.textContent = title;
+      pTitle.textContent = title; pCount.textContent = 'Стъпка ' + shown + ' от ' + total;
+      progress.setAttribute('aria-valuemax', String(total)); progress.setAttribute('aria-valuenow', String(shown));
+      track.style.setProperty('--ag-steps', total);
+      segs.forEach((s, i) => { s.classList.toggle('is-done', i < step - 1 || (deepShown && i === 2)); s.classList.toggle('is-active', i === step - 1 && !deepShown); });
+      deepSeg.hidden = !on; deepSeg.classList.toggle('is-active', deepShown); deepSeg.classList.toggle('is-done', on && step >= 4);
       clearValidation(); back.disabled = step === 1; next.hidden = step === LAST; error.hidden = true; error.textContent = '';
       tools.hidden = step !== 2;
-      page.dispatchEvent(new CustomEvent('ag:phase-changed', { detail: { step } }));
+      page.dispatchEvent(new CustomEvent('ag:phase-changed', { detail: { step, deep: deepShown } }));
       if (scroll) {
         // The progress bar is sticky, so scrolling it into view does nothing once it is pinned. Put the top of the step
         // (right card + sketch) just under it, so every new step starts at its top whatever the previous scroll was.
@@ -171,23 +204,29 @@
       if (step !== 1 && step !== 2) return;
       itemsOf(step).forEach(n => { if (n.classList.contains('ag-question-invalid') && itemDone(step, n)) clearItem(n); });
     }, 0)));
-    function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; render(scroll); }
+    function go(t, scroll = true) { t = Number(t); if (!Number.isInteger(t) || t < 1 || t > N) return; step = t; deepShown = false; render(scroll); }
+    function showDeep(scroll = true) { if (!deepOn()) return; step = 3; deepShown = true; render(scroll); }
     page.addEventListener('click', e => {
       if (e.target.closest('.ag-config-reset')) { if (deepQ) { deepQ.querySelectorAll('.option-pill').forEach(p => { p.classList.remove('active'); p.setAttribute('aria-pressed', 'false'); }); if (deepBox) deepBox.checked = false; } const keep = chimQ && chimQ.querySelector('.option-pill.active,.option-pill.is-selected'); if (resetBtn) resetBtn.click(); setTimeout(unhideQuestions, 0); if (keep) setTimeout(() => { keep.click(); setTimeout(unhideQuestions, 0); }, 150); return; }
       const c = e.target.closest('[data-ag-nav]'); if (!c) { if (step === 1 || step === 2) setTimeout(unhideQuestions, 0); return; }
       e.preventDefault();
       if (c.dataset.agNav === 'next') {
+        if (deepShown) { go(4); return; }                       // the deep colour is optional (default: same as the upper row)
         const m = check();
         if (m) {
           const missing = (step === 1 || step === 2) ? itemsOf(step).find(n => !itemDone(step, n)) : null;
           if (missing) showMissing(missing); else { error.textContent = m; error.hidden = false; }
           return;
         }
+        if (step === 3 && deepOn()) { showDeep(); return; }
         go(step + 1);
       }
+      else if (deepShown) { deepShown = false; render(true); }
+      else if (step === 4 && deepOn()) showDeep();
       else if (step > 1) go(step - 1);
     });
-    window.agGoToStep = go; window.agFlow = { getStep: () => step, validate: check };
+    window.agGoToStep = go; window.agFlow = { getStep: () => step, validate: check, showDeep: showDeep, isDeepShown: () => deepShown };
+    if (deepBox) deepBox.addEventListener('change', () => render(false));   // the progress shows 11 steps while the deep row is chosen
     // keep the step-2 questions all visible when the engine re-hides them
     let busy = false;
     const keepVisible = () => { if ((step !== 1 && step !== 2) || busy) return; busy = true; unhideQuestions(); setTimeout(() => { busy = false; }, 0); };

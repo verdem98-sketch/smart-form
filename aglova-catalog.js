@@ -8,12 +8,19 @@
     'egger-perfectsense_u702', 'egger-perfectsense_u708', 'egger-perfectsense_u732', 'egger-perfectsense_u961', 'egger-perfectsense_u999', 'egger-perfectsense_w1000', 'egger-perfectsense_w1100']
     .forEach(function (id) { GLOSS[id] = 1; });
   window.agGloss = { has: function (id) { return !!GLOSS[String(id || '')]; } };
-  window.agMaterialSelections = { get: function (field) { var r = selections[field]; return r ? Object.assign({}, r) : null; } };
+  var resets = {};
+  window.agMaterialSelections = {
+    get: function (field) { var r = selections[field]; return r ? Object.assign({}, r) : null; },
+    // Drop a choice (used by "Като горния ред" for the deep row): the gallery and its hidden input go back to "nothing chosen".
+    clear: function (field) { delete selections[field]; var role = String(field).replace(/_finish$/, ''); if (resets[role]) resets[role](); }
+  };
   var script = document.currentScript;
   var base = script && script.src ? script.src.replace(/[^/]*$/, '') : '';
   var ROLES = {
     upper: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
     lower: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
+    // deep upper row: optional own decor, in the extra step aglova-flow.js adds after "Горен ред" (empty = same as the upper row)
+    deep: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'], optional: true },
     countertop: { file: 'countertop', cabinet: false, filters: ['family', 'manufacturer', 'category'] },
     backsplash: { file: 'backsplash', cabinet: false, filters: ['manufacturer', 'category'] }
   };
@@ -111,6 +118,12 @@
       wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: row[0], label: label(row), src: src(row) } }));
       render();
     }
+    resets[role] = function () {
+      chosenId = ''; keep.replaceChildren(); keep.hidden = true;
+      if (hidden) { hidden.value = ''; hidden.dispatchEvent(new Event('input', { bubbles: true })); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
+      wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: null, label: '', src: null } }));
+      render();
+    };
     function pager(total) {
       pages.replaceChildren();
       var shown = {}; [1, total, current - 2, current - 1, current, current + 1, current + 2].forEach(function (n) { shown[n] = 1; });
@@ -169,11 +182,13 @@
     root.dataset.agCatalog = '1';
     root.addEventListener('ag:material-chosen', function (e) { tileSrc[e.detail.role] = e.detail.src; updateTiles(root); });
     Object.keys(ROLES).forEach(function (role) {
-      var wrap = root.querySelector('.question-wrap[data-field="' + role + '_finish"]');
-      if (!wrap) return;
-      var cfg = ROLES[role];
-      load(cfg.file).then(function (source) { build(wrap, role, cfg, source); })
-        .catch(function (err) { if (window.console) console.warn('[aglova-catalog] ' + role + ' not loaded, keeping style cards', err); });
+      var cfg = ROLES[role], tries = 0;
+      (function find() {
+        var wrap = root.querySelector('.question-wrap[data-field="' + role + '_finish"]');
+        if (!wrap) { if (cfg.optional && ++tries < 100) setTimeout(find, 100); return; }   // the deep-row step is created by aglova-flow.js
+        load(cfg.file).then(function (source) { build(wrap, role, cfg, source); })
+          .catch(function (err) { if (window.console) console.warn('[aglova-catalog] ' + role + ' not loaded, keeping style cards', err); });
+      })();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 50); }, { once: true });
