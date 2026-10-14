@@ -634,7 +634,36 @@
       setup();
       new MutationObserver(soon).observe(page, { subtree: true, attributes: true, characterData: true, childList: true, attributeFilter: ['class', 'data-prava-step', 'data-preview-state', 'value'] });
       page.addEventListener('click', function () { setTimeout(soon, 100); }); page.addEventListener('change', soon); page.addEventListener('prava:phase-changed', function () { inputsSig = ''; soon(); });
-      root.pravaLayout = { refresh: soon, current: null, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      /* picture of the interactive sketch for the AI visualization: fixed camera, no grid lines or labels, same textures as on screen */
+      function capture() {
+        if (!T || !scene || !plan || !items.length) return null;
+        var W = 1536, H = 1024, L = plan.lengthMm / 1000, hide = [], prev = [], r = null;
+        try {
+          clearHL();
+          scene.traverse(function (o) { if (o.type === 'LineSegments' || o.type === 'Sprite') hide.push(o); });
+          hide.forEach(function (o) { prev.push(o.visible); o.visible = false; });
+          var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+          r = new T.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H, false);
+          var cam = new T.PerspectiveCamera(42, W / H, .05, 60);
+          cam.position.set(L / 2 + L * .06, 1.35, Math.max(3.2, L * 1.15)); cam.lookAt(L / 2, 1.25, .3); cam.updateMatrixWorld(true);
+          r.render(scene, cam);
+          var url = cv.toDataURL('image/jpeg', .9);
+          return url && url.length > 4000 ? url : null;
+        } catch (e) { return null; }
+        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); }
+      }
+      function sketchLegend() {
+        var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout' };
+        var out = items.filter(function (m) { return nm[m.type]; }).map(function (m) { return nm[m.type]; });
+        if (X.handleless) out.push('handleless fronts');
+        if (X.drawers) out.push('extra drawers on lower storage');
+        if (X.panel) out.push('framed panel doors');
+        if (X.lift) out.push('lift-up fronts on the lower upper row only');
+        if (X.glass) out.push('one illuminated glass display unit in the lower upper row');
+        if (X.light) out.push('under-cabinet lighting');
+        return out;
+      }
+      root.pravaLayout = { refresh: soon, current: null, capture: capture, sketchLegend: sketchLegend, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
     root.pravaLayout = root.pravaLayout || { refresh: function () {}, current: null };
