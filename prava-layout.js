@@ -649,8 +649,10 @@
     var STEP_W = 50, MIN_W = 150, MAX_W = 900;
     var edBox = document.createElement('div'); edBox.className = 'prava-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
     ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
+    // the editor cursor is the same pencil as the ✎ button (tip = hot spot)
+    var ED_CUR = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="5"><path d="M4 20l1-5L16 4l4 4L9 19z"/><path d="M14 6l4 4"/></g><g stroke="#222" stroke-width="2"><path d="M4 20l1-5L16 4l4 4L9 19z" fill="#fff"/><path d="M14 6l4 4"/></g></svg>') + '") 4 24, crosshair';
     var edCss = document.createElement('style');
-    edCss.textContent = '.sf-page-prava .prava-3d-edit{position:absolute;z-index:12;min-width:190px;max-width:236px;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:8px 10px;font:12px/1.3 sans-serif;color:#2f372f}' +
+    edCss.textContent = '.sf-page-prava .prava-3d[data-mode=edit] canvas{cursor:' + ED_CUR + '}' + '.sf-page-prava .prava-3d-edit{position:absolute;z-index:12;min-width:190px;max-width:236px;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:8px 10px;font:12px/1.3 sans-serif;color:#2f372f}' +
       '.sf-page-prava .prava-3d-edit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-weight:700}' +
       '.sf-page-prava .prava-3d-edit-x{width:26px;height:26px;border:0;border-radius:8px;background:#f1f3f0;color:#2f372f;font:600 15px/1 sans-serif;cursor:pointer}' +
       '.sf-page-prava .prava-3d-edit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}' +
