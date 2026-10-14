@@ -121,6 +121,7 @@
     var rotBtn = mkBtn('⟳', 'Въртане на изгледа (Orbit): влачете за завъртане', 'rotate');
     var modeBtn = mkBtn('✥', 'Местене на шкафове: хванете шкаф и го пуснете върху друг', 'mode');
     var panBtn = mkBtn('✋', 'Преместване на изгледа (Pan): влачете наляво/надясно и нагоре/надолу. Десен бутон или Shift + влачене също местят изгледа.', 'pan');
+    var editBtn = mkBtn('✎', 'Промяна на шкаф: изберете шкаф, за да смените ширината и вида му', 'edit');
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
@@ -383,7 +384,7 @@
         case 'washingMachine': if (m.free) break; front(g, W, y0, y1, mats.front, 0); handleH(g, 0, y1 - .06, Math.min(W * .5, .3)); break;   // built-in: behind a cabinet door like a real integrated washer
         case 'basket': if (X.bottle) { front(g, W, y0, y1, mats.front, 0); for (var bi = -2; bi <= 2; bi++) box(.008, y1 - y0 - .16, .01, mats.steel, bi * Math.min(.02, W / 7), (y0 + y1) / 2, D + FT + .006, g); handleH(g, 0, y1 - .05, W * .5); } else drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
         case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
-        default: if (W <= .601) doors(g, W, y0, y1, 1); else if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1, 1.4]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
+        default: frontParts(g, W, y0, y1, frontOf(m, W));
       }
       if (m.type === 'ovenHobBase' || m.type === 'hobBase') hobPlate(g, W);
       if (m.type === 'sinkBase') sinkTop(g, W);
@@ -422,12 +423,12 @@
     function upperSpec(deep) { return deep ? { ub: 1.45, uh: TALLH - .33 - 1.45, db: TALLH - .33, dh: .33 } : { ub: 1.55, uh: TALLH - 1.55 }; }
     function buildUpper(w, bottom, h, depth, mat, opt) {
       opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
-      var n = (X.lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
+      var lift = opt.lift === undefined ? !!X.lift : opt.lift, n = (lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
       if (opt.glass) {                                                                                  // lit display cabinet: warm interior + shelves
         box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
         [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
       }
-      if (X.lift && !opt.glass && !opt.deep) {                                                           // lift-up flaps: joint between flaps is horizontal
+      if (lift && !opt.glass && !opt.deep) {                                                           // lift-up flaps: joint between flaps is horizontal
         for (var k = 0; k < 2; k++) {
           var fy = bottom + h * (k ? .75 : .25);
           box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
@@ -488,10 +489,12 @@
       if (!inp.showCabinets) return;
       plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
+      lastInp = inp; plan.fillerMm = edApplyLow(plan.modules, plan.fillerMm, MAX_FILLER);   // widths changed in the ✎ editor
+      if (!plan.fillerMm) plan.fillerAt = 'none'; else if (plan.fillerAt === 'none') plan.fillerAt = 'right';
       var ordered = applyOrder(plan, dirty ? order : null); order = ordered.map(function (m) { return m.id; });
       ordered.forEach(function (m, i) { m.idx = i; });
       var pos = position(plan, ordered); items = pos.items;
-      var upList = items.filter(function (m) { return !TALL[m.type]; }), glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)].id : null;
+      var upList = items.filter(function (m) { return !TALL[m.type]; }), glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)].id : null; edGlassId = glassId;
       /* uppers have their own order inside each run between tall columns; it is kept only while it still fits the lower layout */
       var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
       var dRuns = [], cr = null;
@@ -517,8 +520,8 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
         if (!TALL[m.type]) {
-          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: m.id === glassId }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
+          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(w, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(m.id), lift: uLift(m.id) }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
+          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(w, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(m.id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
         }
       });
       // filler panel (fixed, not draggable)
@@ -538,6 +541,7 @@
       var inp2 = q('input[name="kitchen_layout"]'); if (!inp2) { var f = q('form'); if (f) { inp2 = document.createElement('input'); inp2.type = 'hidden'; inp2.name = 'kitchen_layout'; f.appendChild(inp2); } }
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
+      if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
     }
 
     /* ---------------- camera fit + sync */
@@ -562,8 +566,8 @@
       resize(); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.lengthMm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
-      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг, за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
-      rotBtn.hidden = modeBtn.hidden = panBtn.hidden = autoBtn.hidden = !inp.showCabinets; setMode(panMode ? 'pan' : moveMode ? 'move' : 'rotate', true);
+      hint.textContent = inp.showCabinets ? (editMode ? 'Промяна на шкаф: докоснете шкаф, за да смените ширината, чекмеджетата, повдигащите врати или витрината.' : panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг, за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      rotBtn.hidden = modeBtn.hidden = panBtn.hidden = autoBtn.hidden = editBtn.hidden = !inp.showCabinets; setMode(panMode ? 'pan' : moveMode ? 'move' : editMode ? 'edit' : 'rotate', true);
     }
 
     /* ---------------- drag & drop */
@@ -576,6 +580,7 @@
     function groundX(ev, layer) { ndc(ev); var y = layer === 'd' ? TALLH - .165 : layer === 'u' ? (curDeep ? (1.45 + TALLH - .33) / 2 : 1.9) : .45, plane = new T.Plane(new T.Vector3(0, 1, 0), -y), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
     function dragKeys(d) { return d.layer ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
+      if (edPointerDown(ev)) return;
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var gx = groundX(ev, pk.layer); if (gx === null) return;
@@ -614,6 +619,7 @@
       ov.position.copy(c); ov.renderOrder = 5; g.add(ov); hl.saved.push(ov); hl.key = key;   // a translucent green shell over the whole cabinet, front included
     }
     function onUp(ev) {
+      if (edPointerUp(ev)) return;
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
       if (d.moved && d.target) {
@@ -627,6 +633,154 @@
         }
       }
       setLift(dragKeys(d), false); sync(true); inputsSig = ''; sync(true);
+    }
+
+    var edSlots = false, lastInp = {}, edGlassId = null;
+    function edGlassDefault() { return edGlassId; }
+    function curDeepRow() { return !!lastInp.deep; }
+    function edWhere(id, upper) {   // '3rd lower unit from the left'
+      var ord = function (n) { return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'); };
+      if (upper) { var on = Object.keys(upos).sort(function (a, b) { return upos[a].x - upos[b].x; }); return ord(on.indexOf(id) + 1) + ' upper cabinet from the left'; }
+      var list = items.slice().sort(function (a, b) { return a.x - b.x; }), m = edModule(id); return ord(list.indexOf(m) + 1) + ' lower unit from the left';
+    }
+    /* ---------------- cabinet editor (✎): pick one cabinet in the sketch, change its width and its fronts.
+       Edits are kept per cabinet id and re-applied on every rebuild; the sketch picture and its key carry them to the AI. */
+    var EDIT = { low: {}, up: {}, slot: {} }, sel = null, editMode = false, edDown = null, edNote = '';
+    var STEP_W = 50, MIN_W = 150, MAX_W = 900;
+    var edBox = document.createElement('div'); edBox.className = 'prava-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
+    ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
+    var edCss = document.createElement('style');
+    edCss.textContent = '.sf-page-prava .prava-3d-edit{position:absolute;z-index:12;min-width:210px;max-width:250px;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:10px 12px;font:13px/1.35 sans-serif;color:#2f372f}' +
+      '.sf-page-prava .prava-3d-edit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;font-weight:700}' +
+      '.sf-page-prava .prava-3d-edit-x{width:26px;height:26px;border:0;border-radius:8px;background:#f1f3f0;color:#2f372f;font:600 15px/1 sans-serif;cursor:pointer}' +
+      '.sf-page-prava .prava-3d-edit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}' +
+      '.sf-page-prava .prava-3d-edit-w{display:flex;align-items:center;gap:6px}.sf-page-prava .prava-3d-edit-w b{min-width:58px;text-align:center;font-variant-numeric:tabular-nums}' +
+      '.sf-page-prava .prava-3d-edit button.prava-3d-ed{min-height:30px;padding:4px 9px;border:1px solid #cfd4cb;border-radius:8px;background:#fff;color:#2f372f;font:600 12px/1.2 sans-serif;cursor:pointer}' +
+      '.sf-page-prava .prava-3d-edit button.prava-3d-ed:hover{border-color:#477448}.sf-page-prava .prava-3d-edit button.prava-3d-ed.is-on{background:#477448;border-color:#477448;color:#fff}' +
+      '.sf-page-prava .prava-3d-edit button.prava-3d-ed:disabled{opacity:.4;cursor:not-allowed}' +
+      '.sf-page-prava .prava-3d-edit-seg{display:flex;flex-wrap:wrap;gap:6px}.sf-page-prava .prava-3d-edit-lbl{font-size:12px;color:#606760;margin:8px 0 4px}' +
+      '.sf-page-prava .prava-3d-edit-note{font-size:11px;color:#7a2d1f;margin-top:6px}.sf-page-prava .prava-3d-edit-info{font-size:11px;color:#606760;margin-top:6px}';
+    document.head.appendChild(edCss);
+    function edKey(s) { return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
+    function edModule(id) { for (var i = 0; i < items.length; i++) if (items[i].id === id) return items[i]; return null; }
+    function edPos(s) { var P = s.layer === 'd' ? dpos : upos; return P && P[s.id]; }
+    function frontOf(m, W) {   // the default front of an ordinary lower cabinet (what the sketch draws without an edit)
+      var e = m && EDIT.low[m.id]; if (e && e.front && m.type === 'genericBase') return e.front;
+      if (W <= .601) return 'doors'; if (X.drawers) return 'd4'; if (W >= .7) return 'doors'; return m && m.idx % 2 ? 'd3' : 'doors';
+    }
+    // upper edits are keyed by the unit id; the deep row above it uses '<id>:d'
+    function edUpKey(s) { return s.layer === 'd' ? s.id + ':d' : s.id; }
+    function uLift(key) { var e = EDIT.up[key]; return /:d$/.test(key) ? false : e && e.lift !== undefined ? e.lift : !!X.lift; }
+    function uGlass(key) { var e = EDIT.up[key]; return e && e.glass !== undefined ? e.glass : !!(X.glass && key === edGlassDefault()); }
+    function frontParts(g, W, y0, y1, f) {
+      if (f === 'doors') doors(g, W, y0, y1, W >= .7 ? 2 : 1);
+      else drawers(g, W, y0, y1, f === 'd2' ? [1, 1] : f === 'd3' ? [1, 1, 1.5] : [1, 1, 1, 1.4]);
+    }
+    /* change one ordinary lower cabinet's width; the other ordinary cabinets of the same run (then the filler) take up the difference */
+    function edAbsorb(list, target, delta, fill, maxFill) {
+      var others = list.filter(function (x) { return x !== target && x.type === 'genericBase'; }), saved = others.map(function (o) { return o.w; }), left = -delta;
+      for (var i = others.length - 1; i >= 0 && left !== 0; i--) { var nw = Math.max(MIN_W, Math.min(MAX_W, others[i].w + left)); left -= nw - others[i].w; others[i].w = nw; }
+      if (left === 0) return { ok: true, filler: fill };
+      var nf = fill + left; if (nf >= 0 && nf <= maxFill) return { ok: true, filler: nf };
+      others.forEach(function (o, k) { o.w = saved[k]; }); return { ok: false };
+    }
+    function edApplyLow(list, fill, maxFill) {   // returns the new filler width of that run
+      list.forEach(function (m) {
+        var e = EDIT.low[m.id]; if (!e || !e.w || m.type !== 'genericBase' || e.w === m.w) return;
+        var want = Math.max(MIN_W, Math.min(MAX_W, e.w)), r = edAbsorb(list, m, want - m.w, fill, maxFill);
+        if (r.ok) { m.w = want; fill = r.filler; } else { e.w = m.w; edNote = 'Няма място: другите шкафове на тази стена вече са на минимална или максимална ширина.'; }
+      });
+      return fill;
+    }
+    function edApplySlots(runs) {   // upper units: the neighbour in the same run takes up the difference
+      runs.forEach(function (r) {
+        r.units.forEach(function (u, i) {
+          var want = EDIT.slot[u.id]; if (!want || want === u.w) return;
+          var nb = r.units[i + 1] || r.units[i - 1]; if (!nb) { EDIT.slot[u.id] = u.w; edNote = 'Този горен шкаф е сам в реда си: ширината му следва долния ред.'; return; }
+          var d = Math.max(MIN_W, Math.min(MAX_W, want)) - u.w, nbw = Math.max(MIN_W, Math.min(MAX_W, nb.w - d)); d = nb.w - nbw;
+          if (!d) { EDIT.slot[u.id] = u.w; edNote = 'Няма място: съседният горен шкаф вече е на минимална или максимална ширина.'; return; }
+          u.w += d; nb.w -= d; EDIT.slot[u.id] = u.w;
+        });
+      });
+    }
+    function edSlotOf(s) {   // the slot (position) the selected upper unit sits in
+      if (!edSlots) return null; var L = layerIds && layerIds[s.layer === 'd' ? 'd' : 'u']; if (!L) return null;
+      for (var ri = 0; ri < L.length; ri++) { var si = L[ri].indexOf(s.id); if (si >= 0 && uRuns[ri] && uRuns[ri].units[si]) return uRuns[ri].units[si]; }
+      return null;
+    }
+    function edRender() {
+      if (!sel) { edBox.hidden = true; return; }
+      var html = '', m = sel.upper ? null : edModule(sel.id), p = sel.upper ? edPos(sel) : null;
+      if (!sel.upper && !m) { edClose(); return; }
+      if (sel.upper && !p) { edClose(); return; }
+      var w = sel.upper ? p.w : m.w, title = sel.upper ? (sel.layer === 'd' ? 'Горен шкаф (дълбок ред)' : 'Горен шкаф') : (TALL[m.type] ? 'Колона' : 'Долен шкаф');
+      var canW = sel.upper ? !!edSlots : m.type === 'genericBase';
+      html += '<div class="prava-3d-edit-head"><span>' + title + '</span><button type="button" class="prava-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>';
+      html += '<div class="prava-3d-edit-row"><span>Ширина</span><span class="prava-3d-edit-w">' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w-" aria-label="По-тесен с 5 см"' + (w <= MIN_W ? ' disabled' : '') + '>−</button>' : '') +
+        '<b>' + (w / 10) + ' см</b>' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w+" aria-label="По-широк с 5 см"' + (w >= MAX_W ? ' disabled' : '') + '>+</button>' : '') + '</span></div>';
+      if (!sel.upper && m.type === 'genericBase') {
+        var f = frontOf(m, m.w / 1000), opts = [['doors', 'Врати'], ['d2', '2 чекмеджета'], ['d3', '3 чекмеджета'], ['d4', '4 чекмеджета']];
+        html += '<div class="prava-3d-edit-lbl">' + (f === 'doors' ? 'Шкаф с врати – смени на чекмеджета:' : 'Шкаф с чекмеджета – смени на:') + '</div><div class="prava-3d-edit-seg">' +
+          opts.map(function (o) { return '<button type="button" class="prava-3d-ed' + (o[0] === f ? ' is-on' : '') + '" data-ed="front" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+      } else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
+      if (sel.upper) {
+        var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));
+        if (sel.layer !== 'd') html += '<div class="prava-3d-edit-lbl">Отваряне:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (!lift ? ' is-on' : '') + '" data-ed="lift" data-v="0">Обикновени врати</button><button type="button" class="prava-3d-ed' + (lift ? ' is-on' : '') + '" data-ed="lift" data-v="1">Повдигащ механизъм</button></div>';
+        html += '<div class="prava-3d-edit-lbl">Витрина:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (gl ? ' is-on' : '') + '" data-ed="glass">' + (gl ? 'Витрина с осветление ✓' : 'Направи витрина') + '</button></div>';
+        if (!edSlots) html += '<div class="prava-3d-edit-info">Ширината на горния шкаф следва долния шкаф под него.</div>';
+      }
+      if (edNote) html += '<div class="prava-3d-edit-note">' + edNote + '</div>';
+      edBox.innerHTML = html; edBox.hidden = false; edPlace();
+    }
+    var edV = null;
+    function edPlace() {
+      if (!sel || edBox.hidden || !T) return; var g = meshById[edKey(sel)]; if (!g) return;
+      var bb = new T.Box3().setFromObject(g); if (bb.isEmpty()) return;
+      edV = edV || new T.Vector3(); edV.set((bb.min.x + bb.max.x) / 2, bb.max.y, (bb.min.z + bb.max.z) / 2).project(camera);
+      var W = host.clientWidth, H = host.clientHeight, bw = edBox.offsetWidth || 230, bh = edBox.offsetHeight || 160;
+      var x = (edV.x + 1) / 2 * W, y = (1 - edV.y) / 2 * H, left = Math.max(8, Math.min(W - bw - 56, x - bw / 2)), top = y - bh - 14;
+      if (top < 8) { var yb = (1 - new T.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y, (bb.min.z + bb.max.z) / 2).project(camera).y) / 2 * H; top = Math.min(H - bh - 8, yb + 14); }
+      edBox.style.left = Math.round(left) + 'px'; edBox.style.top = Math.round(Math.max(8, top)) + 'px';
+    }
+    function edSelect(s) { sel = s; edNote = ''; clearHL(); setHL(edKey(s)); edRender(); }
+    function edClose() { sel = null; edBox.hidden = true; edNote = ''; clearHL(); }
+    function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (meshById[edKey(sel)]) setHL(edKey(sel)); edRender(); } }
+    edBox.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-ed]'); if (!b || !sel) return; var a = b.dataset.ed; edNote = '';
+      if (a === 'close') { edClose(); return; }
+      if (a === 'w-' || a === 'w+') {
+        var dw = a === 'w+' ? STEP_W : -STEP_W;
+        if (sel.upper) { var slot = edSlotOf(sel); if (slot) EDIT.slot[slot.id] = slot.w + dw; }
+        else { var mm = edModule(sel.id); if (mm) { EDIT.low[mm.id] = EDIT.low[mm.id] || {}; EDIT.low[mm.id].w = mm.w + dw; } }
+      } else if (a === 'front') { EDIT.low[sel.id] = EDIT.low[sel.id] || {}; EDIT.low[sel.id].front = b.dataset.v; }
+      else if (a === 'lift') { EDIT.up[sel.id] = EDIT.up[sel.id] || {}; EDIT.up[sel.id].lift = b.dataset.v === '1'; }
+      else if (a === 'glass') { var gk = edUpKey(sel); EDIT.up[gk] = EDIT.up[gk] || {}; EDIT.up[gk].glass = !uGlass(gk); }
+      edRebuild();
+    });
+    /* in edit mode a tap on a cabinet selects it; a drag on empty space still turns the view */
+    function edPointerDown(ev) {
+      if (!editMode || ev.button > 0 || !items.length) return false;
+      var pk = pickModule(ev); if (!pk) { edDown = null; return false; }
+      edDown = { x: ev.clientX, y: ev.clientY, pk: pk }; controls.enabled = false; return true;
+    }
+    function edPointerUp(ev) {
+      if (!edDown) return false; var d = edDown; edDown = null; controls.enabled = true;
+      if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) < 10) edSelect({ id: d.pk.id, upper: !!d.pk.upper, layer: d.pk.upper ? (d.pk.layer || 'u') : null, wall: d.pk.wall });
+      return true;
+    }
+    /* key lines for the AI: every edited cabinet and every glass display, with its position */
+    function edLegend(out, glassText) {
+      var fronts = [], liftOn = [], liftOff = [], glass = [];
+      items.forEach(function (m) { var e = EDIT.low[m.id]; if (m.type === 'genericBase' && e && e.front) fronts.push(edWhere(m.id, false) + ': ' + ({ doors: 'doors', d2: '2 drawers', d3: '3 drawers', d4: '4 drawers' })[e.front]); });
+      Object.keys(upos || {}).forEach(function (id) {
+        var e = EDIT.up[id]; if (uGlass(id)) glass.push(edWhere(id, true));
+        if (e && e.lift !== undefined && e.lift !== !!X.lift) (e.lift ? liftOn : liftOff).push(edWhere(id, true));
+        if (curDeepRow() && uGlass(id + ':d')) glass.push(edWhere(id, true) + ' (deep top row)');
+      });
+      function chunk(head, list) { var line = head; list.forEach(function (s) { if ((line + s).length > 190) { out.push(line.replace(/, $/, '')); line = head; } line += s + ', '; }); if (line !== head) out.push(line.replace(/, $/, '')); }
+      chunk('lower cabinet fronts changed by the client: ', fronts);
+      chunk('lift-up flap fronts on: ', liftOn); chunk('ordinary hinged doors, not lift-up, on: ', liftOff);
+      if (glass.length) { chunk('glass display cabinet' + (glass.length > 1 ? 's' : '') + ' at: ', glass); out.push(glassText); }
     }
 
     /* ---------------- scene setup */
@@ -651,13 +805,14 @@
         requestAnimationFrame(loop); if (host.hidden) return;
         cabGroup.children.forEach(function (g) { var u = g.userData; if (u && u.targetX !== undefined && !(drag && drag.id === u.id)) g.position.x += (u.targetX - g.position.x) * .25; });
         labelGroup.children.forEach(function (s) { var g = meshById[s.userData.follow]; if (g) s.position.x = g.position.x; });
-        controls.update(); renderer.render(scene, camera);
+        controls.update(); renderer.render(scene, camera); if (sel) edPlace();
       })();
     }
     function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
     function setMode(m, quiet) {
-      moveMode = m === 'move'; panMode = m === 'pan'; host.setAttribute('data-mode', m);
-      rotBtn.setAttribute('aria-pressed', String(m === 'rotate')); modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode));
+      moveMode = m === 'move'; panMode = m === 'pan'; editMode = m === 'edit'; host.setAttribute('data-mode', m);
+      rotBtn.setAttribute('aria-pressed', String(m === 'rotate')); modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode)); editBtn.setAttribute('aria-pressed', String(editMode));
+      if (!editMode && sel) edClose();
       if (controls) {
         controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE;
         controls.enableRotate = !moveMode;
@@ -671,7 +826,8 @@
       else if (a === 'rotate') setMode('rotate');
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
-      else if (a === 'auto') { dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'edit') setMode('edit');
+      else if (a === 'auto') { EDIT = { low: {}, up: {}, slot: {} }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
@@ -699,7 +855,7 @@
           var url = cv.toDataURL('image/jpeg', .9);
           return url && url.length > 4000 ? url : null;
         } catch (e) { return null; }
-        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); }
+        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); if (sel && meshById[edKey(sel)]) setHL(edKey(sel)); }
       }
       function sketchLegend() {
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout' };
@@ -727,11 +883,11 @@
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
         if (X.lift) out.push('lift-up fronts on the lower upper row only');
-        if (X.glass) out.push('one display cabinet with a clear glass door in the standard upper row: warm LED light inside, glass shelves and neat dishes visible through the glass');
+        edLegend(out, 'glass display: clear glass door in a slim frame, warm LED light inside, glass shelves and neat dishes; all other upper doors solid');
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }
-      root.pravaLayout = { refresh: soon, current: null, capture: capture, sketchLegend: sketchLegend, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      root.pravaLayout = { refresh: soon, current: null, capture: capture, sketchLegend: sketchLegend, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
     root.pravaLayout = root.pravaLayout || { refresh: function () {}, current: null };
