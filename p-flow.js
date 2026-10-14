@@ -272,6 +272,22 @@
       else if (step > 1) go(step - 1);
     });
     deepBox.addEventListener('change', () => render(false));
+    // the lead form carries every step-1/2 answer (the pills and pickers are not form fields themselves)
+    const form = page.querySelector('#email-form') || extrasCard.closest('form');
+    function hidden(name) {
+      let i = form && form.querySelector('input[type="hidden"][name="' + name + '"]');
+      if (!i && form) { i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.dataset.name = name; form.append(i); }
+      return i;
+    }
+    function syncHidden() {
+      if (!form) return;
+      [qChim, qWater, qOven, qFridge, qTop, qDeep, qIsland].forEach(q => {
+        const sel = [...q.querySelectorAll('.option-pill.is-selected')].map(p => p.textContent.trim()).join(', ');
+        const h = hidden(q.dataset.field === 'deep-cabinets' ? 'deep_row_p' : q.dataset.field); if (h) h.value = sel;
+      });
+      page.querySelectorAll('.p-flow .dimension-row[data-dim]').forEach(r => { const h = hidden(r.dataset.dim); if (h) h.value = rowMm(r) ? (rowMm(r) / 10) + ' см' : ''; });
+    }
+    page.addEventListener('p:answer', syncHidden); syncHidden();
     window.pGoToStep = go;
     window.pFlow = { getStep: () => step, validate: check, showDeep: showDeep, isDeepShown: () => deepShown, value: f => { const q = f === 'deep-cabinets' ? qDeep : Q(f); return q ? (q.classList.contains('question-wrap-multi') ? [...q.querySelectorAll('.option-pill.is-selected')].map(p => p.dataset.value) : value(q)) : ''; }, rowMm: k => { const r = page.querySelector('.dimension-row[data-dim="' + k + '"]'); return r ? rowMm(r) : 0; } };
     syncDependent(); render(false);
