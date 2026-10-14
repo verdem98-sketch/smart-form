@@ -1006,8 +1006,8 @@
         var inp = readInputs(), out = [];
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout', cornerBase: 'corner base unit' };
         function nmOf(m) {   // what the image model must draw: built-in appliances stay hidden behind cabinet fronts
-          if (m.type === 'fridge') return m.applianceType === 'free_standing' ? 'free-standing fridge' : 'built-in fridge behind cabinet doors';
-          if (m.type === 'dishwasher') return m.free ? 'free-standing dishwasher' : 'integrated dishwasher behind a front';
+          if (m.type === 'fridge') return m.applianceType === 'free_standing' ? 'free-standing black fridge' : 'built-in fridge behind cabinet doors';
+          if (m.type === 'dishwasher') return m.free ? 'free-standing black dishwasher' : 'integrated dishwasher behind a front';
           if (m.type === 'washingMachine') return m.free ? 'free-standing washer' : 'built-in washer behind a front';
           if (m.type === 'ovenTower') { var a = (m.appliances || []).map(function (x) { return x === 'microwave' ? 'microwave' : x === 'coffeeMachine' ? 'coffee machine' : 'oven'; }); return 'tall oven tower (built-in ' + (a.length ? a.join(', ') : 'oven') + ')'; }
           return nm[m.type];
