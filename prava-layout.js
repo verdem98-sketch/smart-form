@@ -684,7 +684,7 @@
         surf('lower fronts', 'lower_finish', ci.glL, ci.gL, ci.cLower !== null && ci.cLower !== undefined);
         surf('upper fronts', 'upper_finish', ci.glU, ci.gU, ci.cUpper !== null && ci.cUpper !== undefined);
         if (ci.deep && fieldVal('deep_finish')) surf('deep upper row', 'deep_finish', ci.glD, ci.gD, ci.cDeep !== null && ci.cDeep !== undefined);
-        out.push('appliance finish: black on every appliance (oven, hob, microwave, dishwasher, fridge, sink fittings), washing machine white');
+        out.push('appliance finish: all black (washing machine white)');
         if (X.handleless) out.push('handleless fronts');
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
