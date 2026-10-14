@@ -613,10 +613,11 @@
         V(off, .004, z1), V(off, .004, L1), V(off - t, .004, z1), V(off + t, .004, z1), V(off - t, .004, L1), V(off + t, .004, L1),
         V(L2 - off, .004, z3), V(L2 - off, .004, L3), V(L2 - off - t, .004, z3), V(L2 - off + t, .004, z3), V(L2 - off - t, .004, L3), V(L2 - off + t, .004, L3),
         V(.02, 0, .02), V(.02, H, .02)]), gl));
-      function dimLabel(text, x, z) { var lb = label(text, .2, '#2f4a30', 'rgba(255,255,255,.85)'); lb.position.set(x, .14, z); roomGroup.add(lb); }
-      dimLabel('стена 1 · ' + fmt(Math.round((L1 - z1) * 1000)), off + .1, (z1 + L1) / 2);
-      dimLabel('стена 2 · ' + fmt(Math.round((x1 - x0) * 1000)), (x0 + x1) / 2, off + .1);
-      dimLabel('стена 3 · ' + fmt(Math.round((L3 - z3) * 1000)), L2 - off - .1, (z3 + L3) / 2);
+      // the back wall's label lies on the floor; the side walls' labels sit above the front edge of their worktops, so the three never overlap
+      function dimLabel(text, x, y, z) { var lb = label(text, .17, '#2f4a30', 'rgba(255,255,255,.85)'); lb.position.set(x, y, z); roomGroup.add(lb); }
+      dimLabel('стена 1 · ' + fmt(Math.round((L1 - z1) * 1000)), D * .8, BH + .14, (z1 + L1) / 2 + .2);
+      dimLabel('стена 2 · ' + fmt(Math.round((x1 - x0) * 1000)), (x0 + x1) / 2, .14, off + .1);
+      dimLabel('стена 3 · ' + fmt(Math.round((L3 - z3) * 1000)), L2 - D * .8, BH + .14, (z3 + L3) / 2 + .2);
       var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
       if (ch) {
         var OR = 0xd9822b, R = ch === 'right', X0 = function (x) { return R ? L2 - x : x; };   // the right-corner chimney is the mirror image of the left one
@@ -789,13 +790,13 @@
       var L1 = (inp.wall1Mm || 3000) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, L3 = (inp.wall3Mm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, LZ = Math.max(L1, L3);
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp, halfW = L2 / 2 + .2;
       var target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05), Math.min(LZ * .45, 1.5));
-      var dist = Math.max((halfW * pad) / th + LZ * .35, (H / 2 * 1.35) / tv, 3.4) + .6;
+      var dist = Math.max((halfW * pad) / th + LZ * .55, (H / 2 * 1.35) / tv, 3.8) + .6;
       var dir = new T.Vector3(0, Math.sin(el), Math.cos(el));
       return { target: target, pos: target.clone().add(dir.multiplyScalar(dist)), dist: dist, L2: L2, H: H, LZ: LZ };
     }
     function fit(inp) {
       var el = renderer && renderer.domElement, asp = el && el.clientHeight ? el.clientWidth / el.clientHeight : 1.6; asp = Math.max(.6, Math.min(2.5, asp));
-      var f = frame(inp, asp, 28 * Math.PI / 180, 1.12);
+      var f = frame(inp, asp, 34 * Math.PI / 180, 1.2);
       bounds = { x: f.L2, y: f.H, z: f.LZ };
       home.target = f.target; home.pos = f.pos;
       camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = f.dist * 2.2; controls.minDistance = 1.2; controls.update();
@@ -981,7 +982,7 @@
           r = new T.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H, false);
           var cam = new T.PerspectiveCamera(42, W / H, .05, 80);
           // same framing as the on-screen home view (fit), computed for the 3:2 picture: from the open side of the U, all three walls in view
-          var f = frame(inp, W / H, 22 * Math.PI / 180, 1.08);
+          var f = frame(inp, W / H, 26 * Math.PI / 180, 1.1);
           cam.position.copy(f.pos); cam.lookAt(f.target); cam.updateMatrixWorld(true);
           r.render(scene, cam);
           var url = cv.toDataURL('image/jpeg', .9);
