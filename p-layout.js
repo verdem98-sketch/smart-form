@@ -1000,7 +1000,7 @@
           out.push(WN[wl[0]] + wl[1] + ': ' + (list.length ? list.join(', ') : 'storage cabinets only'));
         });
         var uw = WALLS.filter(function (w) { return inp.uppers && inp.uppers[w]; }).map(function (w) { return WN[w]; });
-        out.push(uw.length ? 'upper cabinets only on: ' + uw.join(', ') + (uw.length < 3 ? ', the other walls have no upper cabinets, plain wall above the backsplash' : '') : 'no upper cabinets on any wall, only the base run and backsplash');
+        out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') + ', the other walls have no upper cabinets, plain wall above the backsplash' : 'no upper cabinets on any wall, only the base run and backsplash');
         if (inp.chimney) out.push('chimney block in the ' + inp.chimney + ' back corner, cabinets and worktop fitted around it');
         if (inp.island && inp.islandLenMm) out.push('free-standing island in the middle of the U');
         function surf(name, field, grain) {
