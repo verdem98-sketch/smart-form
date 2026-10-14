@@ -976,6 +976,7 @@
       page.addEventListener('click', function () { setTimeout(soon, 100); }); page.addEventListener('p:phase-changed', function () { inputsSig = ''; soon(); }); page.addEventListener('p:material-chosen', function () { inputsSig = ''; soon(); });
       /* picture of the interactive sketch for the AI visualization: fixed camera from the open side of the U, no grid lines or labels, same textures as on screen */
       function capture() {
+        try { sync(false); } catch (e) { /* keep the last scene */ }   // bring the scene up to date first: rebuilds wait for an animation frame, which a background tab may not get
         if (!T || !scene || !plan || !items.length) return null;
         var inp = readInputs(), W = 1536, H = 1024, r = null, hide = [], prev = [];
         try {
@@ -997,6 +998,7 @@
       }
       /* short feature key for the AI prompt: appliances per wall (sides from the corner outwards, back wall left to right), then surfaces and extras (data only) */
       function sketchLegend() {
+        try { sync(false); } catch (e) { /* keep the last scene */ }
         var inp = readInputs(), out = [];
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout', cornerBase: 'corner base unit' };
         function nmOf(m) {   // what the image model must draw: built-in appliances stay hidden behind cabinet fronts
