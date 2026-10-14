@@ -815,7 +815,7 @@
       var inp = readInputs(), sig = JSON.stringify(inp);
       var ps = card.dataset.previewState, show = !ps || ps === 'planner';
       host.hidden = !show; stage.classList.toggle('p-3d-on', show);
-      if (!show) return;
+      if (!show && !force) return;   // hidden behind the AI picture: still rebuilt when a decor arrives, so the next picture of the sketch is right
       if (sig === inputsSig && !force) return;
       var prev = inputsSig ? JSON.parse(inputsSig) : null; inputsSig = sig;
       if (prev && prev.waterWall !== inp.waterWall) { dirty = false; uorder = null; dorder = null; }   // an explicit water-wall choice re-flows both runs
@@ -1064,10 +1064,10 @@
         }
         return out;
       }
-      /* resolves once the chosen decor pictures have loaded (or after 6 s), so the AI picture shows the real colours */
+      /* resolves once the chosen decor pictures have loaded (or after 12 s), so the AI picture shows the real colours */
       function whenReady() {
         var t0 = Date.now();
-        return new Promise(function (ok) { (function poll() { readInputs(); if (!pendingLoads || Date.now() - t0 > 6000) { inputsSig = ''; try { sync(true); } catch (e) { /* keep */ } ok(); return; } setTimeout(poll, 120); })(); });
+        return new Promise(function (ok) { (function poll() { readInputs(); if (!pendingLoads || Date.now() - t0 > 12000) { inputsSig = ''; try { sync(true); } catch (e) { /* keep */ } ok(); return; } setTimeout(poll, 120); })(); });
       }
       root.pLayout = { refresh: soon, current: root.pLayout.current, capture: capture, sketchLegend: sketchLegend, whenReady: whenReady, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
