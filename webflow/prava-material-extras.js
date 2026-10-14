@@ -28,6 +28,7 @@
       '.sf-page-prava .prava-grain button,.sf-page-prava .prava-deep-same{min-height:38px;padding:6px 14px;border:1px solid var(--prava-line,#cfd4cb);border-radius:6px;background:#fff;color:#2f372f;font:inherit;font-size:13px;cursor:pointer}' +
       '.sf-page-prava .prava-grain button.is-on,.sf-page-prava .prava-deep-same.is-on{background:#2f372f;border-color:#2f372f;color:#fff}' +
       '.sf-page-prava .prava-grain-note{font-size:12px;color:#606760}' +
+      '.sf-page-prava .prava-global-progress-track:has(.prava-global-progress-seg[data-extra]){grid-template-columns:repeat(11,minmax(0,1fr))}' +
       '.sf-page-prava .prava-deep-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}';
     document.head.appendChild(s);
   }
