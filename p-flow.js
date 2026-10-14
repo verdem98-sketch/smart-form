@@ -246,7 +246,7 @@
     page.addEventListener('animationend', e => { if (/config-shake$/.test(e.animationName)) e.target.classList.remove('p-question-shake'); });
 
     /* ---------------- render / navigation */
-    let step = 1;
+    let step = 1, leftStep2 = false;   // the 'Горен ред' step drops out of the count only once step 2 is answered without upper cabinets
     function show(node, on) { node.hidden = !on; node.inert = !on; if (on) node.style.setProperty('display', 'block', 'important'); else node.style.removeProperty('display'); }
     function stickyOffset() {
       const navbar = document.querySelector('[role="banner"],.navbar'), nh = navbar ? navbar.getBoundingClientRect().height : 0;
@@ -255,7 +255,7 @@
     }
     window.addEventListener('resize', stickyOffset, { passive: true });
     function paintProgress() {   // also called when an answer adds / removes the upper-row or deep-row step
-      const on = deepOn(), skipUp = !hasUppers(), total = N + (on ? 1 : 0) - (skipUp ? 1 : 0);
+      const on = deepOn(), skipUp = leftStep2 && !hasUppers(), total = N + (on ? 1 : 0) - (skipUp ? 1 : 0);
       const shown = deepShown ? 4 : step + (on && step >= 4 ? 1 : 0) - (skipUp && step > 3 ? 1 : 0), title = deepShown ? 'Дълбок горен ред' : titles[step - 1];
       segs[2].hidden = skipUp;
       heading.textContent = title; pTitle.textContent = title; pCount.textContent = 'Стъпка ' + shown + ' от ' + total;
@@ -291,6 +291,7 @@
         const m = check();
         if (m) { if (typeof m === 'string') { error.textContent = m; error.hidden = false; } else showMissing(m); return; }
         if (step === 3 && deepOn()) { showDeep(); return; }
+        if (step === 2) leftStep2 = true;
         if (step === 2 && !hasUppers()) { go(4); return; }
         go(step + 1);
       } else if (deepShown) { deepShown = false; render(true); }
