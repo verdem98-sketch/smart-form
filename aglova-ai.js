@@ -147,6 +147,10 @@
       var materials = { upper: material('upper_finish'), lower: material('lower_finish'), countertop: material('countertop_finish'), backsplash: material('backsplash_finish') };
       var deep = hasExtra(extras, 'deep_cabinets');
       materials.deep = deep ? material('deep_finish') : null;   // own decor of the deep upper row; null = same as the upper row
+      ['upper', 'lower', 'deep'].forEach(function (role) {      // grain direction of a wood decor (buttons in steps 3, 4 and the deep-row step)
+        var rec = materials[role], g = page.querySelector('input[name="' + role + '_grain"]');
+        if (rec && rec.category === 'wood') rec.grain = g && g.value === 'h' ? 'horizontal' : 'vertical';
+      });
       var dw = ap.dishwasher.type && /45$/.test(ap.dishwasher.type) ? 450 : ap.dishwasher.type && /60$/.test(ap.dishwasher.type) ? 600 : 0;
       return {
         version: 'aglova-ai-visual-v1', kitchenType: 'aglova', configuration: config, dimensions: d,

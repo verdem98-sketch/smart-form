@@ -236,7 +236,7 @@
     function chk(field) { var e = q('[data-field="' + field + '"] input[type="checkbox"]'); return !!(e && e.checked); }
     function fieldVal(name) { var e = q('[name="' + name + '"]'); return e ? String(e.value || '') : ''; }
     /* ---------------- material colours + real decor textures (steps 3-6) */
-    var colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0;
+    var colCache = {}, toneCache = {}, texCache = {}, texMat = {}, texN = 0, grainCache = {};
     function decorUrl(field) {
       var rec = root.agMaterialSelections && root.agMaterialSelections.get(field), u = rec && rec.sampleImageUrl;
       return u ? u.replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/') : null;
@@ -252,17 +252,39 @@
           var d = g.getImageData(0, 0, 8, 8).data, r = 0, gg = 0, b = 0, n = 0;
           for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
           if (im.naturalWidth >= 64 && im.naturalHeight >= 64) { var tx = new T.Texture(im); tx.wrapS = tx.wrapT = T.RepeatWrapping; tx.anisotropy = 4; tx.needsUpdate = true; texCache[u] = tx; }   // real decor image (solids are only 16x16 swatches: flat colour is exact)
+          // which way the grain runs in the sample image (stronger change across x = vertical lines), so "vertical"/"horizontal" can be honoured
+          try { var gc = document.createElement('canvas'); gc.width = gc.height = 48; var gx = gc.getContext('2d'); gx.drawImage(im, 0, 0, 48, 48); var gd = gx.getImageData(0, 0, 48, 48).data, ddx = 0, ddy = 0; for (var yy = 0; yy < 47; yy++) for (var xx = 0; xx < 47; xx++) { var i0 = (yy * 48 + xx) * 4, l0 = gd[i0] + gd[i0 + 1] + gd[i0 + 2], lx = gd[i0 + 4] + gd[i0 + 5] + gd[i0 + 6], ly = gd[i0 + 192] + gd[i0 + 193] + gd[i0 + 194]; ddx += Math.abs(lx - l0); ddy += Math.abs(ly - l0); } grainCache[u] = ddx > ddy ? 'v' : 'h'; } catch (e2) { /* no grain info */ }
           if (n) { colCache[u] = (r / n << 16) | (gg / n << 8) | (b / n); sync(true); }
         } catch (e) { /* tainted canvas: keep default colour */ }
       };
       im.src = u; return null;
     }
     /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
-    function fin(field, hex, shift, rough) {
+    function fin(field, hex, shift, rough, grain) {
       var u = decorUrl(field), tx = u && texCache[u];
       if (!tx) return tone(hex, shift, rough);
-      var k = u + '|' + (rough || 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      var swap = grain && grainCache[u] && grainCache[u] !== grain ? 1 : 0;
+      var k = u + '|' + (rough || 0) + '|' + swap + '|' + (grain ? 1 : 0); if (!texMat[k]) { texMat[k] = new T.MeshStandardMaterial({ map: tx, color: 0xffffff, roughness: rough === undefined ? .5 : rough, metalness: 0 }); texMat[k].userData.tile = .6; if (grain) { texMat[k].userData.planar = true; texMat[k].userData.swap = swap; } }
       return texMat[k];
+    }
+    /* cabinet fronts (as in Prava): the decor is mapped in the wall's own plane, so the pattern runs on across neighbouring doors; axes swapped for a horizontal grain */
+    function worldUV(g) {
+      g.children.forEach(function (m) {
+        var mat = m.material; if (!m.isMesh || !mat || !mat.userData || !mat.userData.planar) return;
+        var geo = m.geometry, pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv, tile = mat.userData.tile, sw = mat.userData.swap;
+        for (var i = 0; i < pos.count; i++) {
+          var x = pos.getX(i) + m.position.x + g.position.x, y = pos.getY(i) + m.position.y + g.position.y, z = pos.getZ(i) + m.position.z, nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i)), nz = Math.abs(nor.getZ(i)), a, b;
+          if (nz >= nx && nz >= ny) { a = x; b = y; } else if (ny >= nx) { a = x; b = z; } else { a = z; b = y; }
+          if (sw) { var t = a; a = b; b = t; }
+          uv.setXY(i, a / tile, b / tile);
+        }
+        uv.needsUpdate = true;
+      });
+    }
+    /* grain direction chosen with the buttons in steps 3, 4 and the deep-row step; the deep row follows the upper row unless it has its own decor */
+    function grainOf(role) {
+      if (role === 'deep' && !(root.agMaterialSelections && root.agMaterialSelections.get('deep_finish'))) role = 'upper';
+      var v = fieldVal(role + '_grain'); return v === 'h' ? 'h' : 'v';
     }
     function scaleUV(geo, w, h, d, tile, off) {
       var uv = geo.attributes.uv, sp = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
@@ -294,6 +316,7 @@
         microFree: fieldVal('microwave_type') === 'free_standing', coffeeFree: fieldVal('coffee_machine_type') === 'free_standing',
         x: { handleless: chk('handleless'), drawers: chk('more_drawers'), glass: chk('glass_display'), lift: chk('lift_mechanisms'), panel: chk('panel_doors'), light: chk('counter_lighting'), bottle: chk('bottle_rack') },
         showCabinets: step >= 2 && w1 > 0 && w2 > 0,
+        gU: grainOf('upper'), gL: grainOf('lower'), gD: grainOf('deep'),
         cUpper: colourOf('upper_finish'), cDeep: colourOf('deep_finish'), cLower: colourOf('lower_finish'), cTop: colourOf('countertop_finish'), cBack: colourOf('backsplash_finish')
       };
     }
@@ -591,7 +614,7 @@
     }
 
     /* ---------------- cabinets */
-    var meshById = {}, deepCut = 0, xfer = [], lastApplied = [], moveCheck = null;
+    var meshById = {}, deepCut = 0, xfer = [], lastApplied = [], moveCheck = null, glassPick = null;   // glassPick: the upper unit that is the glass display (it travels with that unit when it is dragged)
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
@@ -634,7 +657,10 @@
       upos = LU.pos; dpos = LD.pos; layerIds = { u: LU.ids, d: LD.ids };
       uRuns.forEach(function (r, ri) { r.ids = LU.ids[ri]; });
       var unitList = []; uRuns.forEach(function (r) { r.ids.forEach(function (id) { unitList.push(id); }); });
-      var glassId = (X.glass && unitList.length) ? unitList[Math.floor(unitList.length / 2)] : null;
+      // the glass display is one particular unit: chosen once (middle of the run), then it moves with that unit; a new one only when it no longer exists
+      if (!X.glass) glassPick = null;
+      else if (!glassPick || unitList.indexOf(glassPick) < 0) { var base = []; uRuns.forEach(function (r) { r.units.forEach(function (u) { base.push(u.id); }); }); glassPick = base.length ? base[Math.floor(base.length / 2)] : null; }
+      var glassId = X.glass ? glassPick : null;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
       var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
       if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'cornerBase'; });
@@ -644,20 +670,21 @@
       }
       var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined;
       var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!(root.agMaterialSelections && root.agMaterialSelections.get('deep_finish'));
-      mats.front = hasL ? fin('lower_finish', inp.cLower, 0) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0) : mats.front; mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0) : mats.upper;
+      mats.front = hasL ? fin('lower_finish', inp.cLower, 0, undefined, inp.gL) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gU) : mats.front;
+      mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gD) : mats.front);
       items.forEach(function (m) {
         var w = m.w / 1000, cx = lc(m.wall, m.x + m.w / 2);
         var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
-        g.position.x = cx; g.userData = { id: m.id, wall: m.wall, targetX: cx, w: w, type: m.type }; wg[m.wall].add(g); meshById[m.id] = g; addLabel(g, String(m.w / 10));
+        g.position.x = cx; worldUV(g); g.userData = { id: m.id, wall: m.wall, targetX: cx, w: w, type: m.type }; wg[m.wall].add(g); meshById[m.id] = g; addLabel(g, String(m.w / 10));
       });
       unitList.forEach(function (id) {
         var u = upos[id], w = u.w / 1000, ux = lc(u.wall, u.x + u.w / 2);
-        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId, wall: u.wall, s0: u.x, blind: u.firstW1 && cA < dS ? dS - 18 : 0 }); up.position.x = ux; up.userData = { id: id, wall: u.wall, upper: true, layer: 'u', targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
+        var up = buildUpper(w, UPPER.ub, UPPER.uh, UPPER.depth, mats.upper, { glass: id === glassId, wall: u.wall, s0: u.x, blind: u.firstW1 && cA < dS ? dS - 18 : 0 }); up.position.x = ux; worldUV(up); up.userData = { id: id, wall: u.wall, upper: true, layer: 'u', targetX: ux }; wg[u.wall].add(up); meshById[id + ':u'] = up;
       });
       if (inp.deep) Object.keys(dpos).forEach(function (id) {
         var u = dpos[id], ux = lc(u.wall, u.x + u.w / 2), cut = u.first ? deepCut : 0, dw2 = (u.w - cut) / 1000; if (dw2 < .05) return;
         var dp = buildUpper(dw2, TOPROW.ub, TOPROW.uh, TOPROW.depth, mats.deep, { deep: true, wall: u.wall, s0: u.x + cut, blind: u.firstW1 && cA < dD ? dD - 18 : 0 }), dsx = ux + cut / 2000 * (u.wall === 2 ? 1 : -1);
-        dp.position.x = dsx; dp.userData = { id: id, wall: u.wall, upper: true, layer: 'd', targetX: dsx }; wg[u.wall].add(dp); meshById[id + ':d'] = dp;
+        dp.position.x = dsx; worldUV(dp); dp.userData = { id: id, wall: u.wall, upper: true, layer: 'd', targetX: dsx }; wg[u.wall].add(dp); meshById[id + ':d'] = dp;
       });
       // no panel at the far end of a wall: the run simply ends with its last cabinet / appliance
       // 6 cm corner fillers (пас) next to the chimney, and the strip beside a narrow chimney
@@ -859,7 +886,7 @@
       else if (a === 'rotate') setMode('rotate');
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
-      else if (a === 'auto') { dirty = false; uorder = null; dorder = null; xfer = []; order = { 1: [], 2: [] }; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { dirty = false; uorder = null; dorder = null; xfer = []; order = { 1: [], 2: [] }; glassPick = null; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
@@ -909,22 +936,22 @@
         if (inp.barMode === 'island') out.push('free-standing island');
         else if (inp.barMode === 'wall1') out.push('bar along the left wall');
         else if (inp.barMode === 'wall2') out.push('bar along the right wall');
-        function surf(name, field) {
+        function surf(name, field, grain) {
           var rec = root.agMaterialSelections && root.agMaterialSelections.get(field); if (!rec) return;
           var gloss = !!(root.agGloss && root.agGloss.has(rec.id));
-          out.push(name + ': ' + (rec.category === 'wood' ? 'wood decor, grain continuous across doors,' : 'plain colour,') + ' ' + (gloss ? 'HIGH GLOSS' : 'matte'));
+          out.push(name + ': ' + (rec.category === 'wood' ? 'wood, ' + (grain === 'h' ? 'horizontal' : 'vertical') + ' grain, continuous across doors,' : 'plain colour,') + ' ' + (gloss ? 'HIGH GLOSS' : 'matte'));
         }
-        surf('lower fronts', 'lower_finish'); surf('upper fronts', 'upper_finish');
+        surf('lower fronts', 'lower_finish', inp.gL); surf('upper fronts', 'upper_finish', inp.gU);
         if (inp.deep) {
-          if (root.agMaterialSelections && root.agMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish');
-          else out.push('deep upper row: same decor as the upper fronts');
+          if (root.agMaterialSelections && root.agMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish', inp.gD);
+          else surf('deep upper row (same decor as the upper fronts)', 'upper_finish', inp.gD);
         }
         out.push('appliance finish: all black (washing machine white)');
         if (X.handleless) out.push('handleless fronts');
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
         if (X.lift) out.push('lift-up fronts on the lower upper row only');
-        if (X.glass) out.push('one display cabinet with a clear glass door in the standard upper row: warm LED light inside, glass shelves and neat dishes visible through the glass');
+        if (X.glass) { var gu = glassPick && upos[glassPick]; out.push('glass display cabinet in the standard upper row' + (gu ? ' on the ' + (gu.wall === 1 ? 'left' : 'right') + ' wall, where the sketch shows it' : '') + ': clear glass door, warm LED light inside, glass shelves and neat dishes behind the glass'); }   // under the 200-character limit of a feature-key line
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }

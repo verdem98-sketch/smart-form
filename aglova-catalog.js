@@ -73,6 +73,8 @@
     var keep = el('div', 'ag-chosen-card'); keep.hidden = true;
     var anchor = wrap.querySelector('.vision-cards-row') || wrap.lastElementChild;
     anchor.before(gallery); wrap.append(keep);
+    // Grain direction (as in Prava): for a wood decor on the fronts, vertical or horizontal; stored in <role>_grain, read by the sketch.
+    var grain = cabinet ? grainBox(wrap, role, gallery) : null;
 
     // Hide the four generic style cards and the free-text idea field; the gallery owns the choice.
     wrap.querySelectorAll('.vision-cards-row,.text-area-wrap,.finish-card-copy').forEach(function (n) { n.setAttribute('data-ag-hide', '1'); });
@@ -116,10 +118,11 @@
         sampleImageUrl: src(row)
       };
       wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: row[0], label: label(row), src: src(row) } }));
+      if (grain) grain.show(row[2] === 'wood');
       render();
     }
     resets[role] = function () {
-      chosenId = ''; keep.replaceChildren(); keep.hidden = true;
+      chosenId = ''; keep.replaceChildren(); keep.hidden = true; if (grain) grain.show(false);
       if (hidden) { hidden.value = ''; hidden.dispatchEvent(new Event('input', { bubbles: true })); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
       wrap.dispatchEvent(new CustomEvent('ag:material-chosen', { bubbles: true, detail: { role: role, id: null, label: '', src: null } }));
       render();
@@ -149,6 +152,35 @@
       pager(total);
     }
     render();
+  }
+
+  var grainCss = false;
+  function grainBox(wrap, role, before) {
+    if (!grainCss) {
+      grainCss = true;
+      var st = document.createElement('style');
+      st.textContent = '.flow-aglova .ag-grain{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 14px;padding:10px 12px;border:1px solid #d9ddd5;border-radius:8px;background:#fff}' +
+        '.flow-aglova .ag-grain[hidden]{display:none}' +
+        '.flow-aglova .ag-grain-title{font-size:13px;font-weight:600;color:#2f372f;margin-right:4px}' +
+        '.flow-aglova .ag-grain button{min-height:38px;padding:6px 14px;border:1px solid #cfd4cb;border-radius:6px;background:#fff;color:#2f372f;font:inherit;font-size:13px;cursor:pointer}' +
+        '.flow-aglova .ag-grain button.is-on{background:#2f372f;border-color:#2f372f;color:#fff}' +
+        '.flow-aglova .ag-grain-note{font-size:12px;color:#606760}';
+      document.head.append(st);
+    }
+    var input = wrap.querySelector('input[name="' + role + '_grain"]');
+    if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = role + '_grain'; input.value = 'v'; wrap.append(input); }
+    var box = el('div', 'ag-grain'); box.hidden = true;
+    var bv = el('button', '', 'Вертикална'), bh = el('button', '', 'Хоризонтална'); bv.type = bh.type = 'button'; bv.dataset.g = 'v'; bh.dataset.g = 'h';
+    box.append(el('span', 'ag-grain-title', 'Посока на шарката'), bv, bh, el('span', 'ag-grain-note', 'Важи за всички врати от реда – шарката продължава от врата на врата.'));
+    function paint() { var h = input.value === 'h'; bv.classList.toggle('is-on', !h); bh.classList.toggle('is-on', h); bv.setAttribute('aria-pressed', String(!h)); bh.setAttribute('aria-pressed', String(h)); }
+    [bv, bh].forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.preventDefault(); input.value = b.dataset.g; paint();
+        input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+    before.before(box); paint();
+    return { show: function (on) { box.hidden = !on; } };
   }
 
   // Tiles on the sketch showing what was chosen so far (same element and order as Prava's prava-preview.js).
