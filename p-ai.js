@@ -142,7 +142,8 @@
       };
       var d = dimensions(), extras = checkedExtras(), ap = appliances(), side = chimneySide(config.chimney);
       if (ap.washingMachine.enabled && !hasExtra(extras, 'washing_machine')) extras.push({ field: 'washing_machine', label: ap.washingMachine.type || 'washing_machine' });
-      var materials = { upper: material('upper_finish'), lower: material('lower_finish'), countertop: material('countertop_finish'), backsplash: material('backsplash_finish') };
+      var hasUp = config.upperWalls.length > 0;
+      var materials = { upper: hasUp ? material('upper_finish') : null, lower: material('lower_finish'), countertop: material('countertop_finish'), backsplash: material('backsplash_finish') };
       var deep = hasExtra(extras, 'deep_cabinets');
       materials.deep = deep ? material('deep_finish') : null;   // own decor of the deep upper row; null = same as the upper row
       ['upper', 'lower', 'deep'].forEach(function (role) {      // grain direction of a wood decor (buttons in steps 3, 4 and the deep-row step)
@@ -182,12 +183,12 @@
         if (!d.komin_b_p || d.komin_b_p.totalCm <= 0) missing.push('размер B на комина');
       }
       if (!c.waterWall) missing.push('позиция на водата'); if (!c.ovenTallUnit) missing.push('фурна'); if (!c.fridgeType) missing.push('хладилник');
-      if (!c.deepRow) missing.push('дълбок горен ред'); if (!c.island) missing.push('остров');
+      if (c.upperWalls.length && !c.deepRow) missing.push('дълбок горен ред'); if (!c.island) missing.push('остров');
       if (yes(c.island)) {
         if (!d.island_len_p || d.island_len_p.totalCm <= 0) missing.push('дължина на острова');
         if (!d.island_width_p || d.island_width_p.totalCm <= 0) missing.push('ширина на острова');
       }
-      if (!p.materials.upper) missing.push('визия за горен ред'); if (!p.materials.lower) missing.push('визия за долен ред');
+      if (c.upperWalls.length && !p.materials.upper) missing.push('визия за горен ред'); if (!p.materials.lower) missing.push('визия за долен ред');
       if (!p.materials.countertop) missing.push('визия за плот'); if (!p.materials.backsplash) missing.push('визия за гръб');
       if (p.appliances.dishwasher.enabled && !p.technicalRequirements.dishwasherWidthMm) missing.push('размер на миялната 45/60 см');
       return { valid: !missing.length, missing: missing };
@@ -426,11 +427,11 @@
         html += row('Фурна в колона', pill('oven_tall_unit_p'), 2, 'field:oven_tall_unit_p');
         html += row('Хладилник', pill('fridge_type_p'), 2, 'field:fridge_type_p');
         html += row('Горни шкафове', c.upperWalls.length ? c.upperWalls.map(function (x) { return x.label; }).join(', ') : 'Без горни шкафове', 2, 'field:top_row_wall_p');
-        html += row('Дълбок горен ред', pill('deep-cabinets'), 2, 'field:deep-cabinets');
+        if (c.upperWalls.length) html += row('Дълбок горен ред', pill('deep-cabinets'), 2, 'field:deep-cabinets');
         html += row('Остров', pill('island_enabled_p'), 2, 'field:island_enabled_p');
         if (yes(c.island)) { html += row('Остров дължина', dim('island_len_p'), 2, 'dim:island_len_p'); html += row('Остров ширина', dim('island_width_p'), 2, 'dim:island_width_p'); }
         html += '<div class="p-summary-materials"><div class="p-summary-block-title">Материали</div><div class="p-summary-materials-grid">' +
-          matCard('Горен ред', 'upper', 3) + deepCard() + matCard('Долен ред', 'lower', 4) + matCard('Плот', 'countertop', 5) + matCard('Гръб', 'backsplash', 6) + '</div></div>';
+          (c.upperWalls.length ? matCard('Горен ред', 'upper', 3) + deepCard() : '') + matCard('Долен ред', 'lower', 4) + matCard('Плот', 'countertop', 5) + matCard('Гръб', 'backsplash', 6) + '</div></div>';
         var ap = row('Миялна', applianceText('dishwasher_type'), 7, 'field:dishwasher_type') + row('Пералня', applianceText('washing_machine_type'), 7, 'field:washing_machine_type') +
           row('Микровълнова', applianceText('microwave_type'), 7, 'field:microwave_type') + row('Кафе машина', applianceText('coffee_machine_type'), 7, 'field:coffee_machine_type');
         if (ap) html += '<div class="p-summary-choice-block"><div class="p-summary-block-title">Уреди</div><div class="p-summary-choice-grid">' + ap + '</div></div>';

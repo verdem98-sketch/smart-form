@@ -339,7 +339,7 @@
         chimney: chOk ? ch : null, chimneyAMm: cA, chimneyBMm: cB,
         waterWall: wr ? Number(wr[0]) : 2, ovenTower: pill('oven_tall_unit_p') === 'yes', fridge: fridge,
         uppers: up, anyUpper: up[1] || up[2] || up[3],
-        deep: pill('deep-cabinets') === 'yes', island: island, islandLenMm: island ? dimMm('island_len_p') : 0, islandWidthMm: island ? dimMm('island_width_p') : 0,
+        deep: pill('deep-cabinets') === 'yes' && (up[1] || up[2] || up[3]), island: island, wallsByUppers: step >= 2, islandLenMm: island ? dimMm('island_len_p') : 0, islandWidthMm: island ? dimMm('island_width_p') : 0,
         dishwasherMm: dw ? Number(dw[1]) * 10 : 0, washer: !!fieldVal('washing_machine_type'),
         microwave: fieldVal('microwave_type') === 'built_in', coffee: fieldVal('coffee_machine_type') === 'built_in',
         dishFree: /^free/.test(fieldVal('dishwasher_type')), washFree: fieldVal('washing_machine_type') === 'free_standing',
@@ -477,7 +477,7 @@
         case 'ovenHobBase': ovenFront(g, W, y1 - .6, y1); front(g, W, y0, y1 - .6, mats.front, 0); handleH(g, 0, y1 - .6 - .04, W * .5); break;   // 60 cm oven flush with the worktop, one drawer below   // oven + drawer below it
         case 'hobBase': drawers(g, W, y0, y1, [1, 1, 1.6]); break;
         case 'dishwasher': if (m.free) break; front(g, W, y0, y1, mats.front, 0); box(W - .06, .02, .006, mats.glass, 0, y1 - .04, D + FT + .003, g); handleH(g, 0, y1 - .09, Math.min(W * .7, .4)); break;
-        case 'washingMachine': if (m.free) break; porthole(g, W, y0, y1); break;
+        case 'washingMachine': if (m.free) break; front(g, W, y0, y1, mats.front, 0); handleH(g, 0, y1 - .06, Math.min(W * .5, .3)); break;   // built-in: behind a cabinet door like a real integrated washer
         case 'basket': if (X.bottle) { front(g, W, y0, y1, mats.front, 0); for (var bi = -2; bi <= 2; bi++) box(.008, y1 - y0 - .16, .01, mats.steel, bi * Math.min(.02, W / 7), (y0 + y1) / 2, D + FT + .006, g); handleH(g, 0, y1 - .05, W * .5); } else drawers(g, W, y0, y1, [1, 1, 1, 1]); break;
         case 'edgeFront': front(g, W, y0, y1, mats.frontAlt, 0); break;
         default: if (W <= .601) doors(g, W, y0, y1, 1); else if (X.drawers) drawers(g, W, y0, y1, [1, 1, 1, 1.4]); else if (W >= .7) doors(g, W, y0, y1, 2); else if (m.idx % 2) drawers(g, W, y0, y1, [1, 1, 1.5]); else doors(g, W, y0, y1, 1);
@@ -601,10 +601,15 @@
         var ln = new T.LineSegments(gm, new T.LineBasicMaterial(opacity ? { color: color, transparent: true, opacity: opacity } : { color: color })); ln.position.y = y; roomGroup.add(ln);
       }
       grid(.5, 0xb9b6ae, .001, .8); grid(1, 0x8e8b82, .002);
-      var w2 = new T.Mesh(new T.PlaneGeometry(L2, H), mats.wall); w2.position.set(L2 / 2, H / 2, -.001); roomGroup.add(w2);
-      var w1 = new T.Mesh(new T.PlaneGeometry(L1, H), mats.side); w1.rotation.y = Math.PI / 2; w1.position.set(-.001, H / 2, L1 / 2); roomGroup.add(w1);
-      var w3 = new T.Mesh(new T.PlaneGeometry(L3, H), mats.side); w3.rotation.y = -Math.PI / 2; w3.position.set(L2 + .001, H / 2, L3 / 2); roomGroup.add(w3);
-      var edges = [0, 0, 0, 0, H, 0, L2, 0, 0, L2, H, 0, 0, 0, L1, 0, H, L1, L2, 0, L3, L2, H, L3, 0, H, 0, L2, H, 0, 0, H, 0, 0, H, L1, L2, H, 0, L2, H, L3, 0, 0, 0, L2, 0, 0, 0, 0, 0, 0, 0, L1, L2, 0, 0, L2, 0, L3];
+      // from step 2 on a wall is drawn only when it carries upper cabinets: the open sides keep the view on the cabinets (the floor outline stays)
+      var showW = inp.wallsByUppers && inp.uppers ? inp.uppers : { 1: true, 2: true, 3: true };
+      if (showW[2]) { var w2 = new T.Mesh(new T.PlaneGeometry(L2, H), mats.wall); w2.position.set(L2 / 2, H / 2, -.001); roomGroup.add(w2); }
+      if (showW[1]) { var w1 = new T.Mesh(new T.PlaneGeometry(L1, H), mats.side); w1.rotation.y = Math.PI / 2; w1.position.set(-.001, H / 2, L1 / 2); roomGroup.add(w1); }
+      if (showW[3]) { var w3 = new T.Mesh(new T.PlaneGeometry(L3, H), mats.side); w3.rotation.y = -Math.PI / 2; w3.position.set(L2 + .001, H / 2, L3 / 2); roomGroup.add(w3); }
+      var edges = [0, 0, 0, L2, 0, 0, 0, 0, 0, 0, 0, L1, L2, 0, 0, L2, 0, L3];
+      if (showW[2]) edges.push(0, H, 0, L2, H, 0, 0, 0, 0, 0, H, 0, L2, 0, 0, L2, H, 0);
+      if (showW[1]) edges.push(0, H, 0, 0, H, L1, 0, 0, L1, 0, H, L1, 0, 0, 0, 0, H, 0);
+      if (showW[3]) edges.push(L2, H, 0, L2, H, L3, L2, 0, L3, L2, H, L3, L2, 0, 0, L2, H, 0);
       var eg = new T.BufferGeometry(); eg.setAttribute('position', new T.Float32BufferAttribute(edges, 3)); roomGroup.add(new T.LineSegments(eg, new T.LineBasicMaterial({ color: 0x9aa09a })));
       // dimension lines on the floor in front of each run + the height on the left corner edge; the entered lengths run from the chimney outwards
       var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 }), V = function (x, y, z) { return new T.Vector3(x, y, z); }, t = .07;
@@ -994,25 +999,33 @@
       function sketchLegend() {
         var inp = readInputs(), out = [];
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout', cornerBase: 'corner base unit' };
+        function nmOf(m) {   // what the image model must draw: built-in appliances stay hidden behind cabinet fronts
+          if (m.type === 'fridge') return m.applianceType === 'free_standing' ? 'free-standing fridge' : 'built-in fridge behind cabinet doors';
+          if (m.type === 'dishwasher') return m.free ? 'free-standing dishwasher' : 'integrated dishwasher behind a front';
+          if (m.type === 'washingMachine') return m.free ? 'free-standing washer' : 'built-in washer behind a front';
+          if (m.type === 'ovenTower') { var a = (m.appliances || []).map(function (x) { return x === 'microwave' ? 'microwave' : x === 'coffeeMachine' ? 'coffee machine' : 'oven'; }); return 'tall oven tower (built-in ' + (a.length ? a.join(', ') : 'oven') + ')'; }
+          return nm[m.type];
+        }
         var WN = { 1: 'left wall', 2: 'back wall', 3: 'right wall' };
         [[1, ' from the back corner outwards'], [2, ' from left to right'], [3, ' from the back corner outwards']].forEach(function (wl) {
-          var list = items.filter(function (m) { return m.wall === wl[0] && nm[m.type]; }).sort(function (a, b) { return a.x - b.x; }).map(function (m) { return nm[m.type]; });
+          var list = items.filter(function (m) { return m.wall === wl[0] && nm[m.type]; }).sort(function (a, b) { return a.x - b.x; }).map(nmOf);
           out.push(WN[wl[0]] + wl[1] + ': ' + (list.length ? list.join(', ') : 'storage cabinets only'));
         });
         var uw = WALLS.filter(function (w) { return inp.uppers && inp.uppers[w]; }).map(function (w) { return WN[w]; });
         out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') + ', the other walls have no upper cabinets, plain wall above the backsplash' : 'no upper cabinets on any wall, only the base run and backsplash');
-        if (inp.chimney) out.push('chimney block in the ' + inp.chimney + ' back corner, cabinets and worktop fitted around it');
+        if (inp.chimney) out.push('CHIMNEY: a plastered wall column ' + Math.round(inp.chimneyBMm / 10) + ' x ' + Math.round(inp.chimneyAMm / 10) + ' cm, floor to ceiling, standing out in the ' + inp.chimney + ' back corner; cabinets and worktop fitted around it');
         if (inp.island && inp.islandLenMm) out.push('free-standing island in the middle of the U');
         function surf(name, field, grain) {
           var rec = root.pMaterialSelections && root.pMaterialSelections.get(field); if (!rec) return;
           var gloss = !!(root.pGloss && root.pGloss.has(rec.id));
           out.push(name + ': ' + (rec.category === 'wood' ? 'wood, ' + (grain === 'h' ? 'horizontal' : 'vertical') + ' grain, continuous across doors,' : 'plain colour,') + ' ' + (gloss ? 'HIGH GLOSS' : 'matte'));
         }
-        surf('lower fronts', 'lower_finish', inp.gL); surf('upper fronts', 'upper_finish', inp.gU);
+        surf('lower fronts', 'lower_finish', inp.gL); if (inp.anyUpper) surf('upper fronts', 'upper_finish', inp.gU);
         if (inp.deep) {
           if (root.pMaterialSelections && root.pMaterialSelections.get('deep_finish')) surf('deep upper row (own colour, different from the row below)', 'deep_finish', inp.gD);
           else surf('deep upper row (same decor as the upper fronts)', 'upper_finish', inp.gD);
         }
+        if (items.some(function (m) { return (m.type === 'fridge' && m.applianceType !== 'free_standing') || ((m.type === 'dishwasher' || m.type === 'washingMachine') && !m.free); })) out.push('BUILT-IN appliances are hidden behind cabinet fronts in the door decor: draw them as plain doors, never as visible appliances');
         out.push('appliance finish: all black (washing machine white)');
         if (X.handleless) out.push('handleless fronts');
         if (X.drawers) out.push('extra drawers on lower storage');

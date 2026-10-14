@@ -153,12 +153,30 @@
 
     /* ---------------- answers: pills (single / multi), dimension pickers */
     const answered = q => !!q.querySelector('.option-pill.is-selected');
+    const hasUppers = () => !!qTop.querySelector('.option-pill.is-selected');
+    // a built-in microwave / coffee machine needs the oven tower; without it only the free-standing type is offered
+    const builtNote = el('p', 'p-q-hint p-builtin-note', 'Микровълнова и кафе-машина за вграждане се поставят в колоната с фурна. Без колона изберете свободностоящ вариант.'); builtNote.hidden = true;
+    function syncBuiltIn() {
+      const tower = value(qOven) === 'yes';
+      let any = false;
+      ['microwave_type', 'coffee_machine_type'].forEach(n => {
+        const sel = applCard.querySelector('select[name="' + n + '"]'); if (!sel) return;
+        const o = sel.querySelector('option[value="built_in"]'); if (o) o.disabled = !tower;
+        if (!tower && sel.value === 'built_in') { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+        any = true;
+      });
+      builtNote.hidden = tower || !any;
+      if (!builtNote.isConnected) applCard.append(builtNote);
+    }
     const value = q => { const p = q.querySelector('.option-pill.is-selected'); return p ? p.dataset.value : ''; };
     function syncDependent() {
       const ch = value(qChim);
       gChim.classList.toggle('is-hidden', !ch || ch === 'none'); chimNote.hidden = !ch || ch === 'none';
       gIsland.classList.toggle('is-hidden', value(qIsland) !== 'yes');
+      const up = hasUppers(); qDeep.hidden = !up;   // no upper cabinets: no deep row question and no "Горен ред" step
+      if (!up) qDeep.querySelectorAll('.option-pill.is-selected').forEach(p => { p.classList.remove('is-selected'); p.setAttribute('aria-pressed', 'false'); });
       const dv = value(qDeep); if ((dv === 'yes') !== deepBox.checked) { deepBox.checked = dv === 'yes'; deepBox.dispatchEvent(new Event('change', { bubbles: true })); }
+      syncBuiltIn();
     }
     page.addEventListener('click', e => {
       const pill = e.target.closest('.p-flow .question-wrap[data-field] .option-pill'); if (!pill) return;
@@ -197,7 +215,7 @@
     const visRows = g => [...g.querySelectorAll('.dimension-row')].filter(r => !g.classList.contains('is-hidden'));
     function itemsOf(s) {
       if (s === 1) return [qChim, ...visRows(gMain), ...(gChim.classList.contains('is-hidden') ? [] : visRows(gChim))];
-      if (s === 2) return [qWater, qOven, qFridge, qDeep, qIsland, ...(gIsland.classList.contains('is-hidden') ? [] : visRows(gIsland))];
+      if (s === 2) return [qWater, qOven, qFridge, ...(hasUppers() ? [qDeep] : []), qIsland, ...(gIsland.classList.contains('is-hidden') ? [] : visRows(gIsland))];
       return [];
     }
     const isRow = n => n.classList.contains('dimension-row');
@@ -241,7 +259,9 @@
       flow.classList.toggle('p-flow-done', step === LAST);
       page.dataset.pFlowStep = String(step); flow.dataset.pFlowStep = String(step);
       stickyOffset();
-      const on = deepOn(), total = on ? N + 1 : N, shown = deepShown ? 4 : (on && step >= 4 ? step + 1 : step), title = deepShown ? 'Дълбок горен ред' : titles[step - 1];
+      const on = deepOn(), skipUp = !hasUppers(), total = N + (on ? 1 : 0) - (skipUp ? 1 : 0);
+      const shown = deepShown ? 4 : step + (on && step >= 4 ? 1 : 0) - (skipUp && step > 3 ? 1 : 0), title = deepShown ? 'Дълбок горен ред' : titles[step - 1];
+      segs[2].hidden = skipUp;
       heading.textContent = title; pTitle.textContent = title; pCount.textContent = 'Стъпка ' + shown + ' от ' + total;
       progress.setAttribute('aria-valuemax', String(total)); progress.setAttribute('aria-valuenow', String(shown));
       track.style.setProperty('--p-steps', total); track.style.gridTemplateColumns = 'repeat(' + total + ',minmax(0,1fr))';
@@ -266,9 +286,11 @@
         const m = check();
         if (m) { if (typeof m === 'string') { error.textContent = m; error.hidden = false; } else showMissing(m); return; }
         if (step === 3 && deepOn()) { showDeep(); return; }
+        if (step === 2 && !hasUppers()) { go(4); return; }
         go(step + 1);
       } else if (deepShown) { deepShown = false; render(true); }
       else if (step === 4 && deepOn()) showDeep();
+      else if (step === 4 && !hasUppers()) go(2);
       else if (step > 1) go(step - 1);
     });
     deepBox.addEventListener('change', () => render(false));
