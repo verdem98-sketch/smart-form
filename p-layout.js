@@ -574,7 +574,9 @@
       var z1 = ch === 'left' ? cA : 0, z3 = ch === 'right' ? cA : 0, x0 = ch === 'left' ? cB : 0, x1 = L2 - (ch === 'right' ? cB : 0);
       var bh = UPPER.ub - BH, my = (UPPER.ub + BH) / 2;
       // wall strips: [axis, from, to]: 'x' = back wall (z = 0), 'l' = left wall (x = 0), 'r' = right wall (x = L2)
-      var strips = [['x', x0, x1], ['l', z1, L1], ['r', z3, L3]];
+      // from step 2 on a wall without upper cabinets is open: no wall, no backsplash, no LED glow on it
+      var showW = inp.wallsByUppers && inp.uppers ? inp.uppers : { 1: true, 2: true, 3: true };
+      var strips = [['x', x0, x1, 2], ['l', z1, L1, 1], ['r', z3, L3, 3]].filter(function (sp) { return showW[sp[3]]; });
       function stripMesh(geo, mat, sp, inset) {
         var m = new T.Mesh(geo, mat);
         if (sp[0] === 'x') m.position.set((sp[1] + sp[2]) / 2, my, inset);
@@ -605,7 +607,6 @@
       }
       grid(.5, 0xb9b6ae, .001, .8); grid(1, 0x8e8b82, .002);
       // from step 2 on a wall is drawn only when it carries upper cabinets: the open sides keep the view on the cabinets (the floor outline stays)
-      var showW = inp.wallsByUppers && inp.uppers ? inp.uppers : { 1: true, 2: true, 3: true };
       if (showW[2]) { var w2 = new T.Mesh(new T.PlaneGeometry(L2, H), mats.wall); w2.position.set(L2 / 2, H / 2, -.001); roomGroup.add(w2); }
       if (showW[1]) { var w1 = new T.Mesh(new T.PlaneGeometry(L1, H), mats.side); w1.rotation.y = Math.PI / 2; w1.position.set(-.001, H / 2, L1 / 2); roomGroup.add(w1); }
       if (showW[3]) { var w3 = new T.Mesh(new T.PlaneGeometry(L3, H), mats.side); w3.rotation.y = -Math.PI / 2; w3.position.set(L2 + .001, H / 2, L3 / 2); roomGroup.add(w3); }
@@ -1019,7 +1020,9 @@
           out.push(WN[wl[0]] + wl[1] + ': ' + (list.length ? list.join(', ') : 'storage cabinets only'));
         });
         var uw = WALLS.filter(function (w) { return inp.uppers && inp.uppers[w]; }).map(function (w) { return WN[w]; });
-        out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') + ', the other walls have no upper cabinets, plain wall above the backsplash' : 'no upper cabinets on any wall, only the base run and backsplash');
+        out.push(uw.length === 3 ? 'upper cabinets on all three walls, meeting in both corners' : uw.length ? 'upper cabinets only on: ' + uw.join(', ') : 'no upper cabinets on any wall');
+        var open = WALLS.filter(function (w) { return !(inp.uppers && inp.uppers[w]); }).map(function (w) { return WN[w]; });
+        if (open.length) out.push('OPEN SIDE: ' + open.join(' and ') + ' - no wall and no backsplash behind ' + (open.length > 1 ? 'these runs' : 'this run') + ', the base run stands free with open room behind it');
         if (inp.chimney) out.push('CHIMNEY: a plastered wall column ' + Math.round(inp.chimneyBMm / 10) + ' x ' + Math.round(inp.chimneyAMm / 10) + ' cm, floor to ceiling, standing out in the ' + inp.chimney + ' back corner; cabinets and worktop fitted around it');
         if (inp.island && inp.islandLenMm) out.push('free-standing island in the middle of the U');
         var counter = []; if (inp.microFree) counter.push('a black free-standing microwave'); if (inp.coffeeFree) counter.push('a black free-standing coffee machine');
