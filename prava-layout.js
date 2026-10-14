@@ -335,13 +335,13 @@
       box(w - .06, .012, .12, mats.steel, x, BH + .06, z + d / 2 - .04, g);                          // drip tray
       box(.05, .05, .012, mats.glass, x + w * .3, BH + h * .72, z + d / 2 + .004, g);
     }
-    /* free-standing microwave / coffee machine: only on the clear countertop (never over the sink, hob, washer or each other) */
+    /* free-standing microwave / coffee machine: only on the clear countertop (never over the sink, hob or each other; washer and dishwasher tops are fine) */
     function placeFree(list, inp) {
       var want = []; if (inp.microFree) want.push({ k: 'micro', w: 460 }); if (inp.coffeeFree) want.push({ k: 'coffee', w: 280 });
       if (!want.length) return;
-      var OK = { genericBase: 1, basket: 1 }, spans = [], cur = null;
+      var OK = { genericBase: 1, basket: 1, dishwasher: 1, washingMachine: 1 }, spans = [], cur = null;
       list.slice().sort(function (a, b) { return a.x - b.x; }).forEach(function (m) {
-        var ok = OK[m.type] || (m.type === 'dishwasher' && !m.free);
+        var ok = OK[m.type];
         if (!ok) { cur = null; return; }
         if (cur && Math.abs(cur.x1 - m.x) < 2) cur.x1 = m.x + m.w; else { cur = { x0: m.x, x1: m.x + m.w }; spans.push(cur); }
       });
