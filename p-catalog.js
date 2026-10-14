@@ -15,7 +15,9 @@
     clear: function (field) { delete selections[field]; var role = String(field).replace(/_finish$/, ''); if (resets[role]) resets[role](); }
   };
   var script = document.currentScript;
-  var base = script && script.src ? script.src.replace(/[^/]*$/, '') : '';
+  // the catalog data does not change with the scripts: read it from one fixed, already cached commit (a fresh commit's first CDN requests can fail without CORS headers)
+  var CATALOG_BASE = 'https://cdn.jsdelivr.net/gh/verdem98-sketch/smart-form@9ce473d8697355de43cb7eb45d10060194e463f4/';
+  var base = CATALOG_BASE || (script && script.src ? script.src.replace(/[^/]*$/, '') : '');
   var ROLES = {
     upper: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
     lower: { file: 'cabinet', cabinet: true, filters: ['finish', 'manufacturer', 'category', 'substrate'] },
