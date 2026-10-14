@@ -741,7 +741,8 @@
       var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined;
       var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!(root.pMaterialSelections && root.pMaterialSelections.get('deep_finish'));
       mats.front = hasL ? fin('lower_finish', inp.cLower, 0, undefined, inp.gL) : mats.frontA;
-      mats.carcass = hasL ? mats.front : mats.carcassDefault;   // visible end panels of the runs are made in the front decor, as built mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gU) : mats.front;
+      mats.carcass = hasL ? mats.front : mats.carcassDefault;   // visible end panels of the runs are made in the front decor, as built
+      mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gU) : mats.front;
       mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gD) : mats.front);
       items.forEach(function (m) {
         var w = m.w / 1000, cx = lc(m.wall, m.x + m.w / 2);
