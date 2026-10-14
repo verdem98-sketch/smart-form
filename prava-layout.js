@@ -53,7 +53,6 @@
     }
     var place = cfg.water === 'left' || cfg.water === 'right' ? cfg.water : 'center';
     if (place === 'center') { if (cfg.basket) cooking.push(mod('basket', 150, 'cooking')); }
-    else edge.push(mod(cfg.basket ? 'basket' : 'edgeFront', 150, 'water'));
     water.push(mod('sinkBase', 600, 'water'));
     if (cfg.dishwasherMm) water.push(mod('dishwasher', cfg.dishwasherMm, 'water'));
     if (cfg.washer) water.push(mod('washingMachine', 600, 'water'));
@@ -336,6 +335,42 @@
       box(w - .06, .012, .12, mats.steel, x, BH + .06, z + d / 2 - .04, g);                          // drip tray
       box(.05, .05, .012, mats.glass, x + w * .3, BH + h * .72, z + d / 2 + .004, g);
     }
+    /* free-standing microwave / coffee machine: only on the clear countertop (never over the sink, hob, washer or each other) */
+    function placeFree(list, inp) {
+      var want = []; if (inp.microFree) want.push({ k: 'micro', w: 460 }); if (inp.coffeeFree) want.push({ k: 'coffee', w: 280 });
+      if (!want.length) return;
+      var OK = { genericBase: 1, basket: 1 }, spans = [], cur = null;
+      list.slice().sort(function (a, b) { return a.x - b.x; }).forEach(function (m) {
+        var ok = OK[m.type] || (m.type === 'dishwasher' && !m.free);
+        if (!ok) { cur = null; return; }
+        if (cur && Math.abs(cur.x1 - m.x) < 2) cur.x1 = m.x + m.w; else { cur = { x0: m.x, x1: m.x + m.w }; spans.push(cur); }
+      });
+      spans.forEach(function (sp) { sp.len = sp.x1 - sp.x0; sp.used = []; });
+      var M = 50, GAP = 100;
+      function put(sp, a) {
+        var start = sp.x0 + M; sp.used.forEach(function (u) { start = Math.max(start, u.e + GAP); });
+        if (start + a.w > sp.x1 - M + 1) return false;
+        sp.used.push({ s: start, e: start + a.w, k: a.k }); return true;
+      }
+      want.forEach(function (a) {
+        var best = null;
+        spans.forEach(function (sp) {
+          var start = sp.x0 + M; sp.used.forEach(function (u) { start = Math.max(start, u.e + GAP); });
+          if (start + a.w <= sp.x1 - M + 1 && (!best || sp.len - sp.used.length * 1000 > best.len - best.used.length * 1000)) best = sp;
+        });
+        if (best) put(best, a);
+      });
+      spans.forEach(function (sp) {
+        var n = sp.used.length; if (!n) return;
+        var tot = sp.used[n - 1].e - sp.used[0].s, shift = Math.round(((sp.x1 - sp.x0) - tot) / 2 - M);   // centre the group on the free span
+        sp.used.forEach(function (u) {
+          var cx = u.s + shift + (u.e - u.s) / 2, host = null;
+          list.forEach(function (m) { if (cx >= m.x && cx <= m.x + m.w && !TALL[m.type]) host = m; });
+          if (!host) return;
+          (host.host = host.host || []).push({ k: u.k, x: (cx - (host.x + host.w / 2)) / 1000 });
+        });
+      });
+    }
     function buildBase(m, w) {
       var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
       box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
@@ -354,7 +389,7 @@
       if (m.type === 'sinkBase') sinkTop(g, W);
       if (m.free && m.type === 'dishwasher') { g.remove.apply(g, g.children.slice(0, 2)); freeDishwasher(g, W); }
       if (m.free && m.type === 'washingMachine') { g.remove.apply(g, g.children.slice(0, 2)); freeWasher(g, W); }
-      if (m.host) { var two = m.host.length > 1; if (m.host.indexOf('micro') >= 0) standMicro(g, two ? -W * .22 : 0); if (m.host.indexOf('coffee') >= 0) standCoffee(g, two ? W * .26 : 0); }
+      if (m.host) m.host.forEach(function (h) { if (h.k === 'micro') standMicro(g, h.x); else standCoffee(g, h.x); });
       return g;
     }
     function buildTall(m, w) {
@@ -474,12 +509,7 @@
       if (!lu.ok) uorder = null; if (!ld.ok) dorder = null;
       uRunIds = lu.ids; upos = lu.pos; dRunIds = ld.ids; dpos = ld.pos;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
-      var gb = items.filter(function (m) { return m.type === 'genericBase' || m.type === 'basket'; });
-      if (!gb.length) gb = items.filter(function (m) { return !TALL[m.type] && m.type !== 'edgeFront'; });
-      if (gb.length) {
-        if (inp.microFree) gb[0].host = ['micro'];
-        if (inp.coffeeFree) { var cg = gb[gb.length - 1]; cg.host = (cg.host || []).concat('coffee'); }
-      }
+      placeFree(items, inp);
       var runs = [], cur = null;
       items.forEach(function (m) {
         var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!fieldVal('deep_finish'); mats.front = hasL ? fin('lower_finish', inp.cLower, 0, inp.glL ? .12 : undefined, inp.gL) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gU) : mats.front; mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, inp.glD ? .12 : undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gD) : mats.front); var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
@@ -494,7 +524,7 @@
       // filler panel (fixed, not draggable)
       if (plan.fillerMm) {
         var fx = plan.fillerAt === 'left' ? plan.fillerMm / 2 : (pos.total - plan.fillerMm / 2); var fw = plan.fillerMm / 1000, fg = new T.Group();
-        box(fw, BH - PL, D - .02, mats.frontAlt, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = fx / 1000; fg.userData = { filler: true }; cabGroup.add(fg);
+        box(fw, BH - PL, D - .02, mats.front, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = fx / 1000; fg.userData = { filler: true }; cabGroup.add(fg);
       }
       // worktop slabs over each consecutive base run (filler included)
       var allBase = []; var xs = items.filter(function (m) { return !TALL[m.type]; }).map(function (m) { return [m.x, m.x + m.w]; });
@@ -689,7 +719,7 @@
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
         if (X.lift) out.push('lift-up fronts on the lower upper row only');
-        if (X.glass) out.push('one illuminated glass display unit in the lower upper row');
+        if (X.glass) out.push('one display cabinet with a clear glass door in the standard upper row: warm LED light inside, glass shelves and neat dishes visible through the glass');
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }
