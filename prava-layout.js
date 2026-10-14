@@ -103,8 +103,9 @@
     var page = document.querySelector('.sf-page-prava'), card = page && page.querySelector('.sticky-cad-wrap'), stage = card && card.querySelector('.cad-stage');
     if (!stage || root.pravaLayout) return;
     var host = document.createElement('div'); host.className = 'prava-3d'; host.hidden = true; stage.appendChild(host);
+    var ROT_CUR = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="5"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v5h-5"/></g><g stroke="#222" stroke-width="2.2"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v5h-5"/></g></svg>') + '") 14 14, alias';   // rotate cursor
     var st = document.createElement('style');
-    st.textContent = '.sf-page-prava .prava-3d{position:absolute;inset:0;z-index:60;background:#eef0ed;touch-action:none}.sf-page-prava .prava-3d canvas{display:block;width:100%;height:100%;cursor:grab}' +
+    st.textContent = '.sf-page-prava .prava-3d{position:absolute;inset:0;z-index:60;background:#eef0ed;touch-action:none}.sf-page-prava .prava-3d canvas{display:block;width:100%;height:100%;cursor:' + ROT_CUR + '}.sf-page-prava .prava-3d[data-mode=move] canvas{cursor:move}.sf-page-prava .prava-3d[data-mode=pan] canvas{cursor:grab}.sf-page-prava .prava-3d[data-mode=pan] canvas:active{cursor:grabbing}' +
       '.sf-page-prava .prava-3d-hint{position:absolute;left:10px;bottom:8px;max-width:calc(100% - 20px);font:11px/1.35 sans-serif;color:#606760;background:rgba(255,255,255,.88);padding:4px 9px;border-radius:8px;pointer-events:none}' +
       '.sf-page-prava .prava-3d-msg{position:absolute;left:10px;right:56px;top:10px;font:12px/1.4 sans-serif;color:#7a2d1f;background:#fff1ec;border:1px solid #e6b8ab;padding:8px 10px;border-radius:10px;pointer-events:none}' +
       '.sf-page-prava .prava-3d-btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}' +
@@ -118,11 +119,13 @@
     var btns = document.createElement('div'); btns.className = 'prava-3d-btns'; host.appendChild(btns);
     function mkBtn(label, title, act) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = b.ariaLabel = title; b.dataset.act = act; btns.appendChild(b); return b; }
     mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⟲', 'Начален изглед', 'reset');
-    var modeBtn = mkBtn('✥', 'Режим: местене на шкафове / въртене на изгледа', 'mode');
+    var rotBtn = mkBtn('⟳', 'Въртане на изгледа (Orbit): влачете за завъртане', 'rotate');
+    var modeBtn = mkBtn('✥', 'Местене на шкафове: хванете шкаф и го пуснете върху друг', 'mode');
+    var panBtn = mkBtn('✋', 'Преместване на изгледа (Pan): влачете наляво/надясно и нагоре/надолу. Десен бутон или Shift + влачене също местят изгледа.', 'pan');
     var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
-    var failed = false, moveMode = true, dirty = false, uorder = null, upos = {}, uRunIds = [], order = [], items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, upos = {}, uRunIds = [], order = [], items = [], plan = null, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, view = { dist: 0 };
 
     /* ---------------- inputs from the page */
@@ -427,7 +430,7 @@
     function buildCabinets(inp) {
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
-      meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0;
+      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0;
       if (!inp.showCabinets) return;
       plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
@@ -489,7 +492,7 @@
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp;
       var dist = Math.max((L / 2 * 1.2) / th, (H / 2 * 1.25) / tv, 3.2) + .9;
       home.target = new T.Vector3(L / 2, Math.min(H * .42, 1.1), .3); home.pos = new T.Vector3(L / 2 + L * .1, Math.max(1.7, H * .62), .3 + dist);
-      camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
+      bounds = { x: L, y: H, z: 1 }; camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
     }
     function sync(force) {
       if (failed || !renderer) return;
@@ -503,8 +506,8 @@
       resize(); buildRoom(inp); buildCabinets(inp);
       var fs = (inp.lengthMm || 0) + '|' + (inp.heightMm || 0);
       if (fs !== fitSig) { fitSig = fs; fit(inp); }
-      hint.textContent = inp.showCabinets ? (moveMode ? 'Хванете шкаф и го пуснете върху друг, за да си разменят местата. Влачете празно място за въртене.' : 'Завъртане: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
-      modeBtn.hidden = autoBtn.hidden = !inp.showCabinets; modeBtn.setAttribute('aria-pressed', String(moveMode));
+      hint.textContent = inp.showCabinets ? (panMode ? 'Преместване на изгледа: влачете наляво/надясно и нагоре/надолу · Мащаб: колелце/щипване' : moveMode ? 'Местене на шкафове: хванете шкаф и го пуснете върху друг, за да си разменят местата.' : 'Въртене: влачете · Мащаб: колелце/щипване') : 'Въведете размерите — виждате голото помещение с мерна решетка (всеки квадрат е 50 см).';
+      rotBtn.hidden = modeBtn.hidden = panBtn.hidden = autoBtn.hidden = !inp.showCabinets; setMode(panMode ? 'pan' : moveMode ? 'move' : 'rotate', true);
     }
 
     /* ---------------- drag & drop */
@@ -517,7 +520,7 @@
     function groundX(ev, upper) { ndc(ev); var plane = new T.Plane(new T.Vector3(0, 1, 0), upper ? -1.9 : -0.45), p = new T.Vector3(); return ray.ray.intersectPlane(plane, p) ? p.x : null; }
     function dragKeys(d) { return d.upper ? [d.id + ':u', d.id + ':d'] : [d.id]; }
     function onDown(ev) {
-      if (!moveMode || !items.length || ev.button > 0) return;
+      if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var gx = groundX(ev, pk.upper); if (gx === null) return;
       var m = meshById[pk.upper ? pk.id + ':u' : pk.id]; if (!m) return;
@@ -539,16 +542,21 @@
         var c = drag.upper ? (upos[m.id].x + upos[m.id].w / 2) / 1000 : (m.x + m.w / 2) / 1000, d = Math.abs(c - cx); if (d < bd) { bd = d; best = m; bc = c; }
       });
       drag.target = best && bd < Math.max(best.w / 1000, .45) ? best.id : null;
-      if (dropMark) {
-        dropMark.visible = !!drag.target;
-        if (drag.target) {
-          if (drag.upper) { var us = upperSpec(false); dropMark.rotation.x = 0; dropMark.scale.set(best.w / 1000, us.uh / 1.1, 1); dropMark.position.set(bc, us.ub + us.uh / 2, .37); }
-          else { dropMark.rotation.x = -Math.PI / 2; dropMark.scale.set(best.w / 1000, 1, 1); dropMark.position.set((best.x + best.w / 2) / 1000, 0, D / 2); }
-        }
-      }
+      setHL(drag.target ? (drag.upper ? drag.target + ':u' : drag.target) : null);   // the cabinet that will be replaced turns green
+    }
+    /* green tint on the cabinet whose place the dragged one will take (materials are cloned, the shared ones stay untouched) */
+    function clearHL() { hl.saved.forEach(function (o) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); o.material.dispose(); }); hl.saved = []; hl.key = null; }
+    function setHL(key) {
+      if (hl.key === key) return; clearHL(); if (!key || !meshById[key]) return;
+      var g = meshById[key], box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
+      g.traverse(function (o) { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)); } });
+      if (box.isEmpty()) return;
+      var sz = box.getSize(new T.Vector3()), c = box.getCenter(new T.Vector3());
+      var ov = new T.Mesh(new T.BoxGeometry(sz.x + .012, sz.y + .012, sz.z + .012), new T.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: .5, depthWrite: false }));
+      ov.position.copy(c); ov.renderOrder = 5; g.add(ov); hl.saved.push(ov); hl.key = key;   // a translucent green shell over the whole cabinet, front included
     }
     function onUp(ev) {
-      if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; if (dropMark) dropMark.visible = false;
+      if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
       if (d.moved && d.target) {
         if (d.upper) {
@@ -572,7 +580,12 @@
       sun.shadow.camera.left = -6; sun.shadow.camera.right = 6; sun.shadow.camera.top = 5; sun.shadow.camera.bottom = -3; sun.shadow.bias = -.0004; scene.add(sun);
       roomGroup = new T.Group(); cabGroup = new T.Group(); labelGroup = new T.Group(); scene.add(roomGroup, cabGroup, labelGroup);
       dropMark = new T.Mesh(new T.PlaneGeometry(1, 1.1), mats.highlight); dropMark.rotation.x = -Math.PI / 2; dropMark.visible = false; dropMark.position.y = .01; scene.add(dropMark);
-      controls = new T.OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .5; controls.minAzimuthAngle = -Math.PI * .45; controls.maxAzimuthAngle = Math.PI * .45;
+      controls = new T.OrbitControls(camera, renderer.domElement); controls.enablePan = true; controls.screenSpacePanning = true; controls.panSpeed = 1; controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .5; controls.minAzimuthAngle = -Math.PI * .45; controls.maxAzimuthAngle = Math.PI * .45;
+      controls.addEventListener('change', function () {   // the view can be panned, but never so far that the room is lost
+        var t = controls.target, cx = Math.max(-.6, Math.min(bounds.x + .6, t.x)), cy = Math.max(0, Math.min(bounds.y, t.y)), cz = Math.max(-.6, Math.min(bounds.z + .6, t.z));
+        if (cx !== t.x || cy !== t.y || cz !== t.z) { var dx = cx - t.x, dy = cy - t.y, dz = cz - t.z; t.set(cx, cy, cz); camera.position.x += dx; camera.position.y += dy; camera.position.z += dz; }
+      });
+      setMode('rotate', true);
       var el = renderer.domElement; el.addEventListener('pointerdown', onDown, true); el.addEventListener('pointermove', onMove); el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
       new ResizeObserver(resize).observe(host);
       (function loop() {
@@ -583,11 +596,22 @@
       })();
     }
     function resize() { if (!renderer) return; var w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    function setMode(m, quiet) {
+      moveMode = m === 'move'; panMode = m === 'pan'; host.setAttribute('data-mode', m);
+      rotBtn.setAttribute('aria-pressed', String(m === 'rotate')); modeBtn.setAttribute('aria-pressed', String(moveMode)); panBtn.setAttribute('aria-pressed', String(panMode));
+      if (controls) {
+        controls.mouseButtons.LEFT = panMode ? T.MOUSE.PAN : T.MOUSE.ROTATE; controls.touches.ONE = panMode ? T.TOUCH.PAN : T.TOUCH.ROTATE;
+        controls.enableRotate = !moveMode;
+      }
+      if (!quiet) { sync(true); inputsSig = ''; sync(true); }
+    }
     btns.addEventListener('click', function (ev) {
       var b = ev.target.closest('button'); if (!b || !controls) return; var a = b.dataset.act;
       if (a === 'reset') { camera.position.copy(home.pos); controls.target.copy(home.target); }
       else if (a === 'in' || a === 'out') { var v = camera.position.clone().sub(controls.target).multiplyScalar(a === 'in' ? .8 : 1.25); var len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length())); v.setLength(len); camera.position.copy(controls.target).add(v); }
-      else if (a === 'mode') { moveMode = !moveMode; sync(true); inputsSig = ''; sync(true); }
+      else if (a === 'rotate') setMode('rotate');
+      else if (a === 'mode') setMode('move');
+      else if (a === 'pan') setMode('pan');
       else if (a === 'auto') { dirty = false; uorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
