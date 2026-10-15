@@ -338,7 +338,7 @@
         glass: M(0x121518, .15, .3), hob: M(0x0e1012, .2, .2), ring: M(0x6b7075, .4, .5), wall: M(0xe1e5dd, 1), floor: M(0xcbc3b3, .95), side: M(0xd2d6cd, 1),
         upper: M(0xf4f0e6, .5), deep: M(0xd9cfba, .5), island: M(0xe5dfd2, .6), sink: M(0x9aa1a6, .3, .8), appl: M(0xe8ebed, .4, .15), highlight: new T.MeshBasicMaterial({ color: 0x477448, transparent: true, opacity: .35, side: T.DoubleSide }) };
       mats.glassFront = new T.MeshStandardMaterial({ color: 0xcfe3e6, roughness: .1, metalness: .1, transparent: true, opacity: .32 }); mats.glow = new T.MeshBasicMaterial({ color: 0xffe8b0 }); mats.led = new T.MeshBasicMaterial({ color: 0xfff1c2 });
-      mats.topDefault = mats.top; mats.islandDefault = mats.island;
+      mats.topDefault = mats.top; mats.carcassDefault = mats.carcass; mats.islandDefault = mats.island;
     }
     var edgeMat = null;
     function box(w, h, d, mat, x, y, z, parent) { var bg = new T.BoxGeometry(w, h, d); if (mat.map && mat.userData.tile) scaleUV(bg, w, h, d, mat.userData.tile, ((texN++) * .37) % 1); var m = new T.Mesh(bg, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m);
@@ -689,7 +689,7 @@
       }
       var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined;
       var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!(root.agMaterialSelections && root.agMaterialSelections.get('deep_finish'));
-      mats.front = hasL ? fin('lower_finish', inp.cLower, 0, undefined, inp.gL) : mats.frontA; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gU) : mats.front;
+      mats.front = hasL ? fin('lower_finish', inp.cLower, 0, undefined, inp.gL) : mats.frontA; mats.carcass = hasL ? mats.front : mats.carcassDefault;   // the cabinet body in the front decor, as built mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gU) : mats.front;
       mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, undefined, inp.gD) : mats.front);
       items.forEach(function (m) {
         var w = m.w / 1000, cx = lc(m.wall, m.x + m.w / 2);
