@@ -314,7 +314,7 @@
       var fr = pill('fridge_type_aglova'), fridge = null;
       if (/свободно/i.test(fr)) fridge = 'free_standing'; else if (/вграден/i.test(fr)) fridge = 'built_in';
       var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = (root.agFlow && root.agFlow.getStep && root.agFlow.getStep()) || Number(page.dataset.agFlowStep) || 1, bar = pill('bar_enabled_aglova'), barMode = /остров/i.test(bar) ? 'island' : /стена\s*1/i.test(bar) ? 'wall1' : /стена\s*2/i.test(bar) ? 'wall2' : 'none';
-      var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova'), cA = dimMm('chimney_a_aglova'), cB = dimMm('chimney_b_aglova'), chim = /^да$/i.test(pill('chimney_exists'));
+      var w1 = dimMm('stena1_len_aglova'), w2 = dimMm('stena2_len_aglova'), cA = chimA(), cB = chimB(), chim = /^да$/i.test(pill('chimney_exists'));
       // with a chimney the entered wall lengths run from the chimney outwards (the chimney is not included): the real wall is longer by A (wall 1) and B (wall 2)
       var phys1 = chim && cA && cB && w1 > 0 && w2 > 0 ? w1 + cA : w1, phys2 = chim && cA && cB && w1 > 0 && w2 > 0 ? w2 + cB : w2;
       return {
