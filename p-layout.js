@@ -1113,7 +1113,9 @@
     }
     var edV = null;
     function edPlace() {   // the card goes next to the selected cabinet, never on top of it (above, below, right or left - the first side with room)
-      if (!sel || edBox.hidden || !T) return; var g = meshById[edKey(sel)]; if (!g) return;
+      if (!sel || edBox.hidden || !T) return;
+      if (edManual) { var mw = host.clientWidth - (edBox.offsetWidth || 230) - 4, mh = host.clientHeight - (edBox.offsetHeight || 160) - 4; edBox.style.left = Math.round(Math.max(4, Math.min(mw, edManual.l))) + 'px'; edBox.style.top = Math.round(Math.max(4, Math.min(mh, edManual.t))) + 'px'; return; }
+      var g = meshById[edKey(sel)]; if (!g) return;
       var bb = new T.Box3().setFromObject(g); if (bb.isEmpty()) return;
       var W = host.clientWidth, H = host.clientHeight, bw = edBox.offsetWidth || 230, bh = edBox.offsetHeight || 160, gap = 12;
       var r = { l: 1e9, t: 1e9, r: -1e9, b: -1e9 };
@@ -1133,6 +1135,18 @@
       });
       edBox.style.left = Math.round(best[0]) + 'px'; edBox.style.top = Math.round(best[1]) + 'px';
     }
+    /* the card can be dragged anywhere inside the sketch by its title bar; it then stays where it was put */
+    var edManual = null, edDrag = null;
+    edBox.addEventListener('pointerdown', function (ev) {
+      var h = ev.target.closest('.p-3d-edit-head'); if (!h || ev.target.closest('button')) return;
+      edDrag = { x: ev.clientX, y: ev.clientY, l: edBox.offsetLeft, t: edBox.offsetTop, id: ev.pointerId }; try { edBox.setPointerCapture(ev.pointerId); } catch (e) {} ev.preventDefault();
+    });
+    edBox.addEventListener('pointermove', function (ev) {
+      if (!edDrag || ev.pointerId !== edDrag.id) return;
+      edManual = { l: edDrag.l + ev.clientX - edDrag.x, t: edDrag.t + ev.clientY - edDrag.y }; edPlace();
+    });
+    ['pointerup', 'pointercancel'].forEach(function (t) { edBox.addEventListener(t, function () { edDrag = null; }); });
+    (function () { var st = document.createElement('style'); st.textContent = '.p-3d-edit-head{cursor:move;touch-action:none;user-select:none}.p-3d-edit-head span::before{content:"⠿ ";color:#9aa09a;font-weight:400}'; document.head.appendChild(st); })();
     function edSelect(s) { sel = s; edNote = ''; clearHL(); setHL(edKey(s)); edRender(); }
     function edClose() { sel = null; edBox.hidden = true; edNote = ''; clearHL(); }
     function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (meshById[edKey(sel)]) setHL(edKey(sel)); edRender(); } }
