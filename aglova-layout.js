@@ -228,6 +228,9 @@
 
     /* ---------------- inputs from the page */
     function q(sel) { return page.querySelector(sel); }
+    /* chimney sizes: as soon as one of A / B is entered the chimney is drawn; the other side borrows that size until it is entered (its label shows "?") */
+    function chimA() { var a = dimMm('chimney_a_aglova'); return a || dimMm('chimney_b_aglova'); }
+    function chimB() { var b = dimMm('chimney_b_aglova'); return b || dimMm('chimney_a_aglova'); }
     function pill(field) { var e = q('[data-field="' + field + '"] .option-pill.active,[data-field="' + field + '"] .option-pill.is-selected'); return e ? String(e.dataset.value || e.textContent || '').trim() : ''; }
     function dimMm(key) {
       var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return 0;
@@ -316,7 +319,7 @@
       var phys1 = chim && cA && cB && w1 > 0 && w2 > 0 ? w1 + cA : w1, phys2 = chim && cA && cB && w1 > 0 && w2 > 0 ? w2 + cB : w2;
       return {
         wall1Mm: phys1, wall2Mm: phys2, heightMm: dimMm('visochina_aglova') || 2600,
-        chimney: /^да$/i.test(pill('chimney_exists')), chimneyAMm: dimMm('chimney_a_aglova'), chimneyBMm: dimMm('chimney_b_aglova'),
+        chimney: /^да$/i.test(pill('chimney_exists')), chimneyAMm: chimA(), chimneyBMm: chimB(), chimneyAGuess: !dimMm('chimney_a_aglova'), chimneyBGuess: !dimMm('chimney_b_aglova'),
         waterWall: /2/.test(pill('water_position_aglova')) ? 2 : 1, ovenTower: /^да$/i.test(pill('oven_tall_unit_aglova')), fridge: fridge,
         deep: pill('deep-cabinets') === 'yes', barMode: barMode,
         barLenMm: dimMm(barMode === 'island' ? 'island_len_aglova' : 'bar_len_aglova'), barWidthMm: dimMm(barMode === 'island' ? 'island_width_aglova' : 'bar_width_aglova'),
@@ -615,8 +618,8 @@
         roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
           new T.Vector3(cB, ty, 0), new T.Vector3(cB, ty, cA), new T.Vector3(cB - tk, ty, 0), new T.Vector3(cB + tk, ty, 0), new T.Vector3(cB - tk, ty, cA), new T.Vector3(cB + tk, ty, cA),
           new T.Vector3(0, ty, cA), new T.Vector3(cB, ty, cA), new T.Vector3(0, ty, cA - tk), new T.Vector3(0, ty, cA + tk)]), new T.LineBasicMaterial({ color: OR })));
-        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(cB + .3, H - .3, cA / 2); roomGroup.add(la);
-        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2 - .05, H - .62, cA + .34); roomGroup.add(lb2);
+        var la = label('A  ' + (inp.chimneyAGuess ? '?' : fmt(inp.chimneyAMm)), .2, '#ffffff', '#d9822b'); la.position.set(cB + .3, H - .3, cA / 2); roomGroup.add(la);
+        var lb2 = label('B  ' + (inp.chimneyBGuess ? '?' : fmt(inp.chimneyBMm)), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2 - .05, H - .62, cA + .34); roomGroup.add(lb2);
       }
       if (inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm) {
         var bl = inp.barLenMm / 1000, bw = inp.barWidthMm / 1000, isl = inp.barMode === 'island', ax = inp.barMode === 'wall1' ? 'z' : 'x', gap = 1.2;
