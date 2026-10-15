@@ -491,18 +491,27 @@
       if (!inp.showCabinets) return;
       plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
+      edMergeLow([plan.modules]);   // lower cabinets merged in the ✎ editor (the upper row keeps its own cabinets)
       lastInp = inp; plan.fillerMm = edApplyLow(plan.modules, plan.fillerMm, MAX_FILLER);   // widths changed in the ✎ editor
       if (!plan.fillerMm) plan.fillerAt = 'none'; else if (plan.fillerAt === 'none') plan.fillerAt = 'right';
       var ordered = applyOrder(plan, dirty ? order : null); order = ordered.map(function (m) { return m.id; });
       ordered.forEach(function (m, i) { m.idx = i; });
       var pos = position(plan, ordered); items = pos.items;
-      var upList = items.filter(function (m) { return !TALL[m.type]; }), glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)].id : null; edGlassId = glassId;
+      /* upper slots: one per lower cabinet as it was before any lower merge (a merged lower cabinet still carries its parts), so the two rows stay independent */
+      var ubase = [];
+      items.forEach(function (m) {
+        if (!m.parts) { ubase.push({ id: m.id, type: m.type, x: m.x, w: m.w }); return; }
+        var x = m.x, d = m.w - m.parts.reduce(function (s, p) { return s + p.w; }, 0);
+        m.parts.forEach(function (p, i) { var w = p.w + (i === 0 ? d : 0); ubase.push({ id: p.id, type: m.type, x: x, w: w }); x += w; });
+      });
       /* uppers have their own order inside each run between tall columns; it is kept only while it still fits the lower layout */
-      var byId = {}; items.forEach(function (m) { byId[m.id] = m; });
+      var byId = {}; ubase.forEach(function (m) { byId[m.id] = m; });
       var dRuns = [], cr = null;
-      items.forEach(function (m) { if (TALL[m.type]) cr = null; else { if (!cr) { cr = { x0: m.x, ids: [], w: 0 }; dRuns.push(cr); } cr.ids.push(m.id); cr.w += m.w; } });
+      ubase.forEach(function (m) { if (TALL[m.type]) cr = null; else { if (!cr) { cr = { x0: m.x, ids: [], w: 0 }; dRuns.push(cr); } cr.ids.push(m.id); cr.w += m.w; } });
       // upper cabinet widths: the lower width unless changed in the ✎ editor (the neighbour in the same run takes up the difference)
-      var uW = {}; items.forEach(function (m) { uW[m.id] = m.w; }); edApplySlotsPrava(dRuns, uW);
+      var uW = {}; ubase.forEach(function (m) { uW[m.id] = m.w; }); edMergeUpPrava(dRuns, uW); edApplySlotsPrava(dRuns, uW);
+      var upList = []; dRuns.forEach(function (r) { r.ids.forEach(function (id) { upList.push(id); }); });
+      var glassId = (X.glass && upList.length) ? upList[Math.floor(upList.length / 2)] : null; edGlassId = glassId;
       /* each layer (standard / deep) keeps its own order; it is kept only while it still fits the lower layout */
       function layerOf(ord) {
         var use = !!ord && ord.length === dRuns.length;
@@ -523,10 +532,11 @@
         g.position.x = cx; worldUV(g); g.userData = { id: m.id, targetX: cx, w: w, type: m.type }; cabGroup.add(g); meshById[m.id] = g;
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
-        if (!TALL[m.type]) {
-          var ux = (upos[m.id].x + upos[m.id].w / 2) / 1000; var up = buildUpper(upos[m.id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(m.id), lift: uLift(m.id) }); up.position.x = ux; worldUV(up); up.userData = { id: m.id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[m.id + ':u'] = up;
-          if (inp.deep) { var dx = (dpos[m.id].x + dpos[m.id].w / 2) / 1000; var dp = buildUpper(dpos[m.id].w / 1000, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(m.id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: m.id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[m.id + ':d'] = dp; }
-        }
+      });
+      // upper cabinets: their own slots (independent of merges in the lower row)
+      upList.forEach(function (id) {
+        if (upos[id]) { var ux = (upos[id].x + upos[id].w / 2) / 1000; var up = buildUpper(upos[id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(id), lift: uLift(id) }); up.position.x = ux; worldUV(up); up.userData = { id: id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[id + ':u'] = up; }
+        if (inp.deep && dpos[id]) { var dx = (dpos[id].x + dpos[id].w / 2) / 1000; var dp = buildUpper(dpos[id].w / 1000, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[id + ':d'] = dp; }
       });
       // filler panel (fixed, not draggable)
       if (plan.fillerMm) {
@@ -541,7 +551,7 @@
         var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, (a + b) / 2000, BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; cabGroup.add(top);
       });
       // expose layout for the form / AI step
-      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: items.filter(function (m) { return !TALL[m.type]; }).map(function (m) { return { id: m.id, widthMm: upos[m.id].w, xMm: upos[m.id].x }; }) });
+      var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: upList.filter(function (id) { return upos[id]; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) });
       var inp2 = q('input[name="kitchen_layout"]'); if (!inp2) { var f = q('form'); if (f) { inp2 = document.createElement('input'); inp2.type = 'hidden'; inp2.name = 'kitchen_layout'; f.appendChild(inp2); } }
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
@@ -661,9 +671,9 @@
     }
     /* ---------------- cabinet editor (✎): pick one cabinet in the sketch, change its width and its fronts.
        Edits are kept per cabinet id and re-applied on every rebuild; the sketch picture and its key carry them to the AI. */
-    var EDIT = { low: {}, up: {}, slot: {} }, sel = null, editMode = false, edDown = null, edNote = '';
-    var STEP_W = 50, MIN_W = 150, MAX_W = 900;
-    function wLim(t) { return t === 'sinkBase' ? [450, 1200] : [MIN_W, MAX_W]; }   // ordinary cabinets 15-90 cm, sink base 45-120 cm
+    var EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }, sel = null, editMode = false, edDown = null, edNote = '';
+    var STEP_W = 50, MIN_W = 150, MAX_W = 1200;
+    function wLim(t) { return t === 'sinkBase' ? [450, 1200] : [MIN_W, MAX_W]; }   // ordinary cabinets 15-120 cm, sink base 45-120 cm
     function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase'); }
     var edBox = document.createElement('div'); edBox.className = 'prava-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
     ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
@@ -723,6 +733,60 @@
         });
       });
     }
+    /* ---------------- merging (✎): two neighbouring cabinets of the same row become one cabinet (up to MAX_W); "Раздели обратно" undoes the last merge.
+       The lower and the upper row are independent: merging lower cabinets never changes the upper cabinets and the other way round. */
+    function edFind(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+    function edMergeLow(lists) {   // lists: the module arrays of the walls; pair { a, b, side }: b is absorbed into a (side 'L' = b stood before a)
+      EDIT.mLow = EDIT.mLow.filter(function (p) {
+        for (var k = 0; k < lists.length; k++) {
+          var mods = lists[k], a = edFind(mods, p.a), b = edFind(mods, p.b); if (!a || !b) continue;
+          if (a.type !== 'genericBase' || b.type !== 'genericBase' || a.w + b.w > MAX_W) return false;
+          var pa = a.parts || [{ id: a.id, w: a.w }], pb = b.parts || [{ id: b.id, w: b.w }];
+          a.parts = p.side === 'L' ? pb.concat(pa) : pa.concat(pb); a.w += b.w; mods.splice(mods.indexOf(b), 1); return true;
+        }
+        return false;
+      });
+    }
+    function edMergeUpPrava(runs, uW) {   // upper slots: b is absorbed into a (both rows above share the slots)
+      EDIT.mUp = EDIT.mUp.filter(function (p) {
+        for (var ri = 0; ri < runs.length; ri++) {
+          var ids = runs[ri].ids, ib = ids.indexOf(p.b); if (ids.indexOf(p.a) < 0 || ib < 0) continue;
+          if (uW[p.a] + uW[p.b] > MAX_W) return false;
+          uW[p.a] += uW[p.b]; delete uW[p.b]; ids.splice(ib, 1); return true;
+        }
+        return false;
+      });
+    }
+    function edMergeInfo(s) {   // the selected cabinet's merge candidates: { key, cand: [{ id, mesh, side, ok }], merged }
+      var c = [];
+      if (!s.upper) {
+        var m = edModule(s.id); if (!m || m.type !== 'genericBase') return null;
+        var row = items.filter(function (x) { return x.wall === m.wall; }).sort(function (a, b) { return a.x - b.x; }), i = row.indexOf(m);
+        [[row[i - 1], 'L'], [row[i + 1], 'R']].forEach(function (q) { var n = q[0]; if (n && n.type === 'genericBase') c.push({ id: n.id, mesh: n.id, side: q[1], ok: n.w + m.w <= MAX_W }); });
+        return { key: m.id, cand: c, merged: EDIT.mLow.some(function (p) { return p.a === m.id; }) };
+      }
+      var L = s.layer === 'd' ? 'd' : 'u', R = runsOf(L), P = posOf(L);
+      for (var ri = 0; ri < R.length; ri++) {
+        var j = R[ri].indexOf(s.id); if (j < 0 || !P[s.id]) continue;
+        [[R[ri][j - 1], 'L'], [R[ri][j + 1], 'R']].forEach(function (q) { var n = q[0]; if (n && P[n]) c.push({ id: n, mesh: n + ':' + L, side: q[1], ok: P[n].w + P[s.id].w <= MAX_W }); });
+        return { key: s.id, cand: c, merged: EDIT.mUp.some(function (p) { return p.a === s.id; }) };
+      }
+      return null;
+    }
+    function edScreenX(key) {   // where a cabinet is on the screen (-1 left .. 1 right), so the buttons can say "left" / "right" whatever the wall
+      var g = meshById[key]; if (!g || !T || !camera) return 0; var bb = new T.Box3().setFromObject(g); if (bb.isEmpty()) return 0;
+      return new T.Vector3((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2).project(camera).x;
+    }
+    function edDoMerge(key, n) {
+      if (!sel.upper) { EDIT.mLow.push({ a: key, b: n.id, side: n.side }); if (EDIT.low[key]) delete EDIT.low[key].w; delete EDIT.low[n.id]; return; }
+      EDIT.mUp.push({ a: key, b: n.id, side: n.side }); delete EDIT.slot[key]; delete EDIT.slot[n.id]; delete EDIT.up[n.id]; delete EDIT.up[n.id + ':d'];
+      uorder = null; dorder = null; sel.id = key;
+    }
+    function edDoSplit(key) {
+      var list = sel.upper ? EDIT.mUp : EDIT.mLow;
+      for (var i = list.length - 1; i >= 0; i--) if (list[i].a === key) { list.splice(i, 1); break; }
+      if (sel.upper) { delete EDIT.slot[key]; uorder = null; dorder = null; sel.id = key; } else if (EDIT.low[key]) delete EDIT.low[key].w;
+    }
     function edSlotOf(s) {   // the slot (position) the selected upper unit sits in
       if (!edSlots) return null; if (typeof edSlotFor === 'function') return edSlotFor(s); var L = layerIds && layerIds[s.layer === 'd' ? 'd' : 'u']; if (!L) return null;
       for (var ri = 0; ri < L.length; ri++) { var si = L[ri].indexOf(s.id); if (si >= 0 && uRuns[ri] && uRuns[ri].units[si]) return uRuns[ri].units[si]; }
@@ -750,6 +814,15 @@
         html += '<div class="prava-3d-edit-lbl">Витрина:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (gl ? ' is-on' : '') + '" data-ed="glass">' + (gl ? (lift ? 'Две витрини една над друга ✓' : 'Витрина с осветление ✓') : 'Направи витрина') + '</button></div>';
         if (!edSlots) html += '<div class="prava-3d-edit-info">Ширината на горния шкаф следва долния шкаф под него.</div>';
       }
+      var mi = (!sel.upper || edSlots) ? edMergeInfo(sel) : null;
+      if (mi && (mi.cand.length || mi.merged)) {
+        var sx0 = edScreenX(edKey(sel));
+        html += '<div class="prava-3d-edit-lbl">Сливане (до ' + (MAX_W / 10) + ' см):</div><div class="prava-3d-edit-seg">' +
+          mi.cand.slice().sort(function (p, q) { return edScreenX(p.mesh) - edScreenX(q.mesh); }).map(function (n) {
+            var lft = edScreenX(n.mesh) < sx0;
+            return '<button type="button" class="prava-3d-ed" data-ed="merge" data-v="' + n.id + '"' + (n.ok ? '' : ' disabled title="Общата ширина ще е над ' + (MAX_W / 10) + ' см"') + '>' + (lft ? '← Слей с левия' : 'Слей с десния →') + '</button>';
+          }).join('') + (mi.merged ? '<button type="button" class="prava-3d-ed" data-ed="split">Раздели обратно</button>' : '') + '</div>';
+      }
       if (edNote) html += '<div class="prava-3d-edit-note">' + edNote + '</div>';
       edBox.innerHTML = html; edBox.hidden = false; edPlace();
     }
@@ -776,6 +849,8 @@
       } else if (a === 'front') { EDIT.low[sel.id] = EDIT.low[sel.id] || {}; EDIT.low[sel.id].front = b.dataset.v; }
       else if (a === 'lift') { EDIT.up[sel.id] = EDIT.up[sel.id] || {}; EDIT.up[sel.id].lift = b.dataset.v === '1'; }
       else if (a === 'glass') { var gk = edUpKey(sel); EDIT.up[gk] = EDIT.up[gk] || {}; EDIT.up[gk].glass = !uGlass(gk); }
+      else if (a === 'merge') { var mi = edMergeInfo(sel), nb = null; (mi ? mi.cand : []).forEach(function (n) { if (n.id === b.dataset.v && n.ok) nb = n; }); if (nb) edDoMerge(mi.key, nb); }
+      else if (a === 'split') { var mi2 = edMergeInfo(sel); if (mi2 && mi2.merged) edDoSplit(mi2.key); }
       edRebuild();
     });
     /* in edit mode a tap on a cabinet selects it; a drag on empty space still turns the view */
@@ -848,7 +923,7 @@
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
       else if (a === 'edit') setMode('edit');
-      else if (a === 'auto') { EDIT = { low: {}, up: {}, slot: {} }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
