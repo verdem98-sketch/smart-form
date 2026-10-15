@@ -1031,14 +1031,26 @@
       edBox.innerHTML = html; edBox.hidden = false; edPlace();
     }
     var edV = null;
-    function edPlace() {
+    function edPlace() {   // the card goes next to the selected cabinet, never on top of it (above, below, right or left - the first side with room)
       if (!sel || edBox.hidden || !T) return; var g = meshById[edKey(sel)]; if (!g) return;
       var bb = new T.Box3().setFromObject(g); if (bb.isEmpty()) return;
-      edV = edV || new T.Vector3(); edV.set((bb.min.x + bb.max.x) / 2, bb.max.y, (bb.min.z + bb.max.z) / 2).project(camera);
-      var W = host.clientWidth, H = host.clientHeight, bw = edBox.offsetWidth || 230, bh = edBox.offsetHeight || 160;
-      var x = (edV.x + 1) / 2 * W, y = (1 - edV.y) / 2 * H, left = Math.max(8, Math.min(W - bw - 56, x - bw / 2)), top = y - bh - 14;
-      if (top < 8) { var yb = (1 - new T.Vector3((bb.min.x + bb.max.x) / 2, bb.min.y, (bb.min.z + bb.max.z) / 2).project(camera).y) / 2 * H; top = Math.min(H - bh - 8, yb + 14); }
-      edBox.style.left = Math.round(left) + 'px'; edBox.style.top = Math.round(Math.max(8, top)) + 'px';
+      var W = host.clientWidth, H = host.clientHeight, bw = edBox.offsetWidth || 230, bh = edBox.offsetHeight || 160, gap = 12;
+      var r = { l: 1e9, t: 1e9, r: -1e9, b: -1e9 };
+      edV = edV || new T.Vector3();
+      [bb.min.x, bb.max.x].forEach(function (cx) { [bb.min.y, bb.max.y].forEach(function (cy) { [bb.min.z, bb.max.z].forEach(function (cz) {
+        edV.set(cx, cy, cz).project(camera); var sx = (edV.x + 1) / 2 * W, sy = (1 - edV.y) / 2 * H;
+        r.l = Math.min(r.l, sx); r.r = Math.max(r.r, sx); r.t = Math.min(r.t, sy); r.b = Math.max(r.b, sy);
+      }); }); });
+      var cx0 = (r.l + r.r) / 2, cy0 = (r.t + r.b) / 2, maxL = Math.max(8, W - bw - 56), maxT = Math.max(8, H - bh - 8);
+      function clampL(v) { return Math.max(8, Math.min(maxL, v)); }
+      function clampT(v) { return Math.max(8, Math.min(maxT, v)); }
+      var cand = [[clampL(cx0 - bw / 2), r.t - bh - gap], [clampL(cx0 - bw / 2), r.b + gap], [r.r + gap, clampT(cy0 - bh / 2)], [r.l - bw - gap, clampT(cy0 - bh / 2)]], best = null, bestO = 1e18;
+      cand.forEach(function (c) {
+        var L = clampL(c[0]), Tp = clampT(c[1]);
+        var o = Math.max(0, Math.min(L + bw, r.r) - Math.max(L, r.l)) * Math.max(0, Math.min(Tp + bh, r.b) - Math.max(Tp, r.t));
+        if (o < bestO - .5) { bestO = o; best = [L, Tp]; }
+      });
+      edBox.style.left = Math.round(best[0]) + 'px'; edBox.style.top = Math.round(best[1]) + 'px';
     }
     function edSelect(s) { sel = s; edNote = ''; clearHL(); setHL(edKey(s)); edRender(); }
     function edClose() { sel = null; edBox.hidden = true; edNote = ''; clearHL(); }
