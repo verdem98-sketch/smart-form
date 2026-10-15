@@ -521,28 +521,31 @@
     }
     function buildUpper(w, bottom, h, depth, mat, opt) {
       opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
-      var lift = opt.lift === undefined ? !!X.lift : opt.lift, n = (lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
+      // corner cabinet: the end covered by the other wall's row gets a fixed blind panel as wide as that row is deep; the doors share the rest
+      var bl = opt.blind ? Math.min(opt.blind + 18, w * 1000 - 150) / 1000 : 0; if (bl < .05) bl = 0;
+      var sgn = opt.wall === 1 ? 1 : -1, wf = w - bl, ox = -sgn * bl / 2;
+      if (bl) box(bl - G, h - G, FT, mat, sgn * (w / 2 - bl / 2), bottom + h / 2, depth + FT / 2, g);
+      var lift = opt.lift === undefined ? !!X.lift : opt.lift, n = (lift || wf < .7) ? 1 : 2, dw = wf / n, fm = opt.glass ? mats.glassFront : mat;
       if (opt.glass) {                                                                                  // lit display cabinet: warm interior + shelves
-        box(w - .08, h - .08, depth - .06, mats.glow, 0, bottom + h / 2, depth / 2 + .02, g);
-        [.33, .66].forEach(function (f) { box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h * f, depth / 2 + .02, g); });
+        box(wf - .08, h - .08, depth - .06, mats.glow, ox, bottom + h / 2, depth / 2 + .02, g);
+        [.33, .66].forEach(function (f) { box(wf - .08, .012, depth - .08, mats.steel, ox, bottom + h * f, depth / 2 + .02, g); });
       }
       if (lift && !opt.deep) {                                                                         // lift-up flaps: joint between flaps is horizontal; with glass = two small display cabinets one above the other
-        if (opt.glass) box(w - .08, .012, depth - .08, mats.steel, 0, bottom + h / 2, depth / 2 + .02, g);
+        if (opt.glass) box(wf - .08, .012, depth - .08, mats.steel, ox, bottom + h / 2, depth / 2 + .02, g);
         for (var k = 0; k < 2; k++) {
           var fy = bottom + h * (k ? .75 : .25);
-          if (opt.glass) { box(w - G, h / 2 - G, .008, fm, 0, fy, depth + .004, g); box(w - G, .03, FT, mats.steel, 0, fy + h / 4 - .015, depth + FT / 2, g); box(w - G, .03, FT, mats.steel, 0, fy - h / 4 + .015, depth + FT / 2, g); }
-          else box(w - G, h / 2 - G, FT, fm, 0, fy, depth + FT / 2, g);
-          if (X.panel && !opt.glass && h > .5 && w > .25) box(w - G - .1, h / 2 - .1, .008, fm, 0, fy, depth + FT + .004, g);
-          if (!X.handleless) box(Math.min(.2, w * .55), .012, .014, mats.steel, 0, bottom + h * (k ? .5 : 0) + .05, depth + FT + .007, g);
+          if (opt.glass) { box(wf - G, h / 2 - G, .008, fm, ox, fy, depth + .004, g); box(wf - G, .03, FT, mats.steel, ox, fy + h / 4 - .015, depth + FT / 2, g); box(wf - G, .03, FT, mats.steel, ox, fy - h / 4 + .015, depth + FT / 2, g); }
+          else box(wf - G, h / 2 - G, FT, fm, ox, fy, depth + FT / 2, g);
+          if (X.panel && !opt.glass && h > .5 && wf > .25) box(wf - G - .1, h / 2 - .1, .008, fm, ox, fy, depth + FT + .004, g);
+          if (!X.handleless) box(Math.min(.2, wf * .55), .012, .014, mats.steel, ox, bottom + h * (k ? .5 : 0) + .05, depth + FT + .007, g);
         }
         n = 0;
       }
       for (var i = 0; i < n; i++) {
-        var cx = -w / 2 + dw * (i + .5);
+        var cx = ox - wf / 2 + dw * (i + .5);
         if (opt.glass) { box(dw - G, h - G, .008, fm, cx, bottom + h / 2, depth + .004, g); box(dw - G, .03, FT, mats.steel, cx, bottom + h - .015, depth + FT / 2, g); box(dw - G, .03, FT, mats.steel, cx, bottom + .015, depth + FT / 2, g); }
         else { box(dw - G, h - G, FT, fm, cx, bottom + h / 2, depth + FT / 2, g); if (X.panel && h > .3 && dw > .25) box(dw - G - .1, h - .1, .008, fm, cx, bottom + h / 2, depth + FT + .004, g); }
-        var hl = Math.min(.2, dw * .55), sMm = opt.s0 === undefined ? 1e9 : (opt.wall === 1 ? opt.s0 + w * 1000 - (i + .5) * dw * 1000 : opt.s0 + (i + .5) * dw * 1000);
-        if (!X.handleless && !(opt.blind && sMm - hl * 500 < opt.blind)) box(hl, .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);   // no handle on a door that is hidden behind the other wall's row
+        if (!X.handleless) box(Math.min(.2, dw * .55), .012, .014, mats.steel, cx, bottom + .06, depth + FT + .007, g);
       }
       if (X.light && !opt.deep) box(w - .04, .012, .03, mats.led, 0, bottom - .006, depth - .05, g);       // LED strip under uppers
       return g;
@@ -553,6 +556,7 @@
        Wall 1 is mirrored (its corner end is at +x), wall 3 is not (its corner end is at -x). */
     function cornerFront(g, W, y0, y1, mirror) {
       var fw = .3 - .004, cx = mirror ? W / 2 - .15 : -W / 2 + .15;
+      var bw = W - .3, bx = mirror ? -W / 2 + bw / 2 : W / 2 - bw / 2, bh = y1 - y0 - G; if (bw > .05) box(bw - G, bh, FT, mats.front, bx, y0 + bh / 2 + G / 2, D + FT / 2, g);   // blind panel over the part covered by the other wall's row (no door, no handle)
       front(g, fw + G, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, fw * .8));
     }
     /* distance along a wall (mm from its corner end; back wall: from the left corner) -> x in that wall's local frame.
