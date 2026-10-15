@@ -256,6 +256,7 @@
     function pill(field) { var e = q('[data-field="' + field + '"] .option-pill.active,[data-field="' + field + '"] .option-pill.is-selected'); return e ? String(e.dataset.value || e.textContent || '').trim() : ''; }
     function dimMm(key) {
       var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return 0;
+      if (!row.classList.contains('is-touched') && row.getAttribute('data-touched') !== 'true') return 0;   // the pickers start at 1 m 5 cm: until a size is entered the sketch shows the default room
       function n(sel) { var el = row.querySelector(sel + ' .picker-value-text') || row.querySelector(sel + ' .picker-value'); return parseInt((el && el.textContent) || '0', 10) || 0; }
       return (n('.meters-control') * 100 + n('.centimeters-control')) * 10;
     }
