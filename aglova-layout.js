@@ -261,6 +261,15 @@
       im.src = u; return null;
     }
     /* finish material: true decor texture when the image is a real texture, otherwise the averaged colour */
+    /* worktop and backsplash: a wood decor always runs along their length (horizontal grain) */
+    function isWoodField(field) { var rec = root.agMaterialSelections && root.agMaterialSelections.get(field); return !!rec && rec.category === 'wood'; }
+    function finLen(field, hex, rough) {
+      var m = fin(field, hex, 0, rough); if (!m.map || !isWoodField(field)) return m;
+      var u = decorUrl(field); if (grainCache[u] !== 'v') return m;   // the sample already runs horizontally
+      var k = u + '|len|' + rough;
+      if (!texMat[k]) { var t = m.map.clone(); t.center.set(.5, .5); t.rotation = Math.PI / 2; t.needsUpdate = true; texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: rough, metalness: 0 }); texMat[k].userData.tile = .6; }
+      return texMat[k];
+    }
     function fin(field, hex, shift, rough, grain) {
       var u = decorUrl(field), tx = u && texCache[u];
       if (!tx) return tone(hex, shift, rough);
@@ -540,7 +549,7 @@
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, H = (inp.heightMm || 2600) / 1000;
-      texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? fin('countertop_finish', inp.cTop, 0, .45) : mats.topDefault;
+      texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? finLen('countertop_finish', inp.cTop, .45) : mats.topDefault;
       mats.island = inp.cLower !== null && inp.cLower !== undefined ? fin('lower_finish', inp.cLower, -.03) : mats.islandDefault;
       var bh = UPPER.ub - BH, cx0 = inp.chimney && inp.chimneyBMm ? inp.chimneyBMm / 1000 : 0, cz0 = inp.chimney && inp.chimneyAMm ? inp.chimneyAMm / 1000 : 0;
       if (inp.showCabinets && inp.x && inp.x.light) {
@@ -549,7 +558,7 @@
         var g1 = new T.Mesh(new T.PlaneGeometry(L1 - cz0, bh), m1); g1.rotation.y = Math.PI / 2; g1.position.set(.006, (UPPER.ub + BH) / 2, cz0 + (L1 - cz0) / 2); roomGroup.add(g1);
       }
       if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) {
-        var bm = fin('backsplash_finish', inp.cBack, 0, .4);
+        var bm = finLen('backsplash_finish', inp.cBack, .4);
         [[2, L2 - cx0, cx0, 0], [1, L1 - cz0, cz0, 1]].forEach(function (s) {
           var bgm = new T.PlaneGeometry(s[1], bh);
           if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * s[1] / .6, buv.getY(bi) * bh / .6); }
@@ -1224,6 +1233,7 @@
         }
         if (items.some(function (m) { return (m.type === 'fridge' && m.applianceType !== 'free_standing') || ((m.type === 'dishwasher' || m.type === 'washingMachine') && !m.free); })) out.push('BUILT-IN appliances are hidden behind cabinet fronts in the door decor: draw them as plain doors, never as visible appliances');
         out.push('appliance finish: all black (washing machine white)');
+        [['countertop_finish', 'worktop'], ['backsplash_finish', 'wall backsplash']].forEach(function (p) { if (isWoodField(p[0])) out.push(p[1] + ': wood grain runs HORIZONTALLY along its whole length, never vertical'); });
         if (X.handleless) out.push('handleless fronts');
         if (X.drawers) out.push('extra drawers on lower storage');
         if (X.panel) out.push('framed panel doors');
