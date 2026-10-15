@@ -173,8 +173,8 @@
     function isWoodField(field) { var id = fieldVal(field); return !!id && (catKind[field] || {})[id] === 'wood'; }
     function finLen(field, hex, rough) {
       var m = fin(field, hex, 0, rough); if (!m.map || !isWoodField(field)) return m;
-      var u = decorUrl(field); if (grainCache[u] !== 'v') return m;   // the sample already runs horizontally
-      var k = u + '|len|' + rough;
+      var u = decorUrl(field); if (grainCache[u] === 'h') return m;   // worktop / backsplash: grain always along the length; only a sample known to run horizontally stays as it is
+      var k = u + '|len|' + rough + '|' + (grainCache[u] || '?');   // decor samples are vertical boards, so an unread sample is turned too
       if (!texMat[k]) { var t = m.map.clone(); t.center.set(.5, .5); t.rotation = Math.PI / 2; t.needsUpdate = true; texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: rough, metalness: 0 }); texMat[k].userData.tile = .6; }
       return texMat[k];
     }
