@@ -1017,9 +1017,13 @@
       EDIT.mLow = EDIT.mLow.filter(function (p) {
         for (var k = 0; k < lists.length; k++) {
           var mods = lists[k], a = edFind(mods, p.a), b = edFind(mods, p.b); if (!a || !b) continue;
-          if (a.type !== 'genericBase' || b.type !== 'genericBase' || a.w + b.w > MAX_W) return false;
+          if (a.type !== 'genericBase' || b.type !== 'genericBase') return false;
+          var over = Math.max(0, a.w + b.w - MAX_W), rest = mods.filter(function (x) { return x !== a && x !== b && x.type === 'genericBase'; }), give = [];
+          for (var r = 0; r < rest.length && over > 0; r++) { var g = Math.min(over, MAX_W - rest[r].w); if (g > 0) { give.push([rest[r], g]); over -= g; } }
+          if (over > 0) return false;   // no room left on this wall
+          give.forEach(function (q) { q[0].w += q[1]; });
           var pa = a.parts || [{ id: a.id, w: a.w }], pb = b.parts || [{ id: b.id, w: b.w }];
-          a.parts = p.side === 'L' ? pb.concat(pa) : pa.concat(pb); a.w += b.w; mods.splice(mods.indexOf(b), 1); return true;
+          a.parts = p.side === 'L' ? pb.concat(pa) : pa.concat(pb); a.w = Math.min(MAX_W, a.w + b.w); mods.splice(mods.indexOf(b), 1); return true;
         }
         return false;
       });
@@ -1028,8 +1032,11 @@
       EDIT.mUp = EDIT.mUp.filter(function (p) {
         for (var ri = 0; ri < runs.length; ri++) {
           var U = runs[ri].units, a = edFind(U, p.a), b = edFind(U, p.b); if (!a || !b) continue;
-          if (a.w + b.w > MAX_W) return false;
-          a.w += b.w; U.splice(U.indexOf(b), 1); delete unitById[p.b]; return true;
+          var over = Math.max(0, a.w + b.w - MAX_W), rest = U.filter(function (u) { return u !== a && u !== b; }), give = [];
+          for (var r = 0; r < rest.length && over > 0; r++) { var g = Math.min(over, MAX_W - rest[r].w); if (g > 0) { give.push([rest[r], g]); over -= g; } }
+          if (over > 0) return false;
+          give.forEach(function (q) { q[0].w += q[1]; });
+          a.w = Math.min(MAX_W, a.w + b.w); U.splice(U.indexOf(b), 1); delete unitById[p.b]; return true;
         }
         return false;
       });
@@ -1039,14 +1046,14 @@
       if (!s.upper) {
         var m = edModule(s.id); if (!m || m.type !== 'genericBase') return null;
         var row = items.filter(function (x) { return x.wall === m.wall; }).sort(function (a, b) { return a.x - b.x; }), i = row.indexOf(m);
-        [[row[i - 1], 'L'], [row[i + 1], 'R']].forEach(function (q) { var n = q[0]; if (n && n.type === 'genericBase') c.push({ id: n.id, mesh: n.id, side: q[1], ok: n.w + m.w <= MAX_W }); });
+        [[row[i - 1], 'L'], [row[i + 1], 'R']].forEach(function (q) { var n = q[0]; if (n && n.type === 'genericBase') c.push({ id: n.id, mesh: n.id, side: q[1], ok: n.w + m.w <= MAX_W || row.filter(function (x) { return x.type === 'genericBase'; }).length > 2 }); });
         return { key: m.id, cand: c, merged: EDIT.mLow.some(function (p) { return p.a === m.id; }) };
       }
       var L = s.layer === 'd' ? 'd' : 'u', LI = layerIds[L] || [];
       for (var ri = 0; ri < LI.length; ri++) {
         var j = LI[ri].indexOf(s.id); if (j < 0 || !uRuns[ri]) continue;
         var U = uRuns[ri].units, me = U[j]; if (!me) return null;
-        [[j - 1, 'L'], [j + 1, 'R']].forEach(function (q) { var n = U[q[0]]; if (n) c.push({ id: n.id, mesh: LI[ri][q[0]] + ':' + L, side: q[1], ok: n.w + me.w <= MAX_W }); });
+        [[j - 1, 'L'], [j + 1, 'R']].forEach(function (q) { var n = U[q[0]]; if (n) c.push({ id: n.id, mesh: LI[ri][q[0]] + ':' + L, side: q[1], ok: n.w + me.w <= MAX_W || U.length > 2 }); });
         return { key: me.id, cand: c, merged: EDIT.mUp.some(function (p) { return p.a === me.id; }) };
       }
       return null;
@@ -1098,7 +1105,7 @@
         html += '<div class="p-3d-edit-lbl">Сливане (до ' + (MAX_W / 10) + ' см):</div><div class="p-3d-edit-seg">' +
           mi.cand.slice().sort(function (p, q) { return edScreenX(p.mesh) - edScreenX(q.mesh); }).map(function (n) {
             var lft = edScreenX(n.mesh) < sx0;
-            return '<button type="button" class="p-3d-ed" data-ed="merge" data-v="' + n.id + '"' + (n.ok ? '' : ' disabled title="Общата ширина ще е над ' + (MAX_W / 10) + ' см"') + '>' + (lft ? '← Слей с левия' : 'Слей с десния →') + '</button>';
+            return '<button type="button" class="p-3d-ed" data-ed="merge" data-v="' + n.id + '"' + (n.ok ? '' : ' disabled title="Няма място: общата ширина е над ' + (MAX_W / 10) + ' см"') + '>' + (lft ? '← Слей с левия' : 'Слей с десния →') + '</button>';
           }).join('') + (mi.merged ? '<button type="button" class="p-3d-ed" data-ed="split">Раздели обратно</button>' : '') + '</div>';
       }
       if (edNote) html += '<div class="p-3d-edit-note">' + edNote + '</div>';
