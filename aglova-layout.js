@@ -558,7 +558,7 @@
     function islFloor(ev) { ndc(ev); var p = new T.Vector3(); return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -BH), p) ? p : null; }
     function islSetDim(key, mm) {   // writes the size back into the form's own pickers (metres + centimetres), so the order carries it too
       var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return;
-      var cm = Math.round(mm / 10), vals = [Math.floor(cm / 100), cm % 100];
+      var cm = Math.round(mm / 10), hasM = !!row.querySelector('.meters-control'), vals = hasM ? [Math.floor(cm / 100), cm % 100] : [0, cm];   // the island width row has only a centimetre picker
       ['.meters-control', '.centimeters-control'].forEach(function (sel2, i) { row.querySelectorAll(sel2 + ' .picker-value-text,' + sel2 + ' .picker-value').forEach(function (e) { e.textContent = String(vals[i]); }); });
       row.classList.add('is-touched'); row.setAttribute('data-touched', 'true');
     }
