@@ -75,7 +75,19 @@
     done.appendChild(p);
   }
 
+  // booking calendar colours (all three kitchens): waiting for a phone confirmation = yellow, confirmed = red
+  function slotColours() {
+    if (document.getElementById('kitchen-slot-colours')) return;
+    var st = document.createElement('style'); st.id = 'kitchen-slot-colours';
+    st.textContent =
+      '.booking-slot.is-pending,.booking-slot.is-local-locked{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
+      '.booking-slot.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
+      '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-local-locked::after{content:" · вашият";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}';
+    document.head.appendChild(st);
+  }
+
   function init() {
+    slotColours();
     var found = kitchen(); if (!found) return;
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
