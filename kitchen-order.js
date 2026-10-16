@@ -192,9 +192,9 @@
     if (document.getElementById('kitchen-slot-colours')) return;
     var st = document.createElement('style'); st.id = 'kitchen-slot-colours';
     st.textContent =
-      '.booking-slot.is-pending{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
-      '.booking-slot.is-local-locked:not(.active):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
-      '.booking-slot.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
+      'html body .booking-wrap .booking-slot.is-pending.is-pending.is-pending{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
+      'html body .booking-wrap .booking-slot.is-local-locked:not(.active):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
+      'html body .booking-wrap .booking-slot.is-booked.is-booked.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
       '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}' +
       '.booking-slot.active::after{content:"' + 'Вашият час' + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
       '.booking-wrap.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
@@ -327,6 +327,62 @@
     document.head.appendChild(st);
   }
 
+
+  // Last step of Ъглова and П-образна laid out like Права: title + subtitle, slots, "Кога планирате поръчката?",
+  // then one card with Контакти (име, имейл, телефон) and Финални бележки with the send button. No inspiration block.
+  function unifyFinal() {
+    var page = document.querySelector('.flow-aglova,.sf-page-p'); if (!page) return;
+    var fp = page.querySelector('.final-phase'); if (!fp) return;
+    if (!document.getElementById('kc-final-css')) {
+      var st = document.createElement('style'); st.id = 'kc-final-css';
+      st.textContent =
+        '.flow-aglova .final-phase .inspiration-cards-row,.sf-page-p .final-phase .inspiration-cards-row{display:none!important}' +
+        '.flow-aglova .final-phase .final-grid,.sf-page-p .final-phase .final-grid{display:block!important}' +
+        '.flow-aglova .final-phase :is(.final-content,.contact-block,[class*="plan-card"]),.sf-page-p .final-phase :is(.final-content,.contact-block,[class*="plan-card"]){margin:16px 0 0!important;padding:18px!important;box-sizing:border-box!important;max-width:100%!important}' +
+        '.flow-aglova .final-phase .contact-block,.sf-page-p .final-phase .contact-block{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}' +
+        '.flow-aglova .final-phase .final-title-subtitle.kc-final-head,.sf-page-p .final-phase .final-title-subtitle.kc-final-head{display:flex!important;flex-direction:column;align-items:flex-start!important;text-align:left!important;margin:0 0 16px!important;max-width:none!important}' +
+        '.kc-final-head .final-title{margin:0!important;font-size:24px!important;line-height:1.25!important;text-align:left!important}.kc-final-head .final-subtitle{margin:0!important;text-align:left!important}' +
+        '.flow-aglova.kc-final-on .ag-step-header,.sf-page-p.kc-final-on .p-step-header{display:none!important}';
+      document.head.appendChild(st);
+    }
+    // title block like Права
+    var head = fp.querySelector('.final-title-subtitle');
+    if (!head) { head = document.createElement('div'); head.className = 'final-title-subtitle'; var nav = fp.querySelector('[class*="final-nav"]'); fp.insertBefore(head, nav ? nav.nextSibling : fp.firstChild); }
+    if (!head.classList.contains('kc-final-head')) {
+      head.classList.add('kc-final-head');
+      head.innerHTML = '<h1 class="final-title">Последна стъпка</h1><div class="final-subtitle">Изберете удобен ден и час. Ще потвърдим по телефона.</div>';
+    }
+    // contacts + notes + send in Права's structure
+    var cb = fp.querySelector('.contact-block');
+    if (cb && !cb.dataset.kcUnified && !cb.querySelector('.tex-area-holder')) {
+      cb.dataset.kcUnified = '1';
+      var name = cb.querySelector('input[name="Name"],input[name="name"],#name');
+      var email = cb.querySelector('input[type="email"],input[name="Email"],#email');
+      var submit = cb.querySelector('input[type="submit"],.w-button');
+      var phone = page.querySelector('input[type="tel"],input[name="Phone"],input[name="phone"]');
+      if (!phone) { phone = document.createElement('input'); phone.type = 'tel'; phone.name = 'Phone'; phone.setAttribute('data-name', 'Phone'); phone.className = 'w-input'; phone.maxLength = 40; }
+      var note = page.querySelector('textarea[name="final_note"]');
+      if (!note) { note = document.createElement('textarea'); note.name = 'final_note'; note.setAttribute('data-name', 'final_note'); note.className = 'textarea-2 w-input'; note.maxLength = 3000; }
+      [name, email, phone].forEach(function (i, k) { if (i) { i.id = i.id || ('kc-contact-' + k); i.classList.add('w-input'); } });
+      var row = document.createElement('div'); row.className = 'contact-row';
+      row.innerHTML = '<div class="contacts-label"><h2 class="heading-86">Контакти</h2></div><div class="question-wrap question-wrap-final"></div>';
+      var q = row.querySelector('.question-wrap');
+      [['Име и Фамилия', name], ['Имейл адрес', email], ['Телефон', phone]].forEach(function (p) {
+        if (!p[1]) return; var l = document.createElement('label'); l.textContent = p[0]; l.htmlFor = p[1].id; q.appendChild(l); q.appendChild(p[1]);
+      });
+      var notes = document.createElement('div'); notes.className = 'tex-area-holder';
+      notes.innerHTML = '<div class="text-area-label"><h2 class="heading-85">Финални бележки</h2></div>';
+      notes.appendChild(note);
+      if (submit) { submit.classList.add('submit-button-2'); notes.appendChild(submit); }
+      cb.innerHTML = ''; cb.appendChild(row); cb.appendChild(notes);
+    }
+  }
+  function finalStepFlag() {
+    var page = document.querySelector('.flow-aglova,.sf-page-p'); if (!page) return;
+    var fp = page.querySelector('.final-phase');
+    page.classList.toggle('kc-final-on', !!(fp && fp.offsetParent));
+  }
+
   function init() {
     slotColours();
     var found = kitchen(); if (!found) return;
@@ -335,6 +391,8 @@
     try { politePage(document.body); } catch (e) { /* wording only */ }
     sketchTitles(); [300, 1500, 4000].forEach(function (ms) { setTimeout(sketchTitles, ms); });
     pSkipGate();
+    [0, 800, 2500].forEach(function (ms) { setTimeout(function () { try { unifyFinal(); finalStepFlag(); } catch (e) { /* layout only */ } }, ms); });
+    document.addEventListener('click', function () { setTimeout(function () { try { unifyFinal(); finalStepFlag(); } catch (e) { /* layout only */ } }, 80); }, true);
     document.addEventListener('click', function () { setTimeout(sketchTitles, 60); setTimeout(sketchTitles, 400); }, true);
     [0, 600, 1800, 4000].forEach(function (ms) { setTimeout(function () { planCard(found.page); }, ms); });
     found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
