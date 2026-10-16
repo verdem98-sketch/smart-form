@@ -218,7 +218,7 @@
       // same grid as Права in all three kitchens: two columns on wide screens, one below 1100 px
       wrap.style.setProperty('--kc-cols', window.innerWidth >= 1100 ? '2' : '1');
       wrap.style.setProperty('--kc-gap', '10px');
-      if (day && !custom.classList.contains('booking-day')) {
+      if (day) {   // same look as a day card, also where the custom card has its own (dark-bordered) style
         var d = getComputedStyle(day);
         var bw = d.borderTopWidth + ' ' + d.borderTopStyle + ' ' + d.borderTopColor;
         [['background', d.backgroundColor], ['border', bw], ['border-radius', d.borderRadius], ['padding', d.padding], ['box-shadow', d.boxShadow], ['min-height', '0']].forEach(function (k) { custom.style.setProperty(k[0], k[1], 'important'); });
@@ -391,6 +391,15 @@
       cb.innerHTML = ''; cb.appendChild(row); cb.appendChild(notes);
       if (email && !email.placeholder) email.placeholder = 'example@mail.com';
       if (!note.placeholder) note.placeholder = 'Финални бележки';
+    }
+    // same texts as Права in the contacts card
+    if (cb) {
+      cb.querySelectorAll('input.w-input:not([type="hidden"])').forEach(function (i) {
+        var want = i.type === 'email' || /mail/i.test(i.name) ? 'example@mail.com' : '';
+        if (i.placeholder !== want) i.placeholder = want;
+      });
+      var ta = cb.querySelector('textarea'); if (ta && ta.placeholder !== 'Финални бележки') ta.placeholder = 'Финални бележки';
+      var sb = cb.querySelector('input[type="submit"]'); if (sb && sb.value !== 'Изпратете') sb.value = 'Изпратете';
     }
   }
   function finalStepFlag() {
