@@ -67,6 +67,7 @@
   }
 
   function esc(v) { return clean(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var OFFICE = 'гр. София, ул. „Пиротска“ 86 — <a href="https://www.google.com/maps/search/?api=1&query=%D1%83%D0%BB.+%D0%9F%D0%B8%D1%80%D0%BE%D1%82%D1%81%D0%BA%D0%B0+86,+%D0%A1%D0%BE%D1%84%D0%B8%D1%8F" target="_blank" rel="noopener">виж на картата</a>';
   var KNAME = { prava: 'права кухня', aglova: 'ъглова кухня', p: 'П-образна кухня' };
   var DAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
   var MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември'];
@@ -107,7 +108,7 @@
       '.kc-steps{list-style:none;margin:0 0 30px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:kc}',
       '.kc-steps li{counter-increment:kc;position:relative;padding:16px 16px 16px 58px;border-radius:14px;background:#f4f7f1;font-size:14px;line-height:1.45;color:#3a3f3a}',
       '.kc-steps li:before{content:counter(kc);position:absolute;left:16px;top:16px;width:30px;height:30px;border-radius:50%;background:#477448;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}',
-      '.kc-steps li b{display:block;color:#2f332f;margin-bottom:2px}',
+      '.kc-steps li b{display:block;color:#2f332f;margin-bottom:2px}','.kc-steps li a{color:#477448;font-weight:600}',
       '.kc-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding-top:22px;border-top:1px solid #e9ece6}',
       '.kc-foot p{margin:0;font-size:14px;color:#6a716b;line-height:1.5}',
       '.kc-call{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;background:#477448;color:#fff!important;font-weight:700;text-decoration:none!important;font-size:15px}',
@@ -143,16 +144,16 @@
     var email = clean(payload.contact.email);
     var T = informal ? {
       thanks: 'Благодаря ти' + (first ? ', ' + esc(first) : '') + '!',
-      lead: 'Твоята ' + name + ' вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подреди.',
-      compl: 'Подбрал си я с вкус. Остава ние да я превърнем в истинска кухня.',
-      s1: 'Обаждаме ти се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща', s2t: 'Срещаме се и уточняваме всички детайли заедно.', s3: 'Проект и оферта', s3t: 'Получаваш точен проект и цена.',
-      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с теб съвсем скоро.', call: 'Обади ни се'
+      lead: 'Твоята кухня вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подреди.',
+      compl: 'Подбрал си я с вкус и с мисъл за всеки ден в нея. Оттук нататък мечтата ти е в сигурни ръце.',
+      s1: 'Обаждаме ти се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща в офиса', s2t: OFFICE, s3: 'Проект и оферта', s3t: 'Получаваш точен проект и цена.',
+      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с теб съвсем скоро.', call: 'Ако имаш допълнителни въпроси — свържи се с нас'
     } : {
       thanks: 'Благодарим Ви' + (first ? ', ' + esc(first) : '') + '!',
-      lead: 'Вашата ' + name + ' вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подредихте.',
-      compl: 'Подбрали сте я с вкус. Остава ние да я превърнем в истинска кухня.',
-      s1: 'Обаждаме се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща', s2t: 'Срещаме се и уточняваме всички детайли заедно.', s3: 'Проект и оферта', s3t: 'Получавате точен проект и цена.',
-      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с Вас съвсем скоро.', call: 'Обадете ни се'
+      lead: 'Вашата кухня вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подредихте.',
+      compl: 'Подбрали сте я с вкус и с мисъл за всеки ден в нея. Оттук нататък мечтата Ви е в сигурни ръце.',
+      s1: 'Обаждаме се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща в офиса', s2t: OFFICE, s3: 'Проект и оферта', s3t: 'Получавате точен проект и цена.',
+      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с Вас съвсем скоро.', call: 'Ако имате допълнителни въпроси — свържете се с нас'
     };
     return '<div class="kc-success">' +
       '<div class="kc-hero"><div class="kc-kicker"><i></i>Заявката е изпратена<span class="kc-num">' + (number ? ' · ' + esc(number) : '') + '</span></div>' +
@@ -165,7 +166,7 @@
       '</div>' +
       '<div class="kc-steps-title">Какво следва</div><ol class="kc-steps">' +
         '<li><b>' + T.s1 + '</b>' + T.s1t + '</li><li><b>' + T.s2 + '</b>' + T.s2t + '</li><li><b>' + T.s3 + '</b>' + T.s3t + '</li></ol>' +
-      '<div class="kc-foot"><p>' + T.copy + '</p><a class="kc-call" href="tel:+359878861059">☎ ' + T.call + ': +359 878 861 059</a></div>' +
+      '<div class="kc-foot"><p>' + T.copy + '<br>' + T.call + ':</p><a class="kc-call" href="tel:+359878861059">☎ +359 878 861 059</a></div>' +
       '</div></div>';
   }
 
