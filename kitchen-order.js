@@ -197,8 +197,8 @@
       'html body .booking-wrap .booking-slot.is-booked.is-booked.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
       '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}' +
       '.booking-slot.active::after{content:"' + 'Вашият час' + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
-      '.booking-wrap.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
-      '.booking-wrap.kc-merged>.booking-days{display:contents!important}' +
+      'html body .booking-wrap.kc-merged.kc-merged.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
+      'html body .booking-wrap.kc-merged.kc-merged>.booking-days{display:contents!important}' +
       '.booking-wrap.kc-merged>.kc-custom{margin:0!important;width:auto!important;max-width:none!important;grid-column:auto!important}' +
       '.booking-wrap.kc-merged>.kc-custom input{width:100%!important;box-sizing:border-box!important}';
     document.head.appendChild(st);
@@ -336,7 +336,9 @@
     if (!document.getElementById('kc-final-css')) {
       var st = document.createElement('style'); st.id = 'kc-final-css';
       st.textContent =
-        '.flow-aglova .final-phase .inspiration-cards-row,.sf-page-p .final-phase .inspiration-cards-row{display:none!important}' +
+        'html body .flow-aglova .final-phase .inspiration-cards-row.inspiration-cards-row,html body .sf-page-p .final-phase .inspiration-cards-row.inspiration-cards-row{display:none!important}' +
+        'html body .flow-aglova .final-phase .booking-days.booking-days,html body .sf-page-p .final-phase .booking-days.booking-days{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}' +
+        '@media(max-width:1100px){html body .flow-aglova .final-phase .booking-days.booking-days,html body .sf-page-p .final-phase .booking-days.booking-days{grid-template-columns:1fr!important}}' +
         '.flow-aglova .final-phase .final-grid,.sf-page-p .final-phase .final-grid{display:block!important}' +
         '.flow-aglova .final-phase :is(.final-content,.contact-block,[class*="plan-card"]),.sf-page-p .final-phase :is(.final-content,.contact-block,[class*="plan-card"]){margin:16px 0 0!important;padding:18px!important;box-sizing:border-box!important;max-width:100%!important}' +
         '.flow-aglova .final-phase .contact-block,.sf-page-p .final-phase .contact-block{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}' +
