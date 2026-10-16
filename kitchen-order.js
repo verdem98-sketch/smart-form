@@ -197,7 +197,7 @@
       'html body .booking-wrap .booking-slot.is-booked.is-booked.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
       '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}' +
       '.booking-slot.active::after{content:"' + 'Вашият час' + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
-      'html body .booking-wrap.kc-merged.kc-merged.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
+      'html body .booking-wrap.kc-merged.kc-merged.kc-merged{grid-auto-flow:row!important;grid-template-rows:none!important;grid-auto-columns:auto!important;margin-left:0!important;margin-right:0!important;display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
       'html body .booking-wrap.kc-merged.kc-merged>.booking-days{display:contents!important}' +
       '.booking-wrap.kc-merged>.kc-custom{margin:0!important;width:auto!important;max-width:none!important;grid-column:auto!important}' +
       '.booking-wrap.kc-merged>.kc-custom input{width:100%!important;box-sizing:border-box!important}';
