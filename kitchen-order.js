@@ -214,7 +214,7 @@
     var day = days.querySelector('.booking-day');
     function apply() {
       wrap.classList.remove('kc-merged');
-      if (!days.offsetParent) return;   // final step not shown yet: measure when it is
+      if (!wrap.offsetParent) return;   // final step not shown yet (the days list itself may be display:contents)
       // same grid as Права in all three kitchens: two columns on wide screens, one below 1100 px
       wrap.style.setProperty('--kc-cols', window.innerWidth >= 1100 ? '2' : '1');
       wrap.style.setProperty('--kc-gap', '10px');
