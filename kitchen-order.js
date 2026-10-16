@@ -317,21 +317,14 @@
   }
 
 
-  // П-образна: the old "Почти сме готови" block with its own "Напред" sat between the AI step and the booking.
-  // It is hidden, and arriving at the last step opens the booking straight away (same checks as that button).
+  // П-образна: the old "Почти сме готови" block is gone; the last step shows the booking inside the right card,
+  // next to the sketch, like Права and Ъглова (the flow used to hide the whole left/right row on its last step)
   function pSkipGate() {
-    var page = document.querySelector('.sf-page-p'); if (!page) return;
+    if (!document.querySelector('.sf-page-p') || document.getElementById('kc-p-gate')) return;
     var st = document.createElement('style'); st.id = 'kc-p-gate';
-    st.textContent = '.sf-page-p .seo-text:has(.phase-next-btn[data-next-phase="final-phase"]){display:none!important}';
+    st.textContent = '.sf-page-p .seo-text:has(.phase-next-btn[data-next-phase="final-phase"]){display:none!important}' +
+      '.sf-page-p .p-flow.p-flow-done .p-left{display:grid!important}';
     document.head.appendChild(st);
-    function finalOpen() { var f = page.querySelector('.p-final-phase'); return !!(f && getComputedStyle(f).display !== 'none'); }
-    page.addEventListener('p:phase-changed', function (e) {
-      var d = e.detail || {}, total = 0;
-      page.querySelectorAll('.p-stepnode[data-p-phase]').forEach(function (n) { total = Math.max(total, Number(n.dataset.pPhase) || 0); });
-      if (!total || Number(d.step) !== total || finalOpen()) return;
-      var btn = page.querySelector('.phase-next-btn[data-next-phase="final-phase"]');
-      if (btn) setTimeout(function () { if (!finalOpen()) btn.click(); }, 30);
-    });
   }
 
   function init() {
