@@ -345,7 +345,18 @@
         '.flow-aglova .final-phase .contact-block,.sf-page-p .final-phase .contact-block{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}' +
         '.flow-aglova .final-phase .final-title-subtitle.kc-final-head,.sf-page-p .final-phase .final-title-subtitle.kc-final-head{display:flex!important;flex-direction:column;align-items:flex-start!important;text-align:left!important;margin:0 0 16px!important;max-width:none!important}' +
         '.kc-final-head .final-title{margin:0!important;font-size:24px!important;line-height:1.25!important;text-align:left!important}.kc-final-head .final-subtitle{margin:0!important;text-align:left!important}' +
-        '.flow-aglova.kc-final-on .ag-step-header,.sf-page-p.kc-final-on .p-step-header{display:none!important}';
+        '.flow-aglova.kc-final-on .ag-step-header,.sf-page-p.kc-final-on .p-step-header{display:none!important}' +
+        '.flow-aglova.kc-final-on .combo-dim-phase>.ag-navigation:not(.ag-final-nav){display:none!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block{background:#eeeeec!important;border:1px solid #d0d2cf!important;border-radius:14px!important;box-shadow:0 2px 8px rgba(51,51,51,.03)!important;padding:18px!important;display:grid!important;grid-template-columns:1fr!important;gap:14px!important;color:#333533!important;font-family:Montserrat,sans-serif!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block .contact-row{display:flex!important;flex-direction:column!important;margin:0!important;padding:0!important;background:none!important;border:0!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block .tex-area-holder{display:flex!important;flex-direction:column!important;gap:20px!important;margin:0!important;padding:0!important;background:none!important;border:0!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block :is(.contacts-label h2,.text-area-label h2){font-family:Montserrat,sans-serif!important;font-size:30px!important;font-weight:500!important;line-height:36px!important;text-transform:uppercase!important;color:#141414!important;margin:0!important;padding:0!important;letter-spacing:normal!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block .question-wrap-final{display:block!important;margin:0 40px!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block .question-wrap-final label{display:block!important;font-size:16px!important;font-weight:700!important;line-height:21.76px!important;color:#333533!important;margin:0 0 10px!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block :is(input.w-input,textarea){display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;background:#fafaf8!important;border:1px solid #d0d2cf!important;border-radius:8px!important;min-height:44px!important;padding:10px 12px!important;font:500 14px/21.76px Montserrat,sans-serif!important;color:#333533!important;margin:0 0 10px!important;box-shadow:none!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block input.w-input{height:44px!important}' +
+        'html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block input[type=submit]{display:block!important;width:60%!important;margin:0 auto!important;min-height:44px!important;padding:12px 20px!important;background:#343834!important;color:#fff!important;border:1px solid #343834!important;border-radius:8px!important;box-shadow:5px 5px 5px rgba(0,0,0,.2)!important;font:500 14px/19.6px Montserrat,sans-serif!important;text-align:center!important;cursor:pointer}' +
+        '@media(max-width:767px){html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block .question-wrap-final{margin:0!important}html body :is(.flow-aglova,.sf-page-p) .final-phase .contact-block input[type=submit]{width:100%!important}}';
       document.head.appendChild(st);
     }
     // title block like Права
@@ -376,8 +387,10 @@
       var notes = document.createElement('div'); notes.className = 'tex-area-holder';
       notes.innerHTML = '<div class="text-area-label"><h2 class="heading-85">Финални бележки</h2></div>';
       notes.appendChild(note);
-      if (submit) { submit.classList.add('submit-button-2'); notes.appendChild(submit); }
+      if (submit) { submit.classList.add('submit-button-2'); if (/^submit$/i.test(submit.value || '')) submit.value = 'Изпратете'; if (/wait/i.test(submit.getAttribute('data-wait') || '')) submit.setAttribute('data-wait', 'Изпращане…'); notes.appendChild(submit); }
       cb.innerHTML = ''; cb.appendChild(row); cb.appendChild(notes);
+      if (email && !email.placeholder) email.placeholder = 'example@mail.com';
+      if (!note.placeholder) note.placeholder = 'Финални бележки';
     }
   }
   function finalStepFlag() {
