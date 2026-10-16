@@ -227,7 +227,7 @@
     }
     apply();
     var t = 0; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(apply, 120); });
-    page.addEventListener('click', function () { setTimeout(function () { if (!wrap.classList.contains('kc-merged')) apply(); }, 60); }, true);
+    page.addEventListener('click', function () { clearTimeout(t); t = setTimeout(apply, 120); }, true);   // the column count depends on the step / layout: measure again
     return true;
   }
 
