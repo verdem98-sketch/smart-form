@@ -215,9 +215,9 @@
     function apply() {
       wrap.classList.remove('kc-merged');
       if (!days.offsetParent) return;   // final step not shown yet: measure when it is
-      var cs = getComputedStyle(days), n = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
-      wrap.style.setProperty('--kc-cols', String(n));
-      wrap.style.setProperty('--kc-gap', cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : '10px');
+      // same grid as Права in all three kitchens: two columns on wide screens, one below 1100 px
+      wrap.style.setProperty('--kc-cols', window.innerWidth >= 1100 ? '2' : '1');
+      wrap.style.setProperty('--kc-gap', '10px');
       if (day && !custom.classList.contains('booking-day')) {
         var d = getComputedStyle(day);
         ['background', 'border', 'borderRadius', 'padding', 'boxShadow'].forEach(function (k) { custom.style[k] = d[k]; });
