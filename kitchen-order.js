@@ -236,7 +236,7 @@
     var card = page.querySelector('[class*="plan-card"]'), slots = page.querySelector('.final-content');
     if (!card || !slots) return;
     var t = card.querySelector('.question-title'), leaf = t && (t.querySelector('div') || t);
-    if (leaf && !/поръчката/.test(leaf.textContent)) leaf.textContent = 'Кога планирате поръчката?';
+    if (leaf && leaf.textContent.trim() !== 'Кога планирате поръчката?') leaf.textContent = 'Кога планирате поръчката?';
     if (slots.nextElementSibling !== card) slots.parentNode.insertBefore(card, slots.nextElementSibling);
   }
 
@@ -266,7 +266,7 @@
     ['Например: Добави една витрина с осветление в десния край и не променяй останалите шкафове.', 'Например: добавете една витрина с осветление в десния край и не променяйте останалите шкафове.'],
     ['Затвори конфигуратора', 'Затваряне на конфигуратора']
   ];
-  var POLITE_WHOLE = { 'Продължи': 'Продължете', 'Покажи още': 'Покажете още', 'Затвори': 'Затваряне', 'Кога планираш?': 'Кога планирате поръчката?' };
+  var POLITE_WHOLE = { 'Продължи': 'Продължете', 'Покажи още': 'Покажете още', 'Затвори': 'Затваряне', 'Кога планираш?': 'Кога планирате поръчката?', 'Кога планираш поръчката?': 'Кога планирате поръчката?' };
   function politeText(v) {
     if (!v) return v;
     var t = v.trim();
@@ -277,7 +277,7 @@
   function politeNode(root) {
     if (!root) return;
     if (root.nodeType === 3) { var nv = politeText(root.nodeValue); if (nv !== root.nodeValue) root.nodeValue = nv; return; }
-    if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA)$/.test(root.tagName)) return;
+    if (root.nodeType !== 1 || /^(SCRIPT|STYLE)$/.test(root.tagName)) return;
     ['placeholder', 'aria-label', 'title', 'value'].forEach(function (a) {
       if (a === 'value' && !(root.tagName === 'INPUT' && /^(submit|button)$/i.test(root.type))) return;
       var v = root.getAttribute(a); if (v) { var nv2 = politeText(v); if (nv2 !== v) root.setAttribute(a, nv2); }
