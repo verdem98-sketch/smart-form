@@ -66,25 +66,184 @@
     };
   }
 
-  function showNumber(form, number) {
-    var block = form.closest('.w-form'), done = block && block.querySelector('.w-form-done');
-    if (!done || done.querySelector('.kitchen-order-number')) return;
-    var p = document.createElement('div'); p.className = 'kitchen-order-number';
-    p.style.cssText = 'margin-top:10px;font-weight:600';
-    p.textContent = 'Номер на заявката: ' + number + '. Изпратихме потвърждение и на вашия e-mail.';
-    done.appendChild(p);
+  function esc(v) { return clean(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var KNAME = { prava: 'права кухня', aglova: 'ъглова кухня', p: 'П-образна кухня' };
+  var DAYS = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
+  var MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември'];
+  function niceDate(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return iso || '';
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return DAYS[d.getDay()] + ', ' + Number(m[3]) + ' ' + MONTHS[d.getMonth()];
   }
 
-  // booking calendar colours (all three kitchens): waiting for a phone confirmation = yellow, confirmed = red
+  /* ---------- the page after sending: a thank-you card built from the order itself ---------- */
+  function successCss() {
+    if (document.getElementById('kc-success-css')) return;
+    var st = document.createElement('style'); st.id = 'kc-success-css';
+    st.textContent = [
+      '.w-form-done.kc-done{display:block;background:transparent!important;padding:0!important;text-align:left!important;margin:0 auto!important}',
+      '.kc-success{max-width:920px;margin:28px auto 48px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px -24px rgba(31,48,32,.35),0 2px 8px rgba(31,48,32,.06);font-family:inherit;color:#2f332f}',
+      '.kc-hero{position:relative;padding:44px 44px 36px;background:radial-gradient(120% 140% at 100% 0%,#5d8a5e 0%,#3f6640 45%,#2c472d 100%);color:#fff}',
+      '.kc-kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:#e3efd9;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:6px 12px;border-radius:999px}',
+      '.kc-kicker i{width:8px;height:8px;border-radius:50%;background:#b9e3a0;box-shadow:0 0 0 4px rgba(185,227,160,.25)}',
+      '.kc-hero h2{margin:18px 0 10px;font-size:38px;line-height:1.12;font-weight:700;color:#fff;letter-spacing:-.01em}',
+      '.kc-hero p{margin:0;max-width:620px;font-size:17px;line-height:1.55;color:#e6efe2}',
+      '.kc-compliment{margin-top:18px!important;font-style:italic;color:#fff!important;opacity:.95}',
+      '.kc-body{padding:32px 44px 40px}',
+      '.kc-media{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin:0 0 26px}',
+      '.kc-media.one{grid-template-columns:1fr}',
+      '.kc-media figure{margin:0;position:relative;border-radius:14px;overflow:hidden;background:#f2f3f0;border:1px solid #e3e6e0}',
+      '.kc-media img{display:block;width:100%;height:100%;object-fit:cover;aspect-ratio:3/2}',
+      '.kc-media figcaption{position:absolute;left:10px;bottom:10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2f332f;background:rgba(255,255,255,.9);padding:5px 9px;border-radius:999px}',
+      '.kc-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 28px}',
+      '.kc-tile{border:1px solid #e3e6e0;border-radius:14px;padding:16px 18px;background:#fafbf8}',
+      '.kc-tile small{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#7b827b;font-weight:700;margin-bottom:6px}',
+      '.kc-tile b{display:block;font-size:17px;line-height:1.3;color:#2f332f}',
+      '.kc-tile span{display:block;margin-top:4px;font-size:13px;color:#6a716b;line-height:1.4}',
+      '.kc-pending{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;color:#7a5a00;background:#fff3c4;border:1px solid #e2c04a;border-radius:999px;padding:3px 10px}',
+      '.kc-mats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}',
+      '.kc-mats img{width:34px;height:34px;border-radius:8px;object-fit:cover;border:1px solid #d9ddd6}',
+      '.kc-steps-title{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:#477448;margin:0 0 12px}',
+      '.kc-steps{list-style:none;margin:0 0 30px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:kc}',
+      '.kc-steps li{counter-increment:kc;position:relative;padding:16px 16px 16px 58px;border-radius:14px;background:#f4f7f1;font-size:14px;line-height:1.45;color:#3a3f3a}',
+      '.kc-steps li:before{content:counter(kc);position:absolute;left:16px;top:16px;width:30px;height:30px;border-radius:50%;background:#477448;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}',
+      '.kc-steps li b{display:block;color:#2f332f;margin-bottom:2px}',
+      '.kc-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;padding-top:22px;border-top:1px solid #e9ece6}',
+      '.kc-foot p{margin:0;font-size:14px;color:#6a716b;line-height:1.5}',
+      '.kc-call{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;background:#477448;color:#fff!important;font-weight:700;text-decoration:none!important;font-size:15px}',
+      '.kc-call:hover{background:#3b633c}',
+      '@media(max-width:767px){.kc-success{margin:12px 0 32px;border-radius:16px}.kc-hero{padding:30px 22px 26px}.kc-hero h2{font-size:28px}.kc-hero p{font-size:15px}.kc-body{padding:22px 18px 28px}.kc-media,.kc-tiles,.kc-steps{grid-template-columns:1fr}.kc-foot{flex-direction:column;align-items:stretch}.kc-call{justify-content:center}}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
+  function aiImageSrc(page) {
+    var imgs = page.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) { var s = imgs[i].currentSrc || imgs[i].src || ''; if (/^(data:image|blob:)/.test(s) && imgs[i].naturalWidth >= 400) return s; }
+    return '';
+  }
+
+  function successHtml(found, payload, number) {
+    var informal = found.k.id === 'aglova';   // the corner kitchen page talks to the visitor with "ти"
+    var first = clean(payload.contact.name).split(' ')[0];
+    var name = KNAME[found.k.id] || 'кухня';
+    var ai = aiImageSrc(found.page), sk = payload.sketchImage || '';
+    var media = '';
+    if (ai || sk) {
+      media = '<div class="kc-media' + (ai && sk ? '' : ' one') + '">' +
+        (ai ? '<figure><img src="' + esc(ai) + '" alt="AI визуализация"><figcaption>AI визуализация</figcaption></figure>' : '') +
+        (sk ? '<figure><img src="' + esc(sk) + '" alt="3D скица"><figcaption>' + (informal ? 'Твоята' : 'Вашата') + ' скица</figcaption></figure>' : '') + '</div>';
+    }
+    var m = payload.meeting || {}, meet, meetNote;
+    if (m.date && m.slot) { meet = niceDate(m.date) + ', ' + m.slot; meetNote = '<em class="kc-pending">чака потвърждение по телефона</em>'; }
+    else if (m.custom) { meet = m.custom; meetNote = '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' се обадим, за да уточним точния час.</span>'; }
+    else { meet = 'Ще уговорим удобен час'; meetNote = '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' се обадим.</span>'; }
+    var mats = payload.materials || {}, thumbs = '';
+    ['upper', 'lower', 'countertop', 'backsplash'].forEach(function (r) { if (mats[r] && mats[r].image) thumbs += '<img src="' + esc(mats[r].image) + '" alt="' + esc(mats[r].label) + '" title="' + esc(mats[r].label) + '">'; });
+    var email = clean(payload.contact.email);
+    var T = informal ? {
+      thanks: 'Благодаря ти' + (first ? ', ' + esc(first) : '') + '!',
+      lead: 'Твоята ' + name + ' вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подреди.',
+      compl: 'Подбрал си я с вкус. Остава ние да я превърнем в истинска кухня.',
+      s1: 'Обаждаме ти се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща', s2t: 'Срещаме се и уточняваме всички детайли заедно.', s3: 'Проект и оферта', s3t: 'Получаваш точен проект и цена.',
+      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с теб съвсем скоро.', call: 'Обади ни се'
+    } : {
+      thanks: 'Благодарим Ви' + (first ? ', ' + esc(first) : '') + '!',
+      lead: 'Вашата ' + name + ' вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подредихте.',
+      compl: 'Подбрали сте я с вкус. Остава ние да я превърнем в истинска кухня.',
+      s1: 'Обаждаме се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща', s2t: 'Срещаме се и уточняваме всички детайли заедно.', s3: 'Проект и оферта', s3t: 'Получавате точен проект и цена.',
+      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с Вас съвсем скоро.', call: 'Обадете ни се'
+    };
+    return '<div class="kc-success">' +
+      '<div class="kc-hero"><div class="kc-kicker"><i></i>Заявката е изпратена<span class="kc-num">' + (number ? ' · ' + esc(number) : '') + '</span></div>' +
+      '<h2>' + T.thanks + '</h2><p>' + T.lead + '</p><p class="kc-compliment">' + T.compl + '</p></div>' +
+      '<div class="kc-body">' + media +
+      '<div class="kc-tiles">' +
+        '<div class="kc-tile"><small>Среща</small><b>' + esc(meet) + '</b>' + meetNote + '</div>' +
+        '<div class="kc-tile"><small>Номер на заявката</small><b class="kc-num-big">' + (number ? esc(number) : '…') + '</b><span>' + (informal ? 'Кажи го' : 'Посочете го') + ', ако ни се обаждате.</span></div>' +
+        '<div class="kc-tile"><small>Материали</small><b>' + (thumbs ? 'Избрани' : 'Ще ги уточним') + '</b>' + (thumbs ? '<div class="kc-mats">' + thumbs + '</div>' : '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' покажем мостри.</span>') + '</div>' +
+      '</div>' +
+      '<div class="kc-steps-title">Какво следва</div><ol class="kc-steps">' +
+        '<li><b>' + T.s1 + '</b>' + T.s1t + '</li><li><b>' + T.s2 + '</b>' + T.s2t + '</li><li><b>' + T.s3 + '</b>' + T.s3t + '</li></ol>' +
+      '<div class="kc-foot"><p>' + T.copy + '</p><a class="kc-call" href="tel:+359878861059">☎ ' + T.call + ': +359 878 861 059</a></div>' +
+      '</div></div>';
+  }
+
+  function showSuccess(form, found, payload) {
+    var tries = 0;
+    (function wait() {
+      var b = form.closest('.w-form'), done = b && b.querySelector('.w-form-done');
+      if (done && getComputedStyle(done).display !== 'none') {
+        successCss();
+        done.classList.add('kc-done');
+        done.innerHTML = successHtml(found, payload, payload.__number || '');
+        try { done.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { done.scrollIntoView(); }
+        return;
+      }
+      if (++tries < 80) setTimeout(wait, 150);
+    })();
+  }
+
+  function setNumber(form, number) {
+    var b = form.closest('.w-form'), done = b && b.querySelector('.w-form-done.kc-done');
+    if (!done) return false;
+    done.querySelectorAll('.kc-num').forEach(function (e) { e.textContent = ' · ' + number; });
+    done.querySelectorAll('.kc-num-big').forEach(function (e) { e.textContent = number; });
+    return true;
+  }
+
+  // booking calendar colours (all three kitchens): waiting for a phone confirmation = yellow, confirmed = red,
+  // the visitor's own pick = green with "Вашият час"; the other slots locked after this browser's request stay grey
   function slotColours() {
     if (document.getElementById('kitchen-slot-colours')) return;
     var st = document.createElement('style'); st.id = 'kitchen-slot-colours';
     st.textContent =
       '.booking-slot.is-pending{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
-      '.booking-slot.is-local-locked:not(.is-selected):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
+      '.booking-slot.is-local-locked:not(.active):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
       '.booking-slot.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
-      '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}';
+      '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}' +
+      '.booking-slot.active::after{content:"' + (document.querySelector('.flow-aglova') ? 'Твоят час' : 'Вашият час') + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
+      '.booking-wrap.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
+      '.booking-wrap.kc-merged>.booking-days{display:contents!important}' +
+      '.booking-wrap.kc-merged>.kc-custom{margin:0!important;width:auto!important;max-width:none!important;grid-column:auto!important}' +
+      '.booking-wrap.kc-merged>.kc-custom input{width:100%!important;box-sizing:border-box!important}';
     document.head.appendChild(st);
+  }
+
+  // "Не намирате удобен час? Посочете друг:" becomes one more card in the days grid (same look, same columns)
+  function mergeCustomCard(page) {
+    var wrap = page.querySelector('.booking-wrap'), days = wrap && wrap.querySelector(':scope > .booking-days');
+    if (!wrap || !days) return false;
+    var custom = null;
+    [].forEach.call(wrap.children, function (c) { if (c !== days && /удобен час|друг/i.test(c.textContent || '')) custom = c; });
+    if (!custom) return false;
+    var day = days.querySelector('.booking-day');
+    function apply() {
+      wrap.classList.remove('kc-merged');
+      if (!days.offsetParent) return;   // final step not shown yet: measure when it is
+      var cs = getComputedStyle(days), n = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+      wrap.style.setProperty('--kc-cols', String(n));
+      wrap.style.setProperty('--kc-gap', cs.rowGap && cs.rowGap !== 'normal' ? cs.rowGap : '10px');
+      if (day && !custom.classList.contains('booking-day')) {
+        var d = getComputedStyle(day);
+        ['background', 'border', 'borderRadius', 'padding', 'boxShadow'].forEach(function (k) { custom.style[k] = d[k]; });
+      }
+      custom.classList.add('kc-custom');
+      wrap.classList.add('kc-merged');
+    }
+    apply();
+    var t = 0; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(apply, 120); });
+    page.addEventListener('click', function () { setTimeout(function () { if (!wrap.classList.contains('kc-merged')) apply(); }, 60); }, true);
+    return true;
+  }
+
+  // "Кога планирате?" → "Кога планирате поръчката?", right under the slots and above the contacts / send card
+  function planCard(page) {
+    var card = page.querySelector('[class*="plan-card"]'), slots = page.querySelector('.final-content');
+    if (!card || !slots) return;
+    var t = card.querySelector('.question-title'), leaf = t && (t.querySelector('div') || t);
+    if (leaf && !/поръчката/.test(leaf.textContent)) leaf.textContent = /планираш/.test(leaf.textContent) ? 'Кога планираш поръчката?' : 'Кога планирате поръчката?';
+    if (slots.nextElementSibling !== card) slots.parentNode.insertBefore(card, slots.nextElementSibling);
   }
 
   function init() {
@@ -92,15 +251,24 @@
     var found = kitchen(); if (!found) return;
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
+    [0, 600, 1800, 4000].forEach(function (ms) { setTimeout(function () { planCard(found.page); }, ms); });
+    found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
+    var merged = false;
+    [300, 1500, 4000].forEach(function (ms) { setTimeout(function () { if (!merged) merged = mergeCustomCard(found.page); }, ms); });
     var sent = false;
     form.addEventListener('submit', function () {
       if (sent) return;
       var payload; try { payload = build(form, found); } catch (e) { return; }
       if (!payload.contact.email && !payload.contact.phone) return;   // the native validation will stop this one anyway
       sent = true;
+      showSuccess(form, found, payload);
       fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function (r) { return r.json(); })
-        .then(function (d) { if (d && d.ok && d.number) { var tries = 0; (function wait() { var b = form.closest('.w-form'), done = b && b.querySelector('.w-form-done'); if (done && done.offsetParent) showNumber(form, d.number); else if (++tries < 40) setTimeout(wait, 250); })(); } else sent = false; })
+        .then(function (d) {
+          if (!(d && d.ok && d.number)) { sent = false; return; }
+          payload.__number = d.number;
+          var n = 0; (function put() { if (!setNumber(form, d.number) && ++n < 60) setTimeout(put, 250); })();
+        })
         .catch(function () { sent = false; });
     }, true);
   }
