@@ -381,7 +381,10 @@
         });
       });
     }
+    // cut model for the order e-mail (cut list / SketchUp file): every cabinet built while CUT.on is recorded
+    var CUT = { on: false, cab: [], tops: [], fills: [] };
     function buildBase(m, w) {
+      if (CUT.on) CUT.cab.push({ row: 'lower', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((BH - PL - WT) * 1000), free: !!m.free });
       var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
       box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
       box(W - 0.002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
@@ -403,6 +406,7 @@
       return g;
     }
     function buildTall(m, w) {
+      if (CUT.on) CUT.cab.push({ row: 'tall', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((TALLH - PL) * 1000), free: !!m.free || m.applianceType === 'free_standing' });
       var g = new T.Group(), H = TALLH, W = w;
       if (m.type === 'fridge') {
         if (m.applianceType === 'free_standing') {
@@ -431,6 +435,7 @@
     /* top edge of the upper run (and of the deep row, when chosen) is flush with the tall columns */
     function upperSpec(deep) { return deep ? { ub: 1.45, uh: TALLH - .33 - 1.45, db: TALLH - .33, dh: .33 } : { ub: 1.55, uh: TALLH - 1.55 }; }
     function buildUpper(w, bottom, h, depth, mat, opt) {
+      if (CUT.on) CUT.cab.push({ row: opt && opt.deep ? 'deep' : 'upper', wall: (opt && opt.wall) || 1, x: opt && opt.s0 != null ? Math.round(opt.s0) : null, z: Math.round(bottom * 1000), w: Math.round(w * 1000), h: Math.round(h * 1000), d: Math.round(depth * 1000), blind: Math.round((opt && opt.blind) || 0), glass: !!(opt && opt.glass), lift: !!(opt && opt.lift) });
       opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
       var lift = opt.lift === undefined ? !!X.lift : opt.lift, n = (lift || w < .7) ? 1 : 2, dw = w / n, fm = opt.glass ? mats.glassFront : mat;
       if (opt.glass) {                                                                                  // lit display cabinet: warm interior + shelves
@@ -494,6 +499,7 @@
     /* ---------------- cabinets */
     var meshById = {};
     function buildCabinets(inp) {
+      CUT = { on: true, cab: [], tops: [], fills: [] };
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
       hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0;
@@ -544,10 +550,11 @@
       });
       // upper cabinets: their own slots (independent of merges in the lower row)
       upList.forEach(function (id) {
-        if (upos[id]) { var ux = (upos[id].x + upos[id].w / 2) / 1000; var up = buildUpper(upos[id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(id), lift: uLift(id) }); up.position.x = ux; worldUV(up); up.userData = { id: id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[id + ':u'] = up; }
-        if (inp.deep && dpos[id]) { var dx = (dpos[id].x + dpos[id].w / 2) / 1000; var dp = buildUpper(dpos[id].w / 1000, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(id + ':d') }); dp.position.x = dx; worldUV(dp); dp.userData = { id: id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[id + ':d'] = dp; }
+        if (upos[id]) { var ux = (upos[id].x + upos[id].w / 2) / 1000; var up = buildUpper(upos[id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(id), lift: uLift(id), s0: upos[id].x }); up.position.x = ux; worldUV(up); up.userData = { id: id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[id + ':u'] = up; }
+        if (inp.deep && dpos[id]) { var dx = (dpos[id].x + dpos[id].w / 2) / 1000; var dp = buildUpper(dpos[id].w / 1000, upperSpec(true).db, upperSpec(true).dh, D, mats.deep, { deep: true, glass: uGlass(id + ':d'), s0: dpos[id].x }); dp.position.x = dx; worldUV(dp); dp.userData = { id: id, upper: true, layer: 'd', targetX: dx }; cabGroup.add(dp); meshById[id + ':d'] = dp; }
       });
       // filler panel (fixed, not draggable)
+      if (plan.fillerMm) CUT.fills.push({ w: Math.round(plan.fillerMm), h: Math.round((BH - PL - WT) * 1000) });
       if (plan.fillerMm) {
         var fx = plan.fillerAt === 'left' ? plan.fillerMm / 2 : (pos.total - plan.fillerMm / 2); var fw = plan.fillerMm / 1000, fg = new T.Group();
         box(fw, BH - PL, D - .02, mats.front, 0, PL + (BH - PL) / 2, (D - .02) / 2, fg); fg.position.x = fx / 1000; fg.userData = { filler: true }; cabGroup.add(fg);
@@ -557,13 +564,14 @@
       var segs = []; items.forEach(function (m) { if (TALL[m.type]) { segs.push(null); } else { if (!segs.length || segs[segs.length - 1] === null) segs.push([m.x, m.x + m.w]); else segs[segs.length - 1][1] = m.x + m.w; } });
       segs.filter(Boolean).forEach(function (s) {
         var a = s[0], b = s[1]; if (plan.fillerMm && plan.fillerAt === 'left' && a === plan.fillerMm) a = 0; if (plan.fillerMm && plan.fillerAt === 'right' && Math.abs(b - (pos.total - plan.fillerMm)) < 1) b = pos.total;
-        var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, (a + b) / 2000, BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; cabGroup.add(top);
+        CUT.tops.push({ x: Math.round(a), len: Math.round(b - a), d: Math.round((D + .02) * 1000), wall: typeof w === 'number' ? w : 1 }); var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, (a + b) / 2000, BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; cabGroup.add(top);
       });
       // expose layout for the form / AI step
       var json = JSON.stringify({ lengthMm: plan.lengthMm, fillerMm: plan.fillerMm, fillerAt: plan.fillerAt, modules: items.map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: upList.filter(function (id) { return upos[id]; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) });
       var inp2 = q('input[name="kitchen_layout"]'); if (!inp2) { var f = q('form'); if (f) { inp2 = document.createElement('input'); inp2.type = 'hidden'; inp2.name = 'kitchen_layout'; f.appendChild(inp2); } }
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
+      CUT.on = false; root.pravaLayout.current.cut = { kitchen: 'prava', heightMm: inp.heightMm || 0, splashH: Math.round((upperSpec(inp.deep).ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
       if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
     }
 

@@ -481,7 +481,10 @@
       box(w - .06, .012, .12, mats.steel, x, BH + .06, z + d / 2 - .04, g);                          // drip tray
       box(.05, .05, .012, mats.glass, x + w * .3, BH + h * .72, z + d / 2 + .004, g);
     }
+    // cut model for the order e-mail (cut list / SketchUp file): every cabinet built while CUT.on is recorded
+    var CUT = { on: false, cab: [], tops: [], fills: [] };
     function buildBase(m, w) {
+      if (CUT.on) CUT.cab.push({ row: 'lower', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((BH - PL - WT) * 1000), free: !!m.free });
       var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
       box(W - 0.002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
       box(W - 0.002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
@@ -504,6 +507,7 @@
       return g;
     }
     function buildTall(m, w) {
+      if (CUT.on) CUT.cab.push({ row: 'tall', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((TALLH - PL) * 1000), free: !!m.free || m.applianceType === 'free_standing' });
       var g = new T.Group(), H = TALLH, W = w;
       if (m.type === 'fridge') {
         if (m.applianceType === 'free_standing') {
@@ -530,6 +534,7 @@
       return g;
     }
     function buildUpper(w, bottom, h, depth, mat, opt) {
+      if (CUT.on) CUT.cab.push({ row: opt && opt.deep ? 'deep' : 'upper', wall: (opt && opt.wall) || 1, x: opt && opt.s0 != null ? Math.round(opt.s0) : null, z: Math.round(bottom * 1000), w: Math.round(w * 1000), h: Math.round(h * 1000), d: Math.round(depth * 1000), blind: Math.round((opt && opt.blind) || 0), glass: !!(opt && opt.glass), lift: !!(opt && opt.lift) });
       opt = opt || {}; var g = new T.Group(); box(w - .002, h, depth, mat, 0, bottom + h / 2, depth / 2, g);
       // corner cabinet: the end covered by the other wall's row gets a fixed blind panel as wide as that row is deep; the doors share the rest
       var bl = opt.blind ? Math.min(opt.blind + 18, w * 1000 - 150) / 1000 : 0; if (bl < .05) bl = 0;
@@ -668,6 +673,7 @@
 
     /* ---------------- пас (6 cm filler): a mini cabinet front in the same plane and material as the doors, no handle */
     function pasLower(w) {
+      if (CUT.on) CUT.fills.push({ w: Math.round(w * 1000), h: Math.round((BH - PL - WT) * 1000) });
       var g = new T.Group(), y0 = PL, y1 = BH - WT;
       box(w - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g);
       box(w - .002, y1 - y0, D - .01, mats.carcass, 0, (y0 + y1) / 2, (D - .01) / 2, g);
@@ -684,6 +690,7 @@
     var meshById = {}, deepCut = 0, xfer = [], lastApplied = [], moveCheck = null, glassPick = null;   // glassPick: the upper unit that is the glass display (it travels with that unit when it is dragged)
     function addLabel(g, text) { var lb = label(text, .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(0, .02, D + .22); g.add(lb); }
     function buildCabinets(inp) {
+      CUT = { on: true, cab: [], tops: [], fills: [] };
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = [];
       wg = {}; WALLS.forEach(function (w) { wg[w] = new T.Group(); cabGroup.add(wg[w]); });
@@ -793,7 +800,7 @@
         box(bw, BH - PL - WT, bz, mats.carcass, bc, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);
         box(.018, BH - PL - WT - G, bz, mats.front, left ? bx1 + .009 - FT : bx0 - .009 + FT, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);   // face towards the back run
         box(bw, BH - PL - WT - G, .018, mats.front, bc, PL + (BH - PL - WT) / 2, bz + .009 - FT, wg[2]);                                   // face towards the side run
-        var ct = new T.Group(); box(bw + .02, WT, bz + .02, mats.top, bc + (left ? .01 : -.01), BH - WT / 2, bz / 2 + .01, ct); ct.userData = { top: true }; wg[2].add(ct);
+        CUT.tops.push({ len: Math.round((bw + .02) * 1000), d: Math.round((bz + .02) * 1000), corner: true }); CUT.cab.push({ row: 'cornerBlock', w: Math.round(bw * 1000), d: Math.round(bz * 1000), h: Math.round((BH - PL - WT) * 1000) }); var ct = new T.Group(); box(bw + .02, WT, bz + .02, mats.top, bc + (left ? .01 : -.01), BH - WT / 2, bz / 2 + .01, ct); ct.userData = { top: true }; wg[2].add(ct);
       }
       // worktop slabs over each consecutive base run (fillers included); the back wall's slabs stop 20 mm short of the side slabs so the U is seamless
       WALLS.forEach(function (w) {
@@ -806,11 +813,12 @@
             if (a === wl.startMm) a += ch === 'left' ? -PAS : 20;
             if (b === wl.endMm) b += ch === 'right' ? PAS : -20;
           } else if (plan.pas && plan.pas.side === w && a === wl.startMm) a -= PAS;
-          var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
+          CUT.tops.push({ x: Math.round(a), len: Math.round(b - a), d: Math.round((D + .02) * 1000), wall: typeof w === 'number' ? w : 1 }); var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
         });
       });
       var cur = { wall1Mm: plan.wallMm[1], wall2Mm: plan.wallMm[2], wall3Mm: plan.wallMm[3], chimney: plan.chimney, walls: {} };
       WALLS.forEach(function (w) { cur.walls[w] = { startMm: plan.walls[w].startMm, endMm: plan.walls[w].endMm, fillerMm: plan.walls[w].fillerMm, modules: items.filter(function (m) { return m.wall === w; }).map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: unitList.filter(function (id) { return upos[id].wall === w; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) }; });
+      CUT.on = false; cur.cut = { kitchen: 'p', heightMm: inp.heightMm || 0, splashH: Math.round((UPPER.ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
       root.pLayout.current = cur;
       if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
     }
