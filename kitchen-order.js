@@ -316,6 +316,24 @@
     if (t.textContent.trim() !== want) t.textContent = want;
   }
 
+
+  // П-образна: the old "Почти сме готови" block with its own "Напред" sat between the AI step and the booking.
+  // It is hidden, and arriving at the last step opens the booking straight away (same checks as that button).
+  function pSkipGate() {
+    var page = document.querySelector('.sf-page-p'); if (!page) return;
+    var st = document.createElement('style'); st.id = 'kc-p-gate';
+    st.textContent = '.sf-page-p .seo-text:has(.phase-next-btn[data-next-phase="final-phase"]){display:none!important}';
+    document.head.appendChild(st);
+    function finalOpen() { var f = page.querySelector('.p-final-phase'); return !!(f && getComputedStyle(f).display !== 'none'); }
+    page.addEventListener('p:phase-changed', function (e) {
+      var d = e.detail || {}, total = 0;
+      page.querySelectorAll('.p-stepnode[data-p-phase]').forEach(function (n) { total = Math.max(total, Number(n.dataset.pPhase) || 0); });
+      if (!total || Number(d.step) !== total || finalOpen()) return;
+      var btn = page.querySelector('.phase-next-btn[data-next-phase="final-phase"]');
+      if (btn) setTimeout(function () { if (!finalOpen()) btn.click(); }, 30);
+    });
+  }
+
   function init() {
     slotColours();
     var found = kitchen(); if (!found) return;
@@ -323,6 +341,7 @@
     form.dataset.kitchenOrder = '1';
     try { politePage(document.body); } catch (e) { /* wording only */ }
     sketchTitles(); [300, 1500, 4000].forEach(function (ms) { setTimeout(sketchTitles, ms); });
+    pSkipGate();
     document.addEventListener('click', function () { setTimeout(sketchTitles, 60); setTimeout(sketchTitles, 400); }, true);
     [0, 600, 1800, 4000].forEach(function (ms) { setTimeout(function () { planCard(found.page); }, ms); });
     found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
