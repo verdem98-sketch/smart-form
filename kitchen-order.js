@@ -364,7 +364,7 @@
     if (!head) { head = document.createElement('div'); head.className = 'final-title-subtitle'; var nav = fp.querySelector('[class*="final-nav"]'); fp.insertBefore(head, nav ? nav.nextSibling : fp.firstChild); }
     if (!head.classList.contains('kc-final-head')) {
       head.classList.add('kc-final-head');
-      head.innerHTML = '<h1 class="final-title">Последна стъпка</h1><div class="final-subtitle">Изберете удобен ден и час. Ще потвърдим по телефона.</div>';
+      head.innerHTML = '<h1 class="final-title">Последна стъпка</h1><div class="final-subtitle">Изберете удобен ден и час. Наш служител ще се свърже с Вас за потвърждение.</div>';
     }
     // contacts + notes + send in Права's structure
     var cb = fp.querySelector('.contact-block');
@@ -408,9 +408,102 @@
     page.classList.toggle('kc-final-on', !!(fp && fp.offsetParent));
   }
 
+
+  /* Layout polish shared by the three kitchens (mobile first, also desktop where it applies):
+     no site navigation, sketch buttons that always fit, no legend over the sketch, compact question / size cards,
+     equal "метра / сантиметра" labels, contact + "Кога планирате поръчката?" cards, Next starts the new step at its top. */
+  var SUBTITLE = 'Изберете удобен ден и час. Наш служител ще се свърже с Вас за потвърждение.';
+  function polishCss() {
+    if (document.getElementById('kc-polish')) return;
+    var R = 'html.kc-kitchen body :is(.sf-page-prava,.flow-aglova,.sf-page-p)';
+    var st = document.createElement('style'); st.id = 'kc-polish';
+    st.textContent =
+      'html.kc-kitchen body>.w-nav[role="banner"],html.kc-kitchen body .navbar.w-nav[role="banner"],html.kc-kitchen body .w-nav-overlay{display:none!important}' +
+      /* legend / hint over the sketch */
+      'html.kc-kitchen :is(.prava-3d-hint,.ag-3d-hint,.p-3d-hint){display:none!important}' +
+      /* sketch buttons: a row along the bottom on phones so the last one (✎ / ↺) never falls out */
+      '@media(max-width:767px){html.kc-kitchen :is(.prava-3d-btns,.ag-3d-btns,.p-3d-btns){top:auto!important;bottom:8px!important;left:8px!important;right:8px!important;flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;gap:6px!important}' +
+        'html.kc-kitchen :is(.prava-3d-btns,.ag-3d-btns,.p-3d-btns) button{width:34px!important;height:34px!important;font-size:16px!important;border-radius:9px!important}' +
+        'html.kc-kitchen :is(.prava-3d-msg,.ag-3d-msg,.p-3d-msg){left:10px!important;right:10px!important;top:10px!important}}' +
+      /* question cards: question centred, answers on one row under it */
+      R + ' .kc-qcard.kc-qcard.kc-qcard.kc-qcard{display:block!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;background:#fafaf8!important;border:1px solid #e1e3df!important;border-radius:12px!important;padding:12px 12px 14px!important;margin:0 0 10px!important;text-align:center!important;box-shadow:none!important;opacity:1!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard .question-head:not([hidden]){display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard .question-title{display:block!important;width:100%!important;max-width:none!important;margin:0 0 10px!important;padding:0!important;text-align:center!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard .question-title,' + R + ' .kc-qcard.kc-qcard.kc-qcard .question-title>div{font-size:15px!important;line-height:1.3!important;font-weight:600!important;color:#2f372f!important;text-align:center!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard .options-row{display:flex!important;flex-wrap:nowrap!important;justify-content:center!important;align-items:stretch!important;gap:8px!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard .options-row>.option-pill{flex:1 1 0!important;min-width:0!important;max-width:170px!important;width:auto!important;margin:0!important;padding:9px 6px!important;min-height:40px!important;font-size:13px!important;line-height:1.2!important;white-space:normal!important;text-align:center!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}' +
+      R + ' .kc-qcard.kc-qcard.kc-qcard :is(.question-note,.question-help,p:not([hidden])){text-align:center!important;font-size:12px!important;line-height:1.4!important;margin:8px 0 0!important}' +
+      /* size cards */
+      R + ' .dimension-row{box-sizing:border-box!important;padding:10px 10px 8px!important;margin:0 0 8px!important;border-radius:12px!important}' +
+      R + ' .dimension-row :is(.dimension-label,.dimension-row>div:first-child:not(.div-m-cm)){margin:0 0 6px!important;text-align:center!important;width:100%!important}' +
+      R + ' .dimension-row :is(.dimension-label,.dimension-row>div:first-child:not(.div-m-cm)),' + R + ' .dimension-row .dimension-label *{font-size:14px!important;line-height:1.3!important;font-weight:600!important}' +
+      R + ' .dimension-row .picker-btn{width:32px!important;height:32px!important;min-width:32px!important;padding:0!important;font-size:16px!important;line-height:32px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}' +
+      R + ' .dimension-row .picker-value-text{font-size:17px!important;line-height:32px!important}' +
+      R + ' .dimension-row .div-m-cm>:not(.meters-control):not(.centimeters-control){font-size:13px!important;line-height:1.3!important;font-weight:500!important;margin:4px 0 0!important;padding:0!important}' +
+      /* "Кога планирате поръчката?" */
+      R + ' .final-phase .question-wrap-final[class*="plan-card"]{display:block!important;width:auto!important;max-width:none!important;box-sizing:border-box!important;background:#fafaf8!important;border:1px solid #e1e3df!important;border-radius:12px!important;padding:14px!important;margin:16px 0 0!important;text-align:center!important;box-shadow:none!important}' +
+      R + ' .final-phase [class*="plan-card"] .question-title{display:block!important;width:100%!important;max-width:none!important;margin:0 0 12px!important;padding:0!important;text-align:center!important;font-size:16px!important;line-height:1.3!important;font-weight:600!important}' +
+      R + ' .final-phase [class*="plan-card"] .question-title *{font-size:16px!important;line-height:1.3!important;font-weight:600!important;text-align:center!important}' +
+      R + ' .final-phase [class*="plan-card"] .plan-wrap{display:flex!important;flex-wrap:nowrap!important;gap:8px!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}' +
+      R + ' .final-phase [class*="plan-card"] .plan-wrap>.options-row{flex:1 1 0!important;min-width:0!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;display:flex!important}' +
+      R + ' .final-phase [class*="plan-card"] .option-pill{width:100%!important;max-width:none!important;margin:0!important;padding:9px 6px!important;min-height:42px!important;font-size:13px!important;line-height:1.2!important;white-space:normal!important;text-align:center!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}' +
+      /* contacts + final notes */
+      R + ' .final-phase .contact-block.contact-block{display:grid!important;grid-template-columns:1fr!important;gap:18px!important;box-sizing:border-box!important;width:auto!important;max-width:none!important;background:#eeeeec!important;border:1px solid #d0d2cf!important;border-radius:14px!important;padding:20px!important;margin:16px 0 0!important;box-shadow:none!important}' +
+      R + ' .final-phase .contact-block.contact-block :is(.contact-row,.tex-area-holder){display:flex!important;flex-direction:column!important;gap:0!important;margin:0!important;padding:0!important;background:none!important;border:0!important;width:auto!important}' +
+      R + ' .final-phase .contact-block.contact-block :is(.contacts-label,.text-area-label){margin:0 0 12px!important;padding:0!important}' +
+      R + ' .final-phase .contact-block.contact-block :is(.contacts-label h2,.text-area-label h2){font-family:Montserrat,sans-serif!important;font-size:20px!important;line-height:26px!important;font-weight:600!important;text-transform:uppercase!important;letter-spacing:.5px!important;color:#141414!important;margin:0!important;padding:0!important;text-align:left!important}' +
+      R + ' .final-phase .contact-block.contact-block .question-wrap-final{display:flex!important;flex-direction:column!important;align-items:stretch!important;width:auto!important;max-width:none!important;min-width:0!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}' +
+      R + ' .final-phase .contact-block.contact-block .question-wrap-final label{display:block!important;width:auto!important;font-family:Montserrat,sans-serif!important;font-size:13px!important;font-weight:600!important;line-height:1.3!important;color:#333533!important;margin:0 0 6px!important;text-align:left!important}' +
+      R + ' .final-phase .contact-block.contact-block :is(input.w-input,textarea){display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;background:#fafaf8!important;border:1px solid #d0d2cf!important;border-radius:8px!important;padding:10px 12px!important;font:500 14px/20px Montserrat,sans-serif!important;color:#333533!important;margin:0 0 12px!important;box-shadow:none!important}' +
+      R + ' .final-phase .contact-block.contact-block input.w-input{height:44px!important;min-height:44px!important}' +
+      R + ' .final-phase .contact-block.contact-block textarea{min-height:96px!important;height:auto!important;resize:vertical}' +
+      R + ' .final-phase .contact-block.contact-block input[type=submit]{display:block!important;width:60%!important;max-width:320px!important;margin:4px auto 0!important;min-height:46px!important;padding:12px 20px!important;background:#343834!important;color:#fff!important;border:1px solid #343834!important;border-radius:8px!important;box-shadow:0 4px 10px rgba(0,0,0,.15)!important;font:600 15px/20px Montserrat,sans-serif!important;text-align:center!important;cursor:pointer}' +
+      '@media(max-width:767px){' + R + ' .final-phase .contact-block.contact-block{padding:16px!important}' + R + ' .final-phase .contact-block.contact-block input[type=submit]{width:100%!important;max-width:none!important}}';
+    document.head.appendChild(st);
+  }
+  function tagCards(page) {
+    page.querySelectorAll('.question-wrap,[data-field]').forEach(function (q) {
+      if (q.classList.contains('kc-qcard') || q.classList.contains('question-wrap-final') || q.classList.contains('question-wrap-vision')) return;
+      if (q.closest('.final-phase') || q.classList.contains('option-pill') || q.tagName === 'A' || q.tagName === 'LABEL' || q.tagName === 'INPUT' || q.tagName === 'SELECT') return;
+      if (!q.querySelector('.options-row .option-pill')) return;
+      if (q.parentElement && q.parentElement.closest('.kc-qcard')) return;
+      if (q.querySelector('.kc-qcard')) return;
+      q.classList.add('kc-qcard');
+    });
+    page.querySelectorAll('.final-subtitle').forEach(function (s) { if (s.textContent.trim() !== SUBTITLE) s.textContent = SUBTITLE; });
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+    while ((n = w.nextNode())) {
+      if (n.nodeValue.indexOf('потвърдим по телефона') > -1) n.nodeValue = n.nodeValue.replace(/Ще потвърдим по телефона\.*/g, 'Наш служител ще се свърже с Вас за потвърждение.');
+    }
+  }
+  function stepLabel(page) { var c = page.querySelector('.ag-global-progress-count,[class*="progress-count"]'); return c ? c.textContent : ''; }
+  function polish(found) {
+    document.documentElement.classList.add('kc-kitchen');
+    polishCss();
+    try { window.dispatchEvent(new Event('resize')); } catch (e) { /* sticky offsets */ }
+    var page = found.page;
+    tagCards(page);
+    var tq = 0;
+    new MutationObserver(function () { if (tq) return; tq = setTimeout(function () { tq = 0; tagCards(page); }, 150); }).observe(page, { childList: true, subtree: true });
+    // Next: the new step always starts at its top (progress bar + sketch), also after late layout shifts on phones.
+    document.addEventListener('click', function (e) {
+      var nb = e.target.closest && e.target.closest('[data-ag-nav="next"],[data-prava-nav="next"],[data-p-nav="next"]'); if (!nb) return;
+      var before = stepLabel(page), y0 = window.pageYOffset;
+      function toTop() {
+        if (stepLabel(page) === before) return;   // validation stopped it: stay at the question that needs an answer
+        var bar = page.querySelector('.ag-global-progress,.prava-global-progress,.p-global-progress,[role="progressbar"]') || page;
+        var nx = bar.nextElementSibling || bar.parentElement;   // the progress bar is sticky: measure the block right under it
+        var top = nx.getBoundingClientRect().top + window.pageYOffset - (bar === page ? 0 : bar.offsetHeight) - 12;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+      }
+      [60, 350, 900].forEach(function (ms) { setTimeout(toTop, ms); });
+    }, true);
+  }
+
   function init() {
     slotColours();
-    var found = kitchen(); if (!found) return;
+    var found = kitchen(); if (!found) { if ((init.tries = (init.tries || 0) + 1) < 60) setTimeout(init, 250); return; }
+    try { polish(found); } catch (e) { /* layout only */ }
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
     try { politePage(document.body); } catch (e) { /* wording only */ }
