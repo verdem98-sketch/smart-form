@@ -220,7 +220,8 @@
       wrap.style.setProperty('--kc-gap', '10px');
       if (day && !custom.classList.contains('booking-day')) {
         var d = getComputedStyle(day);
-        ['background', 'border', 'borderRadius', 'padding', 'boxShadow'].forEach(function (k) { custom.style[k] = d[k]; });
+        var bw = d.borderTopWidth + ' ' + d.borderTopStyle + ' ' + d.borderTopColor;
+        [['background', d.backgroundColor], ['border', bw], ['border-radius', d.borderRadius], ['padding', d.padding], ['box-shadow', d.boxShadow], ['min-height', '0']].forEach(function (k) { custom.style.setProperty(k[0], k[1], 'important'); });
       }
       custom.classList.add('kc-custom');
       wrap.classList.add('kc-merged');
