@@ -125,7 +125,6 @@
   }
 
   function successHtml(found, payload, number) {
-    var informal = found.k.id === 'aglova';   // the corner kitchen page talks to the visitor with "ти"
     var first = clean(payload.contact.name).split(' ')[0];
     var name = KNAME[found.k.id] || 'кухня';
     var ai = aiImageSrc(found.page), sk = payload.sketchImage || '';
@@ -133,22 +132,16 @@
     if (ai || sk) {
       media = '<div class="kc-media' + (ai && sk ? '' : ' one') + '">' +
         (ai ? '<figure><img src="' + esc(ai) + '" alt="AI визуализация"><figcaption>AI визуализация</figcaption></figure>' : '') +
-        (sk ? '<figure><img src="' + esc(sk) + '" alt="3D скица"><figcaption>' + (informal ? 'Твоята' : 'Вашата') + ' скица</figcaption></figure>' : '') + '</div>';
+        (sk ? '<figure><img src="' + esc(sk) + '" alt="3D скица"><figcaption>' + 'Вашата' + ' скица</figcaption></figure>' : '') + '</div>';
     }
     var m = payload.meeting || {}, meet, meetNote;
     if (m.date && m.slot) { meet = niceDate(m.date) + ', ' + m.slot; meetNote = '<em class="kc-pending">чака потвърждение по телефона</em>'; }
-    else if (m.custom) { meet = m.custom; meetNote = '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' се обадим, за да уточним точния час.</span>'; }
-    else { meet = 'Ще уговорим удобен час'; meetNote = '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' се обадим.</span>'; }
+    else if (m.custom) { meet = m.custom; meetNote = '<span>Ще ' + 'Ви' + ' се обадим, за да уточним точния час.</span>'; }
+    else { meet = 'Ще уговорим удобен час'; meetNote = '<span>Ще ' + 'Ви' + ' се обадим.</span>'; }
     var mats = payload.materials || {}, thumbs = '';
     ['upper', 'lower', 'countertop', 'backsplash'].forEach(function (r) { if (mats[r] && mats[r].image) thumbs += '<img src="' + esc(mats[r].image) + '" alt="' + esc(mats[r].label) + '" title="' + esc(mats[r].label) + '">'; });
     var email = clean(payload.contact.email);
-    var T = informal ? {
-      thanks: 'Благодаря ти' + (first ? ', ' + esc(first) : '') + '!',
-      lead: 'Твоята кухня вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подреди.',
-      compl: 'Подбрал си я с вкус и с мисъл за всеки ден в нея. Оттук нататък мечтата ти е в сигурни ръце.',
-      s1: 'Обаждаме ти се', s1t: 'за да потвърдим часа за среща.', s2: 'Среща в офиса', s2t: OFFICE, s3: 'Проект и оферта', s3t: 'Получаваш точен проект и цена.',
-      copy: email ? 'Изпратихме копие на заявката на <b>' + esc(email) + '</b>.' : 'Ще се свържем с теб съвсем скоро.', call: 'Ако имаш допълнителни въпроси — свържи се с нас'
-    } : {
+    var T = {
       thanks: 'Благодарим Ви' + (first ? ', ' + esc(first) : '') + '!',
       lead: 'Вашата кухня вече е при нас — с размерите, шкафовете, материалите и визуализацията, точно както я подредихте.',
       compl: 'Подбрали сте я с вкус и с мисъл за всеки ден в нея. Оттук нататък мечтата Ви е в сигурни ръце.',
@@ -161,8 +154,8 @@
       '<div class="kc-body">' + media +
       '<div class="kc-tiles">' +
         '<div class="kc-tile"><small>Среща</small><b>' + esc(meet) + '</b>' + meetNote + '</div>' +
-        '<div class="kc-tile"><small>Номер на заявката</small><b class="kc-num-big">' + (number ? esc(number) : '…') + '</b><span>' + (informal ? 'Кажи го' : 'Посочете го') + ', ако ни се обаждате.</span></div>' +
-        '<div class="kc-tile"><small>Материали</small><b>' + (thumbs ? 'Избрани' : 'Ще ги уточним') + '</b>' + (thumbs ? '<div class="kc-mats">' + thumbs + '</div>' : '<span>Ще ' + (informal ? 'ти' : 'Ви') + ' покажем мостри.</span>') + '</div>' +
+        '<div class="kc-tile"><small>Номер на заявката</small><b class="kc-num-big">' + (number ? esc(number) : '…') + '</b><span>' + 'Посочете го' + ', ако ни се обаждате.</span></div>' +
+        '<div class="kc-tile"><small>Материали</small><b>' + (thumbs ? 'Избрани' : 'Ще ги уточним') + '</b>' + (thumbs ? '<div class="kc-mats">' + thumbs + '</div>' : '<span>Ще ' + 'Ви' + ' покажем мостри.</span>') + '</div>' +
       '</div>' +
       '<div class="kc-steps-title">Какво следва</div><ol class="kc-steps">' +
         '<li><b>' + T.s1 + '</b>' + T.s1t + '</li><li><b>' + T.s2 + '</b>' + T.s2t + '</li><li><b>' + T.s3 + '</b>' + T.s3t + '</li></ol>' +
@@ -203,7 +196,7 @@
       '.booking-slot.is-local-locked:not(.active):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
       '.booking-slot.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
       '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}' +
-      '.booking-slot.active::after{content:"' + (document.querySelector('.flow-aglova') ? 'Твоят час' : 'Вашият час') + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
+      '.booking-slot.active::after{content:"' + 'Вашият час' + '";display:block;font-size:.78em;font-weight:600;opacity:.9;margin-top:2px}' +
       '.booking-wrap.kc-merged{display:grid!important;grid-template-columns:repeat(var(--kc-cols,2),minmax(0,1fr))!important;gap:var(--kc-gap,10px)!important;align-items:stretch}' +
       '.booking-wrap.kc-merged>.booking-days{display:contents!important}' +
       '.booking-wrap.kc-merged>.kc-custom{margin:0!important;width:auto!important;max-width:none!important;grid-column:auto!important}' +
@@ -243,8 +236,67 @@
     var card = page.querySelector('[class*="plan-card"]'), slots = page.querySelector('.final-content');
     if (!card || !slots) return;
     var t = card.querySelector('.question-title'), leaf = t && (t.querySelector('div') || t);
-    if (leaf && !/поръчката/.test(leaf.textContent)) leaf.textContent = /планираш/.test(leaf.textContent) ? 'Кога планираш поръчката?' : 'Кога планирате поръчката?';
+    if (leaf && !/поръчката/.test(leaf.textContent)) leaf.textContent = 'Кога планирате поръчката?';
     if (slots.nextElementSibling !== card) slots.parentNode.insertBefore(card, slots.nextElementSibling);
+  }
+
+
+  // The site talks to the client formally ("Вие"). Some texts on the pages (Webflow and older scripts) are in "ти":
+  // they are rewritten here, also when they appear later (summary, editor, AI box).
+  var POLITE = [
+    ['Виж кухнята си като реална визия', 'Вижте кухнята си като реална визия'],
+    ['Искаш промяна по визуализацията?', 'Искате промяна по визуализацията?'],
+    ['Опиши само какво искаш да се промени.', 'Опишете само какво искате да се промени.'],
+    ['Направи корекция', 'Направете корекция'],
+    ['Не намираш удобен час? Посочи друг:', 'Не намирате удобен час? Посочете друг:'],
+    ['Покажи ни посоката, която търсиш, и остави удобен начин за връзка.', 'Покажете ни посоката, която търсите, и оставете удобен начин за връзка.'],
+    ['Избери какво те привлича най-много.', 'Изберете какво Ви привлича най-много.'],
+    ['и ще получиш идея', 'и ще получите идея'],
+    ['Можеш да избереш една, две или три стени', 'Можете да изберете една, две или три стени'],
+    ['Избери вариант, за да продължим.', 'Изберете вариант, за да продължим.'],
+    ['Ако искаш промяна, обади се.', 'Ако искате промяна, обадете се.'],
+    ['Избери материал за', 'Изберете материал за'],
+    ['Добави материал', 'Добавете материал'],
+    ['смени на чекмеджета:', 'смяна на чекмеджета:'],
+    ['чекмеджета – смени на:', 'чекмеджета – смяна на:'],
+    ['Направи витрина', 'Направете витрина'],
+    ['Завърти 90°', 'Завъртете на 90°'],
+    ['Върни на мястото', 'Върнете на мястото'],
+    ['Ако вече имаш точен декор, код или материал', 'Ако вече имате точен декор, код или материал'],
+    ['Например: Добави една витрина с осветление в десния край и не променяй останалите шкафове.', 'Например: добавете една витрина с осветление в десния край и не променяйте останалите шкафове.'],
+    ['Затвори конфигуратора', 'Затваряне на конфигуратора']
+  ];
+  var POLITE_WHOLE = { 'Продължи': 'Продължете', 'Покажи още': 'Покажете още', 'Затвори': 'Затваряне', 'Кога планираш?': 'Кога планирате поръчката?' };
+  function politeText(v) {
+    if (!v) return v;
+    var t = v.trim();
+    if (POLITE_WHOLE[t]) return v.replace(t, POLITE_WHOLE[t]);
+    for (var i = 0; i < POLITE.length; i++) if (v.indexOf(POLITE[i][0]) >= 0) v = v.split(POLITE[i][0]).join(POLITE[i][1]);
+    return v;
+  }
+  function politeNode(root) {
+    if (!root) return;
+    if (root.nodeType === 3) { var nv = politeText(root.nodeValue); if (nv !== root.nodeValue) root.nodeValue = nv; return; }
+    if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA)$/.test(root.tagName)) return;
+    ['placeholder', 'aria-label', 'title', 'value'].forEach(function (a) {
+      if (a === 'value' && !(root.tagName === 'INPUT' && /^(submit|button)$/i.test(root.type))) return;
+      var v = root.getAttribute(a); if (v) { var nv2 = politeText(v); if (nv2 !== v) root.setAttribute(a, nv2); }
+    });
+    if (root.tagName === 'TEXTAREA') { var ph = root.getAttribute('placeholder'); if (ph) { var np = politeText(ph); if (np !== ph) root.setAttribute('placeholder', np); } return; }
+    for (var c = root.firstChild; c; c = c.nextSibling) politeNode(c);
+  }
+  function politePage(page) {
+    politeNode(page);
+    var busy = false;
+    new MutationObserver(function (list) {
+      if (busy) return; busy = true;
+      list.forEach(function (m) {
+        if (m.type === 'characterData') politeNode(m.target);
+        else if (m.type === 'attributes') politeNode(m.target);
+        else m.addedNodes.forEach(politeNode);
+      });
+      busy = false;
+    }).observe(page, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title'] });
   }
 
   function init() {
@@ -252,6 +304,7 @@
     var found = kitchen(); if (!found) return;
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
+    try { politePage(document.body); } catch (e) { /* wording only */ }
     [0, 600, 1800, 4000].forEach(function (ms) { setTimeout(function () { planCard(found.page); }, ms); });
     found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
     var merged = false;
