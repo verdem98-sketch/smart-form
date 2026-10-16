@@ -80,9 +80,10 @@
     if (document.getElementById('kitchen-slot-colours')) return;
     var st = document.createElement('style'); st.id = 'kitchen-slot-colours';
     st.textContent =
-      '.booking-slot.is-pending,.booking-slot.is-local-locked{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
+      '.booking-slot.is-pending{background:#fff3c4!important;border-color:#e2c04a!important;color:#7a5a00!important;cursor:not-allowed!important}' +
+      '.booking-slot.is-local-locked:not(.is-selected):not(.is-pending):not(.is-booked){opacity:.45!important;cursor:not-allowed!important}' +
       '.booking-slot.is-booked{background:#fde2df!important;border-color:#e39a92!important;color:#9b1c10!important;cursor:not-allowed!important;text-decoration:line-through}' +
-      '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-local-locked::after{content:" · вашият";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}';
+      '.booking-slot.is-pending::after{content:" · чака";font-size:.85em}.booking-slot.is-booked::after{content:" · зает";font-size:.85em}';
     document.head.appendChild(st);
   }
 
