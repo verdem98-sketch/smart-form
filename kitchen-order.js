@@ -299,12 +299,31 @@
     }).observe(page, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title'] });
   }
 
+
+  // Card titles like Права: the left card is titled "Преглед на кухнята" ("Скица" on the sizes step),
+  // in the same type as the step heading of the right card (Red Hat Display 24/600, left, no bar)
+  function sketchTitles() {
+    if (!document.getElementById('kc-titles-css')) {
+      var st = document.createElement('style'); st.id = 'kc-titles-css';
+      st.textContent = '.flow-aglova .prava-preview-card>.combo-title,.sf-page-p .p-sketch-title{font-family:"Red Hat Display",sans-serif!important;font-size:24px!important;font-weight:600!important;line-height:30px!important;color:#333533!important;background:transparent!important;text-align:left!important;text-transform:none!important;letter-spacing:normal!important;padding:32px 0 20px!important;margin:0!important;border-radius:0!important;box-shadow:none!important;width:auto!important}' +
+        '@media(max-width:767px){.flow-aglova .prava-preview-card>.combo-title,.sf-page-p .p-sketch-title{font-size:20px!important;line-height:26px!important;padding:16px 0 12px!important}}';
+      document.head.appendChild(st);
+    }
+    var t = document.querySelector('.flow-aglova .prava-preview-card>.combo-title,.sf-page-p .p-sketch-title');
+    if (!t) return;
+    var h = [].filter.call(document.querySelectorAll('.ag-step-heading,.p-step-heading'), function (e) { return e.offsetParent; })[0];
+    var want = h && h.textContent.trim() === 'Размери' ? 'Скица' : 'Преглед на кухнята';
+    if (t.textContent.trim() !== want) t.textContent = want;
+  }
+
   function init() {
     slotColours();
     var found = kitchen(); if (!found) return;
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
     try { politePage(document.body); } catch (e) { /* wording only */ }
+    sketchTitles(); [300, 1500, 4000].forEach(function (ms) { setTimeout(sketchTitles, ms); });
+    document.addEventListener('click', function () { setTimeout(sketchTitles, 60); setTimeout(sketchTitles, 400); }, true);
     [0, 600, 1800, 4000].forEach(function (ms) { setTimeout(function () { planCard(found.page); }, ms); });
     found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
     var merged = false;
