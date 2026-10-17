@@ -78,7 +78,10 @@
   /* ---------------- API ---------------- */
   function call(action, data) {
     var body = Object.assign({ action: action }, data || {});
-    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (ls(LS_TOKEN) || '') }, body: JSON.stringify(body) })
+    // the key comes from the custom code of this password-protected page, so the tool needs no second password
+    var h = { 'Content-Type': 'application/json' };
+    if (window.__verdeOfficeKey) h['X-Office-Key'] = window.__verdeOfficeKey; else h.Authorization = 'Bearer ' + (ls(LS_TOKEN) || '');
+    return fetch(API, { method: 'POST', headers: h, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; }).then(function (j) { if (j && j.auth === false) { ls(LS_TOKEN, null); login(); throw new Error('Влезте отново'); } return j; }); });
   }
 
@@ -103,7 +106,7 @@
   }
 
   function start() {
-    if (!ls(LS_TOKEN)) return login();
+    if (!window.__verdeOfficeKey && !ls(LS_TOKEN)) return login();
     app.innerHTML = '<div class="op-card"><span class="op-busy"></span> Зареждам галерията…</div>';
     call('gallery').then(function (j) {
       if (!j.ok) { app.innerHTML = '<div class="op-card op-err">' + esc(j.error) + '</div>'; return; }
