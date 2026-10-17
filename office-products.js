@@ -227,6 +227,7 @@
     $('#op-note', app).value = S.note || ''; $('#op-note', app).oninput = function (e) { S.note = e.target.value; saveState(); };
     app.appendChild(el('div', 'op-card', '<h3>4. Полета за сайта</h3><div id="op-fields"></div>'));
     app.appendChild(el('div', 'op-card', '<h3>5. Позиция в галерията</h3><div class="op-row" style="margin-bottom:8px"><span class="op-muted">Редът е отделен за всяка основна категория — показани са проектите от избраната.</span> <b id="op-slot-txt" style="font-size:13px"></b></div><div class="op-gal" id="op-gal"></div>'));
+    app.appendChild(toPassportCard());
     var bar = el('div', 'op-bar', '<span class="op-muted" id="op-bar-msg" style="margin-right:auto"></span><button class="op-btn" id="op-draft">Запази като чернова</button><button class="op-btn pri" id="op-pub">Публикувай</button>');
     app.appendChild(bar);
     $('#op-draft', app).onclick = function () { submit(true, false); };
@@ -267,6 +268,7 @@
       $('[data-a="alt"]', card).oninput = function (e) { ph.alt = e.target.value; saveState(); };
       box.appendChild(card);
     });
+    if (TP.draw) TP.draw();
   }
   function freeEnhance(ph) {
     var base = ph.variants[0]; if (!base) return;
@@ -522,6 +524,59 @@
     });
     var t = $('#op-slot-txt', app);
     if (t) t.textContent = S.slot ? (S.slot.afterName && S.slot.beforeName ? 'Между ' + S.slot.afterName + ' и ' + S.slot.beforeName : S.slot.beforeName ? 'Най-отпред, преди ' + S.slot.beforeName : 'Най-отзад, след ' + S.slot.afterName) : 'Изберете място (по подразбиране: най-отпред).';
+  }
+
+  /* ---------------- photos → existing Digital Passport (project-gallery-room1..5) ---------------- */
+  var TP = { list: null, id: null, name: '', rooms: null, room: 0, skip: {} };
+  function toPassportCard() {
+    var c = el('div', 'op-card', '<h3>6. Снимките и към Digital Passport (по желание)</h3><p class="op-muted" style="margin:0 0 8px">Добавя избраните снимки в галерията на стая от вече създаден паспорт. Не зависи от публикуването в сайта.</p><div data-tp></div>');
+    var box = $('[data-tp]', c);
+    function draw() {
+      if (!TP.id) {
+        box.innerHTML = '<input type="text" data-q placeholder="Търси паспорт по име, телефон или договор"><div data-res style="margin-top:6px"></div>';
+        var q = $('[data-q]', box), res = $('[data-res]', box);
+        function list() {
+          var t = norm(q.value), td = t.replace(/\D/g, '');
+          if (!t) { res.innerHTML = ''; return; }
+          var rows = TP.list.filter(function (i) { return norm(i.client + ' ' + i.name + ' ' + i.contracts.join(' ')).indexOf(t) >= 0 || (td.length > 2 && String(i.phone).replace(/\D/g, '').indexOf(td) >= 0); }).slice(0, 8);
+          res.innerHTML = rows.map(function (i) { return '<button type="button" class="op-btn sm" style="margin:0 6px 6px 0" data-id="' + i.id + '">' + esc(i.client || i.name) + (i.contracts.length ? ' · ' + esc(i.contracts.join(', ')) : '') + '</button>'; }).join('') || '<span class="op-muted">Няма намерени.</span>';
+          $$('[data-id]', res).forEach(function (b) { b.onclick = function () { TP.id = b.dataset.id; TP.name = b.textContent; TP.rooms = null; TP.room = 0; draw(); ppCall('get', { id: TP.id }).then(function (j) { if (!j.ok) { TP.id = null; draw(); return alert(j.error); } TP.rooms = j.data.rooms; draw(); }); }; });
+        }
+        q.oninput = function () { if (TP.list) return list(); res.innerHTML = '<span class="op-busy"></span>'; ppCall('list').then(function (j) { TP.list = j.ok ? j.items : []; list(); }); };
+        return;
+      }
+      if (!TP.rooms) { box.innerHTML = '<b>' + esc(TP.name) + '</b> <span class="op-busy"></span>'; return; }
+      var photos = S.photos.filter(function (p) { return current(p); });
+      box.innerHTML = '<div class="op-row" style="justify-content:space-between"><b>' + esc(TP.name) + '</b><button type="button" class="op-btn sm" data-chg>Друг паспорт</button></div>' +
+        '<label class="op-l">Към коя стая</label><select data-room><option value="0">— изберете стая —</option>' + TP.rooms.map(function (r, i) { return '<option value="' + (i + 1) + '"' + (TP.room === i + 1 ? ' selected' : '') + '>Стая ' + (i + 1) + ' – ' + esc(r.name || '(без име)') + ' · ' + r.gallery.length + ' снимки</option>'; }).join('') + '</select>' +
+        '<label class="op-l">Кои снимки</label><div class="op-row" data-ph>' + (photos.length ? photos.map(function (p, k) { var v = current(p); return '<label style="display:inline-block;text-align:center;cursor:pointer"><img src="' + esc(v.url) + '" alt="" style="width:84px;height:64px;object-fit:cover;border-radius:6px;display:block;opacity:' + (TP.skip[k] ? '.35' : '1') + '"><input type="checkbox" data-k="' + k + '"' + (TP.skip[k] ? '' : ' checked') + '></label>'; }).join('') : '<span class="op-muted">Първо качете снимки (стъпка 1).</span>') + '</div>' +
+        '<div class="op-row" style="margin-top:10px"><button type="button" class="op-btn pri" data-go>Добави в паспорта</button><span data-m class="op-muted"></span></div>';
+      $('[data-chg]', box).onclick = function () { TP.id = null; draw(); };
+      $('[data-room]', box).onchange = function (e) { TP.room = Number(e.target.value); };
+      $$('[data-k]', box).forEach(function (i) { i.onchange = function () { TP.skip[i.dataset.k] = !i.checked; draw(); }; });
+      $('[data-go]', box).onclick = function () {
+        var m = $('[data-m]', box), go = this;
+        function say(t, err) { m.className = err ? 'op-err' : 'op-ok'; m.innerHTML = t; }
+        if (!TP.room) return say('Изберете стая.', true);
+        var pick = photos.filter(function (p, k) { return !TP.skip[k]; });
+        if (!pick.length) return say('Изберете поне една снимка.', true);
+        go.disabled = true; say('<span class="op-busy"></span> Качвам…');
+        var seq = Promise.resolve();
+        pick.forEach(function (p) { seq = seq.then(function () { return upload(current(p)); }); });
+        seq.then(function () {
+          var urls = pick.map(function (p) { var v = current(p); return v.publicUrl || (/^https:/.test(v.url) ? v.url : ''); }).filter(Boolean);
+          return ppCall('add-gallery', { id: TP.id, room: TP.room, urls: urls });
+        }).then(function (j) {
+          go.disabled = false;
+          if (!j.ok) throw new Error(j.error);
+          TP.rooms[TP.room - 1].gallery = new Array(j.total);
+          say('Добавени ' + j.added + ' снимки в стая ' + TP.room + ' (общо ' + j.total + ').');
+        }).catch(function (e) { go.disabled = false; say(esc(e.message), true); });
+      };
+    }
+    TP.draw = function () { if (TP.id && TP.rooms && document.body.contains(c)) draw(); };
+    draw();
+    return c;
   }
 
   /* ---------------- publish ---------------- */
