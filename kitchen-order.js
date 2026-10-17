@@ -62,8 +62,200 @@
       materials: materials(k),
       layout: current,
       aiResponseId: clean(window[k.ai]) || null,
-      sketchImage: sketch
+      sketchImage: sketch,
+      publishConsent: CONSENT.value,
+      fromProject: window.__kcProekt || null,
+      config: (function () { try { return snapshot(found); } catch (e) { return null; } })()
     };
+  }
+
+  /* ---------------- 3D projects: the whole configuration as plain data (sizes, answers, extras, appliances, decors) ----
+     It goes with the order; a published project is loaded back with ?proekt=<id> ("Започнете от този дизайн"). */
+  var CONSENT = { value: null };
+  function cssq(v) { return String(v).replace(/["\\]/g, '\\$&'); }
+  function pillOn(p) { return p.classList.contains('active') || p.classList.contains('is-selected'); }
+  function pillKey(p) { return clean(p.getAttribute('data-value') || p.textContent); }
+  // a pill may carry data-field itself (Ъглова) or sit inside the question that has it
+  function pillField(p) { if (p.hasAttribute('data-field')) return p.getAttribute('data-field'); var q = p.parentElement && p.parentElement.closest('[data-field]'); return q ? q.getAttribute('data-field') : ''; }
+  function pillsOf(page, f) { return [].filter.call(page.querySelectorAll('.option-pill'), function (p) { return pillField(p) === f; }); }
+  function pickerOf(row, part) { var c = row.querySelector(part); if (!c) return null; var t = c.querySelector('.picker-value-text') || c.querySelector('.picker-value'); return t ? { c: c, t: t } : null; }
+  function pickerNum(p) { return parseInt((p.t.textContent || '0').trim(), 10) || 0; }
+  function checkKey(box) {
+    var f = box.closest('[data-field]');
+    return (f && f.getAttribute('data-field')) || box.getAttribute('data-checkbox-field') || box.getAttribute('data-name') || box.name || '';
+  }
+  var SKIP = /^(final_|meeting_|custom_date|name$|email$|phone$|g-recaptcha)/i;
+  function snapshot(found) {
+    var page = found.page, k = found.k, s = { v: 1, kitchen: k.id, dims: {}, pills: {}, checks: {}, values: {}, mats: {} };
+    page.querySelectorAll('.dimension-row[data-dim]').forEach(function (row) {
+      var m = pickerOf(row, '.meters-control'), c = pickerOf(row, '.centimeters-control');
+      if (m || c) s.dims[row.getAttribute('data-dim')] = [m ? pickerNum(m) : null, c ? pickerNum(c) : null];
+    });
+    page.querySelectorAll('.option-pill').forEach(function (p) {
+      var f = pillField(p); if (!f || SKIP.test(f) || !pillOn(p)) return;
+      (s.pills[f] = s.pills[f] || []).push(pillKey(p));
+    });
+    page.querySelectorAll('input[type="checkbox"]').forEach(function (b) { var key = checkKey(b); if (key && !SKIP.test(key)) s.checks[key] = !!b.checked; });
+    page.querySelectorAll('select[name]').forEach(function (e) { if (!SKIP.test(e.name) && !e.closest('[class*="material-controls"]')) s.values[e.name] = e.value; });
+    page.querySelectorAll('input[type="hidden"][name$="_grain"]').forEach(function (e) { s.values[e.name] = e.value; });
+    var src = window[k.mats];
+    ['upper', 'lower', 'deep', 'countertop', 'backsplash'].forEach(function (role) {
+      var r = null; try { r = src && src.get(role + '_finish'); } catch (e) { r = null; }
+      if (r && (r.id || r.value)) s.mats[role] = { id: clean(r.id || r.value), code: clean(r.decorCode || r.surfaceCode), family: clean(r.family) };
+    });
+    try { var ed = window[k.layout] && window[k.layout].editor && window[k.layout].editor.state(); if (ed && ed.EDIT) s.edit = JSON.parse(JSON.stringify(ed.EDIT)); } catch (e) { /* optional */ }
+    return s;
+  }
+
+  // consent under the AI picture: may this design be shown in "3D проекти"?
+  function consentCss() {
+    if (document.getElementById('kc-consent-css')) return;
+    var st = document.createElement('style'); st.id = 'kc-consent-css';
+    st.textContent = '.kc-consent{margin:14px 0 4px;padding:14px 16px;border:1px solid #d9ddd5;border-radius:10px;background:#f7f8f5;font-family:inherit;color:#2f332f;text-align:left}' +
+      '.kc-consent b{display:block;font-size:15px;margin:0 0 4px}.kc-consent p{margin:0 0 10px;font-size:13px;line-height:1.45;color:#5d645e}' +
+      '.kc-consent-row{display:flex;gap:8px;flex-wrap:wrap}.kc-consent button{flex:1 1 140px;min-height:42px;padding:8px 14px;border:1px solid #477448;border-radius:8px;background:#fff;color:#477448;font:600 14px/1.2 inherit;cursor:pointer}' +
+      '.kc-consent button.is-on{background:#477448;color:#fff}.kc-consent .kc-consent-note{margin:8px 0 0;font-size:12px;color:#477448}';
+    document.head.appendChild(st);
+  }
+  function consentBox() {
+    var box = document.createElement('div'); box.className = 'kc-consent';
+    box.innerHTML = '<b>Да покажем ли Вашия дизайн в „3D проекти“?</b><p>С Ваше съгласие ще публикуваме тази визуализация и избраните материали в галерията „3D проекти“ на сайта, без име и данни за контакт. Други посетители ще могат да започнат от Вашия дизайн.</p>' +
+      '<div class="kc-consent-row"><button type="button" data-consent="yes">Да, съгласен/а съм</button><button type="button" data-consent="no">Не, благодаря</button></div><div class="kc-consent-note" hidden></div>';
+    return box;
+  }
+  function paintConsent() {
+    document.querySelectorAll('.kc-consent').forEach(function (box) {
+      box.querySelectorAll('[data-consent]').forEach(function (b) { var on = b.getAttribute('data-consent') === CONSENT.value; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); });
+      var note = box.querySelector('.kc-consent-note');
+      note.hidden = !CONSENT.value;
+      note.textContent = CONSENT.value === 'yes' ? 'Благодарим Ви! Можете да промените избора си до изпращане на заявката.' : 'Добре, визуализацията остава само за Вас.';
+    });
+  }
+  function consent(found) {
+    var page = found.page;
+    function place() {
+      var img = null;
+      page.querySelectorAll('img').forEach(function (i) { var s = i.currentSrc || i.src || ''; if (!img && /^(data:image|blob:)/.test(s) && !i.hidden && i.offsetParent && i.naturalWidth >= 400) img = i; });
+      if (!img) return false;
+      if (page.querySelector('.kc-consent')) { var old = page.querySelector('.kc-consent'); if (old.offsetParent) return true; old.remove(); }
+      // above the step's "Напред" row (the picture itself may sit in a sticky column)
+      var next = [].filter.call(page.querySelectorAll('[data-ag-nav="next"],[data-prava-nav="next"],[data-p-nav="next"]'), function (b) { return b.offsetParent; })[0];
+      var row = next && next.parentElement;
+      consentCss();
+      if (row) row.before(consentBox());
+      else { var host = img.parentElement; while (host && host.parentElement && host.offsetWidth < 260) host = host.parentElement; if (!host) return false; host.after(consentBox()); }
+      paintConsent(); return true;
+    }
+    ['prava-ai-generated', 'ag-ai-generated', 'p-ai-generated'].forEach(function (ev) {
+      page.addEventListener(ev, function () { var n = 0; (function t() { if (!place() && ++n < 40) setTimeout(t, 250); })(); });
+    });
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.kc-consent [data-consent]'); if (!b) return;
+      e.preventDefault(); e.stopPropagation(); CONSENT.value = b.getAttribute('data-consent'); paintConsent();
+    }, true);
+  }
+
+  // ?proekt=<id>: load a published 3D project into this configurator
+  function wait(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
+  function fire(el, type) { el.dispatchEvent(new Event(type, { bubbles: true })); }
+  function setPills(page, pills) {
+    Object.keys(pills || {}).forEach(function (f) {
+      var want = pills[f];
+      pillsOf(page, f).forEach(function (p) { if (want.indexOf(pillKey(p)) >= 0 && !pillOn(p)) p.click(); });
+      pillsOf(page, f).forEach(function (p) { if (want.indexOf(pillKey(p)) < 0 && pillOn(p)) p.click(); });
+    });
+  }
+  function setDims(page, dims) {
+    Object.keys(dims || {}).forEach(function (key) {
+      var row = page.querySelector('.dimension-row[data-dim="' + cssq(key) + '"]'); if (!row) return;
+      [['.meters-control', '.meter-up', '.meter-down', 0], ['.centimeters-control', '.cm-up', '.cm-down', 1]].forEach(function (d) {
+        var target = dims[key][d[3]], p = pickerOf(row, d[0]); if (target == null || !p) return;
+        var up = p.c.querySelector(d[1]), dn = p.c.querySelector(d[2]);
+        for (var n = 0; n < 250; n++) {
+          var v = pickerNum(p); if (v === target) break;
+          var b = v < target ? up : dn; if (!b) break;
+          b.click(); var nv = pickerNum(p);
+          if (nv === v || (v < target && nv > target) || (v > target && nv < target)) break;   // stuck, or the step jumps over the target
+        }
+      });
+    });
+  }
+  function setChecks(page, checks) {
+    page.querySelectorAll('input[type="checkbox"]').forEach(function (b) {
+      var key = checkKey(b); if (!key || !(key in (checks || {}))) return;
+      if (!!b.checked !== !!checks[key]) b.click();
+    });
+  }
+  function setValues(page, values) {
+    Object.keys(values || {}).forEach(function (name) {
+      var e = page.querySelector('[name="' + cssq(name) + '"]'); if (!e) return;
+      var v = values[name];
+      if (/_grain$/.test(name)) {
+        var host = e.parentElement, btn = null;
+        for (var i = 0; i < 5 && host && !btn; i++, host = host.parentElement) btn = host.querySelector('button[data-g="' + cssq(v) + '"]');
+        if (btn) { btn.click(); return; }
+      }
+      if (e.value !== v) { e.value = v; fire(e, 'input'); fire(e, 'change'); }
+    });
+  }
+  function galleryOf(page, role) {
+    var input = page.querySelector('input[name="' + role + '_finish"]'), host = input;
+    for (var i = 0; i < 8 && host; i++, host = host.parentElement) {
+      var g = host.querySelector('.material-gallery') || ((host.querySelector('.material-gallery-grid,.worktop-gallery-grid') || {}).parentElement);
+      if (g) return g.querySelector('input[type="search"]') ? g : host;
+    }
+    return null;
+  }
+  async function setMaterial(page, role, m) {
+    var g = galleryOf(page, role); if (!g || !m || !m.id) return false;
+    var search = g.querySelector('input[type="search"]'), selects = [].slice.call(g.querySelectorAll('select')), fam = null;
+    selects.forEach(function (s) {
+      var kind = s.getAttribute('data-ag-filter') || s.getAttribute('data-p-filter') || s.getAttribute('data-prava-filter') || '';
+      if (kind === 'family') { fam = s; return; }
+      if (s.value !== 'all' && [].some.call(s.options, function (o) { return o.value === 'all'; })) { s.value = 'all'; fire(s, 'change'); }
+    });
+    var fams = fam ? [m.family || fam.value].concat([].map.call(fam.options, function (o) { return o.value; })) : [null];
+    for (var f = 0; f < fams.length; f++) {
+      if (fam && fams[f] && fam.value !== fams[f]) { fam.value = fams[f]; fire(fam, 'change'); }
+      var terms = [m.code, m.id, ''];
+      for (var t = 0; t < terms.length; t++) {
+        if (search && (terms[t] || t === 2)) { search.value = terms[t]; fire(search, 'input'); }
+        await wait(30);
+        var card = g.querySelector('.material-card[data-decor-id="' + cssq(m.id) + '"]');
+        if (card) { card.click(); if (search && search.value) { search.value = ''; fire(search, 'input'); } return true; }
+      }
+    }
+    return false;
+  }
+  function loadBanner(page, text) {
+    var b = document.createElement('div');
+    b.className = 'kc-proekt-banner';
+    b.setAttribute('style', 'margin:0 0 14px;padding:12px 16px;border-radius:10px;background:#eef3ec;border:1px solid #c9d8c6;color:#2f332f;font:14px/1.45 inherit');
+    b.textContent = text;
+    var bar = page.querySelector('.ag-global-progress,.prava-global-progress,.p-global-progress');
+    if (bar && bar.nextElementSibling) bar.nextElementSibling.prepend(b); else page.prepend(b);
+  }
+  function replay(found) {
+    var id = (location.search.match(/[?&]proekt=([A-Za-z0-9_-]{1,40})/) || [])[1];
+    if (!id) return;
+    fetch(ENDPOINT + '?proekt=' + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(async function (d) {
+      var c = d && d.ok && d.config;
+      if (!c || c.kitchen !== found.k.id) return;
+      var page = found.page;
+      // the galleries are built after their catalogue loads
+      for (var n = 0; n < 60; n++) { var ok = Object.keys(c.mats || {}).every(function (r) { var g = galleryOf(page, r); return g && g.querySelector('.material-card'); }); if (ok) break; await wait(250); }
+      for (var pass = 0; pass < 2; pass++) {   // twice: an answer can open (or reset) questions that depend on it
+        setPills(page, c.pills); await wait(120);
+        setDims(page, c.dims); await wait(120);
+        setChecks(page, c.checks); setValues(page, c.values); await wait(120);
+      }
+      var roles = ['upper', 'lower', 'deep', 'countertop', 'backsplash'];
+      for (var i = 0; i < roles.length; i++) if (c.mats && c.mats[roles[i]]) { try { await setMaterial(page, roles[i], c.mats[roles[i]]); } catch (e) { /* keep going */ } }
+      setPills(page, c.pills); setValues(page, c.values);
+      var lay = window[found.k.layout]; try { if (lay && lay.refresh) lay.refresh(); } catch (e) { /* redraw only */ }
+      loadBanner(page, 'Заредихме дизайна „' + (d.name || 'от 3D проекти') + '“. Прегледайте стъпките с бутона „Напред“ и променете размерите, материалите и уредите според Вашето помещение.');
+      window.__kcProekt = { id: id, name: d.name || '' };
+    }).catch(function () { /* the configurator works as usual */ });
   }
 
   function esc(v) { return clean(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -504,6 +696,9 @@
     slotColours();
     var found = kitchen(); if (!found) { if ((init.tries = (init.tries || 0) + 1) < 60) setTimeout(init, 250); return; }
     try { polish(found); } catch (e) { /* layout only */ }
+    try { consent(found); } catch (e) { /* optional */ }
+    try { replay(found); } catch (e) { /* optional */ }
+    window.kcDesign = { snapshot: function () { return snapshot(found); }, consent: function () { return CONSENT.value; } };
     var form = found.page.querySelector('form') || document.querySelector('form'); if (!form || form.dataset.kitchenOrder) return;
     form.dataset.kitchenOrder = '1';
     try { politePage(document.body); } catch (e) { /* wording only */ }
