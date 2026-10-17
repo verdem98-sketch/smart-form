@@ -26,7 +26,7 @@
       '.op h2{font:700 18px/1.3 Montserrat,Arial,sans-serif;margin:0 0 4px}.op h3{font:700 15px/1.3 Montserrat,Arial,sans-serif;margin:0 0 10px}',
       '.op-card{background:#fff;border:1px solid #e1e4df;border-radius:14px;padding:18px;margin:0 0 16px}',
       '.op-muted{color:#6a716b;font-size:13px}.op-err{color:#9b1c10;font-size:13px}.op-ok{color:#477448;font-size:13px}',
-      '.op input[type=text],.op input[type=password],.op textarea,.op select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cfd4cb;border-radius:8px;font:14px/1.4 Montserrat,Arial,sans-serif;background:#fff;color:#2f332f}',
+      '.op input[type=text],.op input[type=password],.op input[type=number],.op input[type=date],.op input[type=tel],.op input[type=email],.op textarea,.op select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cfd4cb;border-radius:8px;font:14px/1.4 Montserrat,Arial,sans-serif;background:#fff;color:#2f332f}',
       '.op textarea{min-height:80px;resize:vertical}.op label.op-l{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}',
       '.op-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 16px;border:1px solid #477448;border-radius:8px;background:#fff;color:#477448;font:600 14px Montserrat,Arial,sans-serif;cursor:pointer}',
       '.op-btn.pri{background:#477448;color:#fff}.op-btn.dark{background:#2f332f;border-color:#2f332f;color:#fff}.op-btn:disabled{opacity:.5;cursor:default}.op-btn.sm{min-height:32px;padding:4px 10px;font-size:13px}',
@@ -58,6 +58,10 @@
       '.op-sw b{display:block;font-size:12px}.op-sw.is-on{outline:3px solid #477448;outline-offset:-3px}',
       '.op-pick-nav{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}',
       '.op-mat-sel{display:flex;gap:8px;align-items:center;margin-top:6px}.op-mat-sel img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e1e4df}',
+      '.pp-bar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.pp-bar[hidden]{display:none}.op[hidden]{display:none}',
+      '.pp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0 12px}',
+      '.pp-mat{grid-template-columns:130px 110px 100px 1fr auto}.pp-hw{display:grid;grid-template-columns:1fr 80px auto;gap:8px;margin:0 0 6px}',
+      '.pp-wide{grid-column:span 2}@media(max-width:700px){.pp-wide{grid-column:auto}.pp-mat{grid-template-columns:1fr 1fr 1fr}.pp-mat .op-mat-r{grid-column:1/-1}.pp-mat>[data-k=del]{grid-column:3;justify-self:end}.pp-hw{grid-template-columns:1fr 70px auto}}',
       '@media(max-width:700px){.op-mat{grid-template-columns:1fr 1fr}.op-mat .op-mat-r{grid-column:1/-1}.op-card{padding:14px}}'
     ].join('');
     document.head.appendChild(s);
@@ -70,18 +74,35 @@
     var header = $('.office-header', shell);
     var bar = el('div', 'vo-tabs', '<button type="button" class="vo-tab" data-tab="passport">Digital Passport</button><button type="button" class="vo-tab" data-tab="products">Нов проект в галерията</button>');
     if (header) header.after(bar); else shell.prepend(bar);
+    var ppBar = el('div', 'pp-bar', '<button type="button" class="op-btn pri" data-pp="new">+ Нов паспорт</button><button type="button" class="op-btn" data-pp="edit">Редактирай / допълни паспорт</button>');
+    bar.after(ppBar);
     app = el('div', 'op'); app.hidden = true; shell.appendChild(app);
+    ppApp = el('div', 'op pp'); ppApp.hidden = true; shell.appendChild(ppApp);
+    var own = [header, bar, ppBar, app, ppApp];
+    function hidePassport(on) {
+      [].forEach.call(shell.children, function (c) {
+        if (own.indexOf(c) >= 0 || c.classList.contains('office-embed')) return;
+        if (on) { if (!c.hasAttribute('data-vo-was')) c.setAttribute('data-vo-was', c.style.display || ''); c.style.display = 'none'; }
+        else if (c.hasAttribute('data-vo-was')) { c.style.display = c.getAttribute('data-vo-was'); c.removeAttribute('data-vo-was'); }
+      });
+    }
     function show(t) {
-      [].forEach.call(shell.children, function (c) { if (c === header || c === bar || c === app || c.classList.contains('office-embed')) return; if (t === 'products') { if (!c.hasAttribute('data-vo-was')) c.setAttribute('data-vo-was', c.style.display || ''); c.style.display = 'none'; } else if (c.hasAttribute('data-vo-was')) { c.style.display = c.getAttribute('data-vo-was'); c.removeAttribute('data-vo-was'); } });
-      app.hidden = t !== 'products';
-      $$('.vo-tab', bar).forEach(function (b) { b.classList.toggle('is-on', b.dataset.tab === t); });
-      ls(LS_TAB, t);
+      hidePassport(t !== 'passport');
+      app.hidden = t !== 'products'; ppApp.hidden = t !== 'pp'; ppBar.hidden = t !== 'passport';
+      $$('.vo-tab', bar).forEach(function (b) { b.classList.toggle('is-on', b.dataset.tab === (t === 'pp' ? 'passport' : t)); });
+      if (t !== 'pp') ls(LS_TAB, t);
       if (t === 'products' && !app.dataset.ready) { app.dataset.ready = '1'; start(); }
     }
+    VO.show = show;
     bar.addEventListener('click', function (e) { var b = e.target.closest('.vo-tab'); if (b) show(b.dataset.tab); });
+    ppBar.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-pp]'); if (!b) return;
+      show('pp'); if (b.dataset.pp === 'new') ppOpen(null); else ppList();
+    });
     show(ls(LS_TAB) === 'products' ? 'products' : 'passport');
     return true;
   }
+  var VO = {}, ppApp;
 
   /* ---------------- API ---------------- */
   function call(action, data) {
@@ -540,6 +561,288 @@
         '<button class="op-btn pri" id="op-new">Нов проект</button></div>';
       $('#op-new', app).onclick = function () { S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' }; call('gallery', { fresh: true }).then(function (g) { if (g.ok) G = g; render(); }); };
     }).catch(function (e) { btns.forEach(function (b) { b.disabled = false; }); msg(e.message, true); });
+  }
+
+  /* ================= Digital Passport: "+ Нов паспорт" / редакция ================= */
+  var PP_API = location.origin + '/contract-automation/api/passport-tool';
+  function ppCall(action, data) {
+    return fetch(PP_API, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' }, body: JSON.stringify(Object.assign({ action: action }, data || {})) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; }); });
+  }
+  var PP_OPT = {
+    invoice: [['', '— изберете —'], ['9a700d7b12d402d65055d127197b2e6e', 'ВЕРДЕ МЕБЕЛЛИ'], ['ccdac908c996d18164060b970e1d196e', 'СТУДИО 564'], ['c96ee9e6099b04bcae1c77b010e679c5', 'VERDE M'], ['dc3501b3830f421c6f644ca262353490', 'INTERIORNI IDEI']],
+    source: [['', '—'], ['6b2e2559667c54f9c98bdd28a3a59d18', 'проект на ИЗПЪЛНИТЕЛЯ'], ['02740bdb758cb4cb7c659fb96d3d2047', 'проект на ВЪЗЛОЖИТЕЛЯ'], ['55019e006a66b1cefb9231816e4b6d61', 'съвместен проект на ВЪЗЛОЖИТЕЛЯ и ИЗПЪЛНИТЕЛЯ']],
+    payment: [['', '—'], ['7f9269b5c09f249d8abbc60187a104c0', 'банков път'], ['e92ac1fc20d9d97b6ef4fe1800b4d85f', 'в брой']]
+  };
+  var HW = [
+    ['flap', 'Клапващи механизми', ['Клапващ механизъм AVENTOS HF-Top (BLUM)', 'Клапващ механизъм AVENTOS HK-Top (BLUM)', 'Клапващ механизъм AVENTOS HK-Top tip-on (BLUM)', 'Клапващ механизъм AVENTOS HK XS (BLUM)', 'Клапващ механизъм AVENTOS HK XS tip-on (BLUM)', 'Газови амортисьори']],
+    ['slides', 'Водачи за чекмеджета', ['Механизъм TANDEM за чекмеджета с дървени страници с частично изтегляне и плавно прибиране (BLUM)', 'Механизъм TANDEM за чекмеджета с дървени страници с частично изтегляне без плавно прибиране (BLUM)', 'Механизъм TANDEM за чекмеджета с дървени страници с пълно изтегляне и плавно прибиране (BLUM)', 'Механизъм TANDEM за чекмеджета с дървени страници с пълно изтегляне без плавно прибиране (BLUM)', 'Механизъм TANDEM за чекмеджета с дървени страници с частично изтегляне и отваряне чрез PUSH (BLUM)', 'Механизъм TANDEM за чекмеджета с дървени страници с пълно изтегляне и отваряне чрез PUSH (BLUM)', 'Телескопичен водач с плавно прибиране', 'Телескопичен водач без плавно прибиране']],
+    ['hinges', 'Панти', ['Панти с плавно прибиране (BLUM)', 'Панти без плавно прибиране (BLUM)', 'Панти без пружина за отваряне чрез PUSH (BLUM)']]
+  ];
+  var PP_ROLES = ['Корпус', 'Лице', 'Лице 2', 'Гръб', 'Стенен панел', 'Термоплот', 'Плот', 'Фазер', 'Друго'];
+  var PP_SUB = ['', 'ПДЧ', 'МДФ', 'МДФ гланц', 'МДФ акрилен', 'Компакт', 'Гетинакс', 'Фурнир', 'Масив'];
+  var PP_THICK = ['', '8мм', '10мм', '12мм', '16мм', '18мм', '25мм', '28мм', '38мм'];
+  var ROOM_NAMES = ['Кухня', 'Гардероб', 'Спалня', 'Всекидневна', 'Библиотека', 'Коридор', 'Детска стая', 'Баня', 'Офис'];
+  var P = null;
+
+  // 11920 → „единадесет хиляди деветстотин и двадесет“
+  function words(n) {
+    n = Math.floor(Math.abs(Number(n) || 0)); if (!n) return 'нула';
+    var ones = ['', 'едно', 'две', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'], teens = ['десет', 'единадесет', 'дванадесет', 'тринадесет', 'четиринадесет', 'петнадесет', 'шестнадесет', 'седемнадесет', 'осемнадесет', 'деветнадесет'];
+    var tens = ['', '', 'двадесет', 'тридесет', 'четиридесет', 'петдесет', 'шестдесет', 'седемдесет', 'осемдесет', 'деветдесет'], hund = ['', 'сто', 'двеста', 'триста', 'четиристотин', 'петстотин', 'шестстотин', 'седемстотин', 'осемстотин', 'деветстотин'];
+    function tri(x, fem) {
+      var h = Math.floor(x / 100), r = x % 100, p = [];
+      if (h) p.push(hund[h]);
+      var low = '';
+      if (r >= 10 && r < 20) low = teens[r - 10];
+      else if (r) { var t = Math.floor(r / 10), o = r % 10, on = fem && o === 1 ? 'една' : fem && o === 2 ? 'две' : ones[o]; low = t ? tens[t] + (o ? ' и ' + on : '') : on; }
+      if (low) { if (p.length && !/ и /.test(low)) p.push('и'); p.push(low); }
+      return p.join(' ');
+    }
+    var mil = Math.floor(n / 1e6), th = Math.floor(n / 1000) % 1000, rest = n % 1000, out = [];
+    if (mil) out.push(mil === 1 ? 'един милион' : tri(mil) + ' милиона');
+    if (th) out.push(th === 1 ? 'хиляда' : tri(th, true) + ' хиляди');
+    if (rest) { var t3 = tri(rest); if (out.length && (rest < 100 || rest % 100 === 0) && !/^и /.test(t3)) out.push('и'); out.push(t3); }
+    return out.join(' ').replace(/\s+/g, ' ').trim();
+  }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function addMonths(iso, m) { var x = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!x || !m) return ''; var d = new Date(Date.UTC(+x[1], +x[2] - 1 + Number(m), +x[3])); return d.toISOString().slice(0, 10); }
+  function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+  function newRoom(name) { return { name: name || '', materials: [], hw: { flap: [], slides: [], hinges: [] }, hwFree: [], accessories: [''], pdf: { keep: true, url: '' }, installDate: '', gallery: [], galleryChanged: false }; }
+  function roomFromServer(r) {
+    var room = newRoom(r.name);
+    room.materials = (r.materials || []).map(function (l) { return { role: '', thick: '', sub: '', line: l }; });
+    (r.hardware || []).forEach(function (l) {
+      var m = /^(\d+)\s*бр\.?\s*(.+)$/.exec(l), qty = m ? m[1] : '', text = m ? m[2] : l, hit = null;
+      HW.forEach(function (c) { c[2].forEach(function (o) { if (!hit && norm(o) === norm(text)) hit = [c[0], o]; }); });
+      if (hit) room.hw[hit[0]].push({ item: hit[1], qty: qty }); else room.hwFree.push(l);
+    });
+    room.accessories = (r.accessories || []).length ? r.accessories.slice() : [''];
+    room.pdf = { keep: true, url: r.pdf || '' };
+    room.installDate = r.installDate || ''; room.gallery = (r.gallery || []).map(function (u) { return { url: u }; });
+    return room;
+  }
+  function ppLine(m) {
+    var d = m.decor; if (!d) return m.line || '';
+    return ((m.role || 'Корпус') + ' - ' + [m.sub, m.thick, d.code, d.surface, d.name, brand(d.brand)].filter(Boolean).join(' ')).replace(/\s+/g, ' ').trim();
+  }
+
+  function ppList() {
+    ppApp.innerHTML = '<div class="op-card"><div class="op-row" style="justify-content:space-between"><h2>Редактирай / допълни паспорт</h2><button class="op-btn sm" data-back>← Digital Passport</button></div><input type="text" id="pp-q" placeholder="Търси по име, телефон или номер на договор" style="margin:10px 0"><div id="pp-list"><span class="op-busy"></span> Зареждам…</div></div>';
+    $('[data-back]', ppApp).onclick = function () { VO.show('passport'); };
+    ppCall('list').then(function (j) {
+      if (!j.ok) { $('#pp-list').innerHTML = '<span class="op-err">' + esc(j.error) + '</span>'; return; }
+      function draw() {
+        var q = norm($('#pp-q').value), qd = q.replace(/\D/g, '');
+        var rows = j.items.filter(function (i) { var hay = norm(i.name + ' ' + i.client + ' ' + i.contract + ' ' + i.contracts.join(' ')); return !q || hay.indexOf(q) >= 0 || (qd && String(i.phone).replace(/\D/g, '').indexOf(qd) >= 0); });
+        $('#pp-list').innerHTML = rows.slice(0, 60).map(function (i) {
+          return '<div class="op-row" style="justify-content:space-between;border-bottom:1px solid #eceeea;padding:8px 0"><div><b>' + esc(i.client || i.name) + '</b> <span class="op-muted">' + esc(i.phone) + '</span><br><span class="op-muted">Договор ' + esc(i.contracts.join(', ') || i.contract || '—') + (i.date ? ' · ' + esc(i.date) : '') + '</span></div><button class="op-btn sm" data-id="' + i.id + '">Редактирай</button></div>';
+        }).join('') || '<span class="op-muted">Няма намерени.</span>';
+        $$('[data-id]', ppApp).forEach(function (b) { b.onclick = function () { ppOpen(b.dataset.id); }; });
+      }
+      $('#pp-q').oninput = draw; draw();
+    });
+  }
+
+  function ppOpen(id) {
+    ppApp.innerHTML = '<div class="op-card"><span class="op-busy"></span> Зареждам…</div>';
+    if (!id) {
+      P = { id: null, contract: '', auto: { words: true, final: true, appendix: true, end: true },
+        d: { clientName: '', phone: '', email: '', address: '', designer: '', invoiceCompany: '', furnitureType: 'мебели по поръчка', projectSource: '6b2e2559667c54f9c98bdd28a3a59d18', contractDate: today(), appendixCount: 1, projectValue: '', projectValueWords: '', paymentMethod: '7f9269b5c09f249d8abbc60187a104c0', advance: '', finalPayment: '', installationDeadline: '', preparationDeadline: '', installationDate: '', warrantyMonths: '24', warrantyEnd: '' },
+        rooms: [newRoom('Кухня')] };
+      return ppRender();
+    }
+    ppCall('get', { id: id }).then(function (j) {
+      if (!j.ok) { ppApp.innerHTML = '<div class="op-card op-err">' + esc(j.error) + '</div>'; return; }
+      var d = j.data;
+      P = { id: j.id, slug: j.slug, contract: j.contract, auto: { words: !d.projectValueWords, final: d.finalPayment === '' || d.finalPayment === null, appendix: false, end: !d.warrantyEnd }, d: d, rooms: (d.rooms || []).map(roomFromServer) };
+      if (!P.rooms.length) P.rooms.push(newRoom(''));
+      ppRender();
+    });
+  }
+
+  function inp(key, label, type, attrs) { return '<div><label class="op-l">' + label + '</label><input type="' + (type || 'text') + '" data-d="' + key + '" value="' + esc(P.d[key] == null ? '' : P.d[key]) + '"' + (attrs || '') + '></div>'; }
+  function sel(key, label, opts) { return '<div><label class="op-l">' + label + '</label><select data-d="' + key + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(P.d[key] || '') === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>'; }
+
+  function ppRender() {
+    var d = P.d;
+    ppApp.innerHTML =
+      '<div class="op-card"><div class="op-row" style="justify-content:space-between"><div><h2>' + (P.id ? 'Редакция на паспорт' : 'Нов паспорт') + '</h2><div class="op-muted">' + (P.contract ? 'Договор ' + esc(P.contract) : 'Номерът на договора се слага автоматично след запис.') + '</div></div><button class="op-btn sm" data-back>← Digital Passport</button></div></div>' +
+      '<div class="op-card"><h3>Клиент и договор</h3><div class="pp-grid">' +
+      inp('clientName', 'Име и фамилия *') + inp('phone', 'Телефон (код за достъп до паспорта)', 'tel') + inp('email', 'Имейл', 'email') + inp('address', 'Адрес на обекта') +
+      inp('designer', 'Проектант') + sel('invoiceCompany', 'Фирма за фактура *', PP_OPT.invoice) + inp('furnitureType', 'Вид мебели') + sel('projectSource', 'По проект на', PP_OPT.source) +
+      inp('contractDate', 'Дата на договора', 'date') + inp('appendixCount', 'Брой приложения', 'number', ' min="0"') + '</div></div>' +
+      '<div class="op-card"><h3>Плащане и срокове</h3><div class="pp-grid">' +
+      inp('projectValue', 'Крайна цена (€)', 'number', ' min="0"') + '<div class="pp-wide">' + inp('projectValueWords', 'Цена словом') + '</div>' + sel('paymentMethod', 'Начин на плащане', PP_OPT.payment) +
+      inp('advance', 'Аванс (€)', 'number', ' min="0"') + inp('finalPayment', 'Основно плащане (€)', 'number', ' min="0"') + inp('installationDeadline', 'Краен срок за монтажа', 'date') + inp('preparationDeadline', 'Срок за отстраняване на проблеми', 'date') + '</div></div>' +
+      '<div id="pp-rooms"></div><div class="op-card"><button class="op-btn" id="pp-addroom"' + (P.rooms.length >= 5 ? ' disabled' : '') + '>+ Добави помещение</button> <span class="op-muted">до 5 помещения</span></div>' +
+      '<div class="op-card"><h3>Гаранция</h3><div class="pp-grid">' + inp('installationDate', 'Дата на монтаж', 'date') + inp('warrantyMonths', 'Гаранция (месеци)', 'number', ' min="0"') + inp('warrantyEnd', 'Край на гаранцията', 'date') + '</div></div>' +
+      '<div class="op-bar"><span class="op-muted" id="pp-msg" style="margin-right:auto"></span><button class="op-btn pri" id="pp-save">' + (P.id ? 'Запази промените' : 'Създай паспорт') + '</button></div>';
+    $('[data-back]', ppApp).onclick = function () { VO.show('passport'); };
+    $$('[data-d]', ppApp).forEach(function (i) {
+      i[i.tagName === 'SELECT' ? 'onchange' : 'oninput'] = function () {
+        var k = i.dataset.d; d[k] = i.value;
+        if (k === 'projectValueWords') P.auto.words = !i.value; if (k === 'finalPayment') P.auto.final = !i.value; if (k === 'appendixCount') P.auto.appendix = false; if (k === 'warrantyEnd') P.auto.end = !i.value;
+        ppAuto(k);
+      };
+    });
+    $('#pp-addroom', ppApp).onclick = function () { if (P.rooms.length < 5) { P.rooms.push(newRoom('')); if (P.auto.appendix) d.appendixCount = P.rooms.length; ppRender(); } };
+    $('#pp-save', ppApp).onclick = ppSave;
+    ppRooms();
+  }
+  function setD(k, v) { P.d[k] = v; var i = $('[data-d="' + k + '"]', ppApp); if (i && i !== document.activeElement) i.value = v; }
+  function ppAuto(k) {
+    var d = P.d;
+    if ((k === 'projectValue') && P.auto.words) setD('projectValueWords', d.projectValue ? words(d.projectValue) + ' евро' : '');
+    if ((k === 'projectValue' || k === 'advance') && P.auto.final && d.projectValue !== '' && d.advance !== '') setD('finalPayment', String(Math.max(0, Number(d.projectValue) - Number(d.advance))));
+    if ((k === 'installationDate' || k === 'warrantyMonths') && P.auto.end) setD('warrantyEnd', addMonths(d.installationDate, d.warrantyMonths));
+  }
+
+  function ppRooms() {
+    var box = $('#pp-rooms', ppApp); box.innerHTML = '';
+    P.rooms.forEach(function (r, ri) {
+      var c = el('div', 'op-card');
+      c.innerHTML = '<div class="op-row" style="justify-content:space-between"><h3 style="margin:0">Помещение ' + (ri + 1) + '</h3>' + (P.rooms.length > 1 ? '<button class="op-btn sm" data-x>Махни помещението</button>' : '') + '</div>' +
+        '<div class="pp-grid"><div><label class="op-l">Име</label><input type="text" data-r="name" list="pp-room-names" value="' + esc(r.name) + '"></div><div><label class="op-l">Дата на монтаж</label><input type="date" data-r="installDate" value="' + esc(r.installDate) + '"></div></div>' +
+        '<label class="op-l">Материали</label><div data-mats></div><button class="op-btn sm" data-addmat>+ Материал</button>' +
+        '<label class="op-l">Обков</label><div data-hw></div><div data-hwfree></div><button class="op-btn sm" data-addhw>+ ново поле</button>' +
+        '<label class="op-l">Аксесоари и екстри</label><div data-acc></div><button class="op-btn sm" data-addacc>+ ново поле</button>' +
+        '<label class="op-l">Чертежи (PDF)</label><div data-pdf></div>' +
+        '<label class="op-l">Снимки на готовото помещение</label><div data-gal class="op-row"></div><input type="file" accept="image/*" multiple data-galin style="margin-top:6px">';
+      if (!$('#pp-room-names')) { var dl = el('datalist'); dl.id = 'pp-room-names'; dl.innerHTML = ROOM_NAMES.map(function (n) { return '<option value="' + n + '">'; }).join(''); document.body.appendChild(dl); }
+      $$('[data-r]', c).forEach(function (i) { i.oninput = function () { r[i.dataset.r] = i.value; }; });
+      var x = $('[data-x]', c); if (x) x.onclick = function () { if (confirm('Да махна ли помещение ' + (ri + 1) + '?')) { P.rooms.splice(ri, 1); if (P.auto.appendix) P.d.appendixCount = P.rooms.length; ppRender(); } };
+      // materials
+      var mats = $('[data-mats]', c);
+      function drawMats() {
+        mats.innerHTML = '';
+        r.materials.forEach(function (m, mi) {
+          var row = el('div', 'op-mat pp-mat');
+          row.innerHTML = '<select data-k="role">' + PP_ROLES.map(function (o) { return '<option' + (o === m.role ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>' +
+            '<select data-k="sub">' + PP_SUB.map(function (o) { return '<option value="' + o + '"' + (o === m.sub ? ' selected' : '') + '>' + (o || '—') + '</option>'; }).join('') + '</select>' +
+            '<select data-k="thick">' + PP_THICK.map(function (o) { return '<option value="' + o + '"' + (o === m.thick ? ' selected' : '') + '>' + (o || 'дебелина') + '</option>'; }).join('') + '</select>' +
+            '<div class="op-mat-r"><div class="op-row"><button class="op-btn sm" data-k="pick" type="button">Каталог с филтри ▾</button>' + (m.decor && m.decor.img ? '<img src="' + esc(m.decor.img) + '" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px">' : '') + '</div><input type="text" data-k="line" style="margin-top:6px" placeholder="Напр. Корпус - ПДЧ 18мм H3331 ST10 Дъб Небраска Натур EGGER" value="' + esc(m.line) + '"></div>' +
+            '<button class="op-btn sm" data-k="del">✕</button><div class="op-pick" hidden></div>';
+          function upd() { if (m.decor) { m.line = ppLine(m); $('[data-k="line"]', row).value = m.line; } }
+          $('[data-k="role"]', row).onchange = function (e) { m.role = e.target.value; upd(); };
+          $('[data-k="sub"]', row).onchange = function (e) { m.sub = e.target.value; upd(); };
+          $('[data-k="thick"]', row).onchange = function (e) { m.thick = e.target.value; upd(); };
+          $('[data-k="line"]', row).oninput = function (e) { m.line = e.target.value; };
+          $('[data-k="del"]', row).onclick = function () { r.materials.splice(mi, 1); drawMats(); };
+          $('[data-k="pick"]', row).onclick = function () { var p = $('.op-pick', row); if (p.hidden) { p.hidden = false; picker(p, m, function () { if (!m.thick) m.thick = m.decor && m.decor.kind === 'countertop' ? (/плот/i.test(m.role) ? '38мм' : '8мм') : '18мм'; if (/Компакт/.test(m.sub || '')) m.thick = '12мм'; m.line = ppLine(m); drawMats(); }); } else p.hidden = true; };
+          mats.appendChild(row);
+        });
+      }
+      drawMats();
+      $('[data-addmat]', c).onclick = function () { r.materials.push({ role: r.materials.length ? 'Лице' : 'Корпус', sub: 'ПДЧ', thick: '18мм', line: '' }); drawMats(); };
+      // hardware: three dropdown groups + free lines
+      var hw = $('[data-hw]', c);
+      function drawHw() {
+        hw.innerHTML = '';
+        HW.forEach(function (cat) {
+          var list = r.hw[cat[0]]; if (!list.length) list.push({ item: '', qty: '' });
+          list.forEach(function (h, hi) {
+            var row = el('div', 'pp-hw');
+            row.innerHTML = '<select>' + ['<option value="">' + esc(cat[1]) + ' — няма</option>'].concat(cat[2].map(function (o) { return '<option' + (o === h.item ? ' selected' : '') + '>' + esc(o) + '</option>'; })).join('') + '</select>' +
+              '<input type="number" min="0" placeholder="бр." value="' + esc(h.qty) + '">' + (hi === list.length - 1 ? '<button class="op-btn sm" title="Още от този вид">+</button>' : '<button class="op-btn sm" title="Махни">✕</button>');
+            $('select', row).onchange = function (e) { h.item = e.target.value; };
+            $('input', row).oninput = function (e) { h.qty = e.target.value; };
+            $('button', row).onclick = function () { if (hi === list.length - 1) list.push({ item: '', qty: '' }); else list.splice(hi, 1); drawHw(); };
+            hw.appendChild(row);
+          });
+        });
+      }
+      drawHw();
+      function lines(box, arr, ph) {
+        box.innerHTML = '';
+        arr.forEach(function (t, k) {
+          var row = el('div', 'op-row', '<input type="text" class="op-grow" placeholder="' + ph + '" value="' + esc(t) + '"><button class="op-btn sm">✕</button>'); row.style.marginBottom = '6px';
+          $('input', row).oninput = function (e) { arr[k] = e.target.value; };
+          $('button', row).onclick = function () { arr.splice(k, 1); lines(box, arr, ph); };
+          box.appendChild(row);
+        });
+      }
+      var hwf = $('[data-hwfree]', c), acc = $('[data-acc]', c);
+      lines(hwf, r.hwFree, 'Друг обков, напр. 2бр. Механизъм за кош за отпадъци'); lines(acc, r.accessories, 'Напр. LED осветление - вкопан алуминиев профил, топла светлина');
+      $('[data-addhw]', c).onclick = function () { r.hwFree.push(''); lines(hwf, r.hwFree, 'Друг обков'); };
+      $('[data-addacc]', c).onclick = function () { r.accessories.push(''); lines(acc, r.accessories, 'Аксесоар'); };
+      // PDF
+      var pdfBox = $('[data-pdf]', c);
+      function drawPdf() {
+        var p = r.pdf, has = p && (p.url || p.file);
+        pdfBox.innerHTML = (has ? '<div class="op-row"><a href="' + esc(p.url || '#') + '" target="_blank" rel="noopener">' + esc(p.file ? p.file.name : 'текущ PDF') + '</a><button class="op-btn sm" data-rm>Махни</button></div>' : '') + '<input type="file" accept="application/pdf">';
+        var rm = $('[data-rm]', pdfBox); if (rm) rm.onclick = function () { r.pdf = null; drawPdf(); };
+        $('input', pdfBox).onchange = function (e) { var f = e.target.files[0]; if (f) { r.pdf = { keep: false, file: f, url: URL.createObjectURL(f) }; drawPdf(); } };
+      }
+      drawPdf();
+      // gallery
+      var gal = $('[data-gal]', c);
+      function drawGal() {
+        gal.innerHTML = '';
+        r.gallery.forEach(function (g, gi) {
+          var t = el('div', '', '<img src="' + esc(g.url || g.data) + '" alt="" style="width:84px;height:64px;object-fit:cover;border-radius:6px;display:block"><button class="op-btn sm" style="width:84px;margin-top:4px">Махни</button>');
+          $('button', t).onclick = function () { r.gallery.splice(gi, 1); r.galleryChanged = true; drawGal(); };
+          gal.appendChild(t);
+        });
+      }
+      drawGal();
+      $('[data-galin]', c).onchange = function (e) {
+        [].slice.call(e.target.files).forEach(function (f) {
+          var u = URL.createObjectURL(f);
+          loadImg(u).then(function (img) { r.gallery.push({ data: encode(toCanvas(img, MAX_EDGE)) }); r.galleryChanged = true; URL.revokeObjectURL(u); drawGal(); });
+        });
+        e.target.value = '';
+      };
+      box.appendChild(c);
+    });
+  }
+
+  function fileB64(f) { return new Promise(function (ok, no) { var fr = new FileReader(); fr.onload = function () { ok(String(fr.result).split(',')[1]); }; fr.onerror = no; fr.readAsDataURL(f); }); }
+  function ppMsg(t, err) { var m = $('#pp-msg', ppApp); if (m) { m.className = err ? 'op-err' : 'op-ok'; m.innerHTML = t; } }
+  function ppSave() {
+    var d = P.d;
+    if (!String(d.clientName || '').trim()) return ppMsg('Попълнете име на клиента.', true);
+    if (!d.invoiceCompany) return ppMsg('Изберете фирма за фактура.', true);
+    var btn = $('#pp-save', ppApp); btn.disabled = true;
+    ppMsg('<span class="op-busy"></span> Качвам файловете…');
+    var seq = Promise.resolve();
+    P.rooms.forEach(function (r) {
+      if (r.pdf && r.pdf.file) seq = seq.then(function () { return fileB64(r.pdf.file).then(function (b64) { return ppCall('upload-file', { b64: b64, mime: 'application/pdf', name: r.pdf.file.name }); }).then(function (j) { if (!j.ok) throw new Error(j.error); r.pdf = { keep: false, url: j.url, uploaded: true }; }); });
+      r.gallery.forEach(function (g) { if (g.data && !g.url) seq = seq.then(function () { return ppCall('upload-image', { dataUrl: g.data }).then(function (j) { if (!j.ok) throw new Error(j.error); g.url = j.url; }); }); });
+    });
+    seq.then(function () {
+      ppMsg('<span class="op-busy"></span> Записвам паспорта…');
+      var input = Object.assign({}, d, {
+        rooms: P.rooms.map(function (r) {
+          var hwLines = [];
+          HW.forEach(function (cat) { r.hw[cat[0]].forEach(function (h) { if (h.item) hwLines.push((h.qty ? h.qty + 'бр. ' : '') + h.item); }); });
+          return {
+            name: r.name, installDate: r.installDate,
+            materials: r.materials.map(function (m) { return m.line || ppLine(m); }).filter(Boolean),
+            hardware: hwLines.concat(r.hwFree.filter(Boolean)), accessories: r.accessories.filter(Boolean),
+            pdf: r.pdf === null ? null : r.pdf.keep ? { keep: true } : { url: r.pdf.url },
+            gallery: r.galleryChanged ? r.gallery.map(function (g) { return g.url; }).filter(Boolean) : null
+          };
+        })
+      });
+      ['appendixCount', 'projectValue', 'advance', 'finalPayment', 'warrantyMonths'].forEach(function (k) { input[k] = input[k] == null ? '' : String(input[k]); });
+      return ppCall('save', { id: P.id, input: input });
+    }).then(function (j) {
+      if (!j.ok) throw new Error(j.error);
+      var id = j.id, tries = 0;
+      ppMsg('<span class="op-busy"></span> Записано. Чакам номера на договора…');
+      (function poll() {
+        ppCall('get', { id: id }).then(function (g) {
+          if (g.ok && (g.contract || tries > 10)) {
+            ppApp.innerHTML = '<div class="op-card"><h2>' + (P.id ? 'Паспортът е обновен' : 'Паспортът е създаден') + '</h2><p><b>' + esc(d.clientName) + '</b>' + (g.contract ? ' · договор <b>' + esc(g.contract) + '</b>' : ' · номерът на договора ще се появи до минута') + '</p>' +
+              '<p><a href="/verde-m-projects/' + esc(g.slug) + '" target="_blank" rel="noopener">Отвори паспорта →</a></p><div class="op-row"><button class="op-btn" data-edit>Продължи редакцията</button><button class="op-btn pri" data-back>← Digital Passport</button></div></div>';
+            $('[data-back]', ppApp).onclick = function () { VO.show('passport'); };
+            $('[data-edit]', ppApp).onclick = function () { ppOpen(id); };
+          } else { tries++; setTimeout(poll, 2500); }
+        });
+      })();
+    }).catch(function (e) { btn.disabled = false; ppMsg(esc(e.message), true); });
   }
 
   function init() {
