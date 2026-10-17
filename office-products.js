@@ -197,8 +197,7 @@
     app.appendChild(el('div', 'op-card', '<h3>3. Бележка за проекта (по желание)</h3><textarea id="op-note" placeholder="Напр. ъглова кухня, продължава към дневната, осветление под шкафовете, клиентът искаше топла визия…"></textarea>'));
     $('#op-note', app).value = S.note || ''; $('#op-note', app).oninput = function (e) { S.note = e.target.value; saveState(); };
     app.appendChild(el('div', 'op-card', '<h3>4. Полета за сайта</h3><div id="op-fields"></div>'));
-    app.appendChild(el('div', 'op-card', '<h3>5. Позиция в галерията</h3><div class="op-row" style="margin-bottom:8px"><span class="op-chip" data-gf="cat">Само тази категория</span><span class="op-chip" data-gf="all">Всички проекти</span><span class="op-muted" id="op-slot-txt"></span></div><div class="op-gal" id="op-gal"></div>'));
-    $$('[data-gf]', app).forEach(function (c) { c.onclick = function () { S.galleryFilter = c.dataset.gf; renderGallery(); }; });
+    app.appendChild(el('div', 'op-card', '<h3>5. Позиция в галерията</h3><div class="op-row" style="margin-bottom:8px"><span class="op-muted">Редът е отделен за всяка основна категория — показани са проектите от избраната.</span> <b id="op-slot-txt" style="font-size:13px"></b></div><div class="op-gal" id="op-gal"></div>'));
     var bar = el('div', 'op-bar', '<span class="op-muted" id="op-bar-msg" style="margin-right:auto"></span><button class="op-btn" id="op-draft">Запази като чернова</button><button class="op-btn pri" id="op-pub">Публикувай</button>');
     app.appendChild(bar);
     $('#op-draft', app).onclick = function () { submit(true, false); };
@@ -413,14 +412,14 @@
   /* ---------------- position ---------------- */
   function renderGallery() {
     var box = $('#op-gal', app); if (!box || !G) return;
-    $$('[data-gf]', app).forEach(function (c) { c.classList.toggle('is-on', c.dataset.gf === S.galleryFilter); });
-    var items = G.items.filter(function (i) { return S.galleryFilter === 'all' || i.categories.indexOf(S.mainCategory) >= 0; });
+    var items = G.items.filter(function (i) { return i.categories.indexOf(S.mainCategory) >= 0; });
+    if (S.slot && S.slot.cat !== S.mainCategory) S.slot = null;
     box.innerHTML = '';
     function slot(after, before) {
       var key = (after ? after.id : '') + '|' + (before ? before.id : '');
       var on = S.slot && S.slot.key === key;
       var s = el('div', 'op-slot' + (on ? ' is-on' : ''), on ? 'Новият проект ще е тук' : '＋ тук');
-      s.onclick = function () { S.slot = { key: key, afterId: after ? after.id : null, beforeId: before ? before.id : null, afterName: after ? after.name : '', beforeName: before ? before.name : '' }; saveState(); renderGallery(); };
+      s.onclick = function () { S.slot = { cat: S.mainCategory, key: key, afterId: after ? after.id : null, beforeId: before ? before.id : null, afterName: after ? after.name : '', beforeName: before ? before.name : '' }; saveState(); renderGallery(); };
       box.appendChild(s);
     }
     slot(null, items[0] || null);
@@ -442,7 +441,7 @@
     if (!f || !f.name || !f.teaser) return msg('Първо попълнете полетата (бутон „Предложи всички полета“).', true);
     var over = ['teaser', 'seoDescription'].filter(function (k) { return String(f[k] || '').length > LIMITS[k]; });
     if (over.length || richLen(f.description || []) > 600) return msg('Има поле над допустимата дължина.', true);
-    var first = G.items.filter(function (i) { return S.galleryFilter === 'all' || i.categories.indexOf(S.mainCategory) >= 0; })[0];
+    var first = G.items.filter(function (i) { return i.categories.indexOf(S.mainCategory) >= 0; })[0];
     var slot = S.slot || { afterId: null, beforeId: first ? first.id : null };
     var btns = $$('.op-bar .op-btn', app); btns.forEach(function (b) { b.disabled = true; });
     msg('Качвам снимките…');
