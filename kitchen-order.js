@@ -206,6 +206,14 @@
     }
     return null;
   }
+  var KEPT = {};
+  // Ъглова's legacy writer copies any "input" inside a material step (search box, grain buttons) into <role>_finish
+  function restoreMaterials(page) {
+    Object.keys(KEPT).forEach(function (role) {
+      if (!KEPT[role]) return;
+      page.querySelectorAll('input[name="' + role + '_finish"]').forEach(function (i) { i.value = KEPT[role]; });
+    });
+  }
   async function setMaterial(page, role, m) {
     var g = galleryOf(page, role); if (!g || !m || !m.id) return false;
     var search = g.querySelector('input[type="search"]'), selects = [].slice.call(g.querySelectorAll('select')), fam = null;
@@ -222,7 +230,15 @@
         if (search && (terms[t] || t === 2)) { search.value = terms[t]; fire(search, 'input'); }
         await wait(30);
         var card = g.querySelector('.material-card[data-decor-id="' + cssq(m.id) + '"]');
-        if (card) { card.click(); if (search && search.value) { search.value = ''; fire(search, 'input'); } return true; }
+        if (card) {
+          card.click();
+          // clearing the search sends an "input" that Ъглова's legacy writer copies into <role>_finish: put the chosen value back
+          var inputs = page.querySelectorAll('input[name="' + role + '_finish"]'), keep = [].map.call(inputs, function (i) { return i.value; });
+          if (search && search.value) { search.value = ''; fire(search, 'input'); }
+          [].forEach.call(inputs, function (i, n) { if (keep[n] && i.value !== keep[n]) i.value = keep[n]; });
+          KEPT[role] = keep.filter(Boolean)[0] || '';
+          return true;
+        }
       }
     }
     return false;
@@ -252,6 +268,7 @@
       var roles = ['upper', 'lower', 'deep', 'countertop', 'backsplash'];
       for (var i = 0; i < roles.length; i++) if (c.mats && c.mats[roles[i]]) { try { await setMaterial(page, roles[i], c.mats[roles[i]]); } catch (e) { /* keep going */ } }
       setPills(page, c.pills); setValues(page, c.values);
+      await wait(100); restoreMaterials(page);
       var lay = window[found.k.layout]; try { if (lay && lay.refresh) lay.refresh(); } catch (e) { /* redraw only */ }
       loadBanner(page, 'Заредихме дизайна „' + (d.name || 'от 3D проекти') + '“. Прегледайте стъпките с бутона „Напред“ и променете размерите, материалите и уредите според Вашето помещение.');
       window.__kcProekt = { id: id, name: d.name || '' };
