@@ -50,6 +50,14 @@
       '.op-slot.is-on{background:#477448;border-color:#477448;color:#fff;min-height:90px}',
       '.op-bar{position:sticky;bottom:0;z-index:30;background:rgba(255,255,255,.96);border-top:1px solid #e1e4df;padding:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;border-radius:12px 12px 0 0}',
       '.op-busy{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:op-spin .8s linear infinite}@keyframes op-spin{to{transform:rotate(360deg)}}',
+      '.op-pick{grid-column:1/-1;border:1px solid #e1e4df;border-radius:12px;padding:12px;background:#fafbf9}',
+      '.op-pick-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:0 0 10px}.op-pick-f label{font-size:12px;font-weight:600;color:#6a716b}',
+      '.op-pick-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}',
+      '.op-sw{border:1px solid #e1e4df;border-radius:8px;background:#fff;padding:0;cursor:pointer;text-align:left;overflow:hidden;font:inherit}',
+      '.op-sw img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#eee}.op-sw span{display:block;padding:4px 6px;font-size:11px;line-height:1.25}',
+      '.op-sw b{display:block;font-size:12px}.op-sw.is-on{outline:3px solid #477448;outline-offset:-3px}',
+      '.op-pick-nav{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}',
+      '.op-mat-sel{display:flex;gap:8px;align-items:center;margin-top:6px}.op-mat-sel img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e1e4df}',
       '@media(max-width:700px){.op-mat{grid-template-columns:1fr 1fr}.op-mat .op-mat-r{grid-column:1/-1}.op-card{padding:14px}}'
     ].join('');
     document.head.appendChild(s);
@@ -305,22 +313,25 @@
       var row = el('div', 'op-mat');
       row.innerHTML = '<select data-k="role">' + ROLES.map(function (r) { return '<option' + (r === m.role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
         '<select data-k="sub">' + SUBSTR.map(function (r) { return '<option value="' + r + '"' + (r === m.sub ? ' selected' : '') + '>' + (r || '—') + '</option>'; }).join('') + '</select>' +
-        '<div class="op-mat-r"><input type="text" data-k="q" placeholder="Търси декор: код или име (напр. U767, Дъб Касела)"><input type="text" data-k="line" style="margin-top:6px" placeholder="Ред за сайта"><div class="op-dd" hidden></div></div>' +
-        '<button class="op-btn sm" data-k="del">✕</button>';
+        '<div class="op-mat-r"><div class="op-row"><input type="text" data-k="q" class="op-grow" placeholder="Търси декор: код или име (напр. U767, Дъб Касела)"><button class="op-btn sm" data-k="pick" type="button">Каталог с филтри ▾</button></div>' +
+        (m.decor && m.decor.img ? '<div class="op-mat-sel"><img src="' + esc(m.decor.img) + '" alt=""><span class="op-muted">' + esc((m.decor.code || '') + ' ' + (m.decor.name || '') + ' · ' + (m.decor.brand || '')) + '</span></div>' : '') +
+        '<input type="text" data-k="line" style="margin-top:6px" placeholder="Ред за сайта"><div class="op-dd" hidden></div></div>' +
+        '<button class="op-btn sm" data-k="del">✕</button><div class="op-pick" hidden></div>';
       $('[data-k="line"]', row).value = m.line || lineOf(m);
       function upd() { m.line = lineOf(m); $('[data-k="line"]', row).value = m.line; saveState(); }
       $('[data-k="role"]', row).onchange = function (e) { m.role = e.target.value; upd(); };
       $('[data-k="sub"]', row).onchange = function (e) { m.sub = e.target.value; upd(); };
-      $('[data-k="line"]', row).oninput = function (e) { m.line = e.target.value; m.decor = m.decor && null; saveState(); };
+      $('[data-k="line"]', row).oninput = function (e) { m.line = e.target.value; saveState(); };
       $('[data-k="del"]', row).onclick = function () { S.materials.splice(i, 1); renderMaterials(); saveState(); };
+      $('[data-k="pick"]', row).onclick = function () { var p = $('.op-pick', row); if (p.hidden) { p.hidden = false; picker(p, m, function () { renderMaterials(); saveState(); }); } else p.hidden = true; };
       var dd = $('.op-dd', row), q = $('[data-k="q"]', row), t = 0;
       q.oninput = function () {
         clearTimeout(t); t = setTimeout(function () {
           var s = q.value.trim().toLowerCase(); if (s.length < 2) { dd.hidden = true; return; }
           Promise.all([catalog('cabinet'), catalog('countertop')]).then(function (all) {
             var out = [];
-            all[0].items.forEach(function (r) { if ((r[1] + ' ' + r[3] + ' ' + r[4]).toLowerCase().indexOf(s) >= 0) out.push({ brand: r[1], code: r[3], name: r[4], surface: '', img: all[0].base + encodeURIComponent(r[5]) }); });
-            all[1].items.forEach(function (r) { if ((r[1] + ' ' + r[2] + ' ' + r[3]).toLowerCase().indexOf(s) >= 0) out.push({ brand: r[1], code: r[2], surface: r[3], name: '', img: r[4] }); });
+            all[0].items.forEach(function (r) { if ((r[1] + ' ' + r[3] + ' ' + r[4]).toLowerCase().indexOf(s) >= 0) out.push(decorOf('cabinet', r, all[0])); });
+            all[1].items.forEach(function (r) { if ((r[1] + ' ' + r[2] + ' ' + r[3]).toLowerCase().indexOf(s) >= 0) out.push(decorOf('countertop', r, all[1])); });
             dd.innerHTML = out.slice(0, 30).map(function (o, k) { return '<div data-i="' + k + '"><img src="' + esc(o.img) + '" alt=""><span><b>' + esc(o.code + (o.surface ? ' ' + o.surface : '')) + '</b> ' + esc(o.name) + ' <small class="op-muted">' + esc(o.brand) + '</small></span></div>'; }).join('') || '<div class="op-muted">Няма резултат — напишете реда ръчно.</div>';
             dd.hidden = false;
             $$('[data-i]', dd).forEach(function (d) { d.onclick = function () { m.decor = out[Number(d.dataset.i)]; dd.hidden = true; q.value = ''; upd(); }; });
@@ -330,6 +341,66 @@
       q.onblur = function () { setTimeout(function () { dd.hidden = true; }, 200); };
       box.appendChild(row);
     });
+  }
+
+  /* ---------------- catalogue picker (same decors as the configurators) ---------------- */
+  var GLOSS = {};
+  ['kronospan_0112', 'kronospan_0164', 'kronospan_0171', 'kronospan_0190', 'kronospan_0564', 'kronospan_5981', 'kronospan_6299', 'kronospan_7045', 'kronospan_7166', 'kronospan_8685',
+    'egger-perfectsense_u702', 'egger-perfectsense_u708', 'egger-perfectsense_u732', 'egger-perfectsense_u961', 'egger-perfectsense_u999', 'egger-perfectsense_w1000', 'egger-perfectsense_w1100'].forEach(function (id) { GLOSS[id] = 1; });
+  function cdn(u) { return String(u || '').replace('https://s3.amazonaws.com/webflow-prod-assets/', 'https://cdn.prod.website-files.com/'); }
+  function decorOf(kind, r, src) {
+    if (kind === 'cabinet') return { id: r[0], kind: kind, brand: r[1], cat: r[2], code: r[3], name: r[4], surface: '', img: cdn(src.base + encodeURIComponent(r[5])), gloss: !!GLOSS[r[0]], subs: ['pdc', 'mdf'].filter(function (k) { return (src.substrates && src.substrates[k] || []).indexOf(String(r[3]).toUpperCase()) >= 0; }) };
+    return { id: r[0], kind: kind, brand: r[1], code: r[2], surface: r[3], name: '', img: cdn(r[4]), cat: r[6], family: r[7] || '' };
+  }
+  var PICK = { kind: 'cabinet', brand: 'all', cat: 'all', sub: 'all', finish: 'all', family: 'all', q: '', page: 1 };
+  var CAT_NAMES = { wood: 'Дървесни', stone: 'Камък', solid: 'Едноцветни', metal: 'Метал', structure: 'Структура' };
+  function picker(box, m, done) {
+    function sel(key, label, opts) {
+      return '<div><label>' + label + '</label><select data-p="' + key + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (PICK[key] === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+    }
+    function draw() {
+      var file = PICK.kind === 'cabinet' ? 'cabinet' : PICK.kind === 'backsplash' ? 'backsplash' : 'countertop';
+      box.innerHTML = '<div class="op-pick-f">' +
+        sel('kind', 'Материал за', [['cabinet', 'Шкафове (лица, корпус)'], ['countertop', 'Плотове'], ['backsplash', 'Гърбове']]) +
+        sel('brand', 'Производител', [['all', 'Всички'], ['EGGER', 'EGGER'], ['Egger PerfectSense', 'PerfectSense'], ['Kronospan', 'Kronospan']]) +
+        sel('cat', 'Категория', [['all', 'Всички'], ['wood', 'Дървесни'], ['solid', 'Едноцветни'], ['stone', 'Камък'], ['metal', 'Метал'], ['structure', 'Структура']]) +
+        (PICK.kind === 'cabinet' ? sel('sub', 'Плоскост', [['all', 'Всички'], ['pdc', 'ПДЧ'], ['mdf', 'МДФ']]) + sel('finish', 'Покритие', [['all', 'Всички'], ['gloss', 'Гланц']]) : '') +
+        (PICK.kind === 'countertop' ? sel('family', 'Тип плот', [['all', 'Всички'], ['thermal', 'Термоплотове'], ['slimline', 'Slim Line (Kronospan)'], ['compact', 'Компактни (Egger)']]) : '') +
+        '<div><label>Търсене</label><input type="text" data-p="q" value="' + esc(PICK.q) + '" placeholder="код или име"></div></div><div class="op-pick-g"><span class="op-muted"><span class="op-busy"></span> Зареждам каталога…</span></div><div class="op-pick-nav"></div>';
+      $$('[data-p]', box).forEach(function (c) {
+        c[c.tagName === 'INPUT' ? 'oninput' : 'onchange'] = function () {
+          PICK[c.dataset.p] = c.value; PICK.page = 1;
+          if (c.dataset.p === 'kind') { PICK.cat = 'all'; PICK.sub = 'all'; PICK.finish = 'all'; PICK.family = 'all'; return draw(); }
+          if (c.tagName === 'INPUT') { clearTimeout(c._t); c._t = setTimeout(list, 200); } else list();
+        };
+      });
+      catalog(file).then(function (src) { box._items = src.items.map(function (r) { return decorOf(file === 'cabinet' ? 'cabinet' : 'countertop', r, src); }); list(); });
+    }
+    function list() {
+      var g = $('.op-pick-g', box), nav = $('.op-pick-nav', box), q = PICK.q.trim().toLowerCase();
+      var rows = (box._items || []).filter(function (d) {
+        return (PICK.brand === 'all' || d.brand === PICK.brand) && (PICK.cat === 'all' || d.cat === PICK.cat) &&
+          (PICK.kind !== 'cabinet' || ((PICK.sub === 'all' || d.subs.indexOf(PICK.sub) >= 0) && (PICK.finish === 'all' || d.gloss))) &&
+          (PICK.kind !== 'countertop' || PICK.family === 'all' || d.family === PICK.family) &&
+          (!q || (d.brand + ' ' + d.code + ' ' + d.surface + ' ' + d.name).toLowerCase().indexOf(q) >= 0);
+      });
+      var per = 24, pages = Math.max(1, Math.ceil(rows.length / per)); PICK.page = Math.min(PICK.page, pages);
+      g.innerHTML = rows.slice((PICK.page - 1) * per, PICK.page * per).map(function (d, k) {
+        return '<button type="button" class="op-sw' + (m.decor && m.decor.id === d.id ? ' is-on' : '') + '" data-d="' + ((PICK.page - 1) * per + k) + '"><img loading="lazy" src="' + esc(d.img) + '" alt=""><span><b>' + esc(d.code + (d.surface ? ' ' + d.surface : '')) + '</b>' + esc(d.name || CAT_NAMES[d.cat] || '') + '<br><small class="op-muted">' + esc(d.brand) + (d.gloss ? ' · гланц' : '') + '</small></span></button>';
+      }).join('') || '<span class="op-muted">Няма материали за тези филтри.</span>';
+      nav.innerHTML = rows.length > per ? '<button type="button" class="op-btn sm" data-n="-1"' + (PICK.page < 2 ? ' disabled' : '') + '>‹</button><span class="op-muted">Стр. ' + PICK.page + ' от ' + pages + ' · ' + rows.length + ' материала</span><button type="button" class="op-btn sm" data-n="1"' + (PICK.page >= pages ? ' disabled' : '') + '>›</button>' : '<span class="op-muted">' + rows.length + ' материала</span>';
+      $$('[data-n]', nav).forEach(function (b) { b.onclick = function () { PICK.page += Number(b.dataset.n); list(); }; });
+      $$('[data-d]', g).forEach(function (b) {
+        b.onclick = function () {
+          var d = rows[Number(b.dataset.d)];
+          m.decor = d;
+          if (d.kind === 'cabinet') m.sub = (PICK.sub === 'mdf' || d.subs.indexOf('pdc') < 0) && d.subs.indexOf('mdf') >= 0 ? (d.gloss ? 'МДФ гланц' : 'МДФ') : 'ПДЧ';
+          else { m.sub = d.family === 'compact' ? 'Компакт' : ''; if (m.role === 'Корпус' || m.role === 'Лице' || m.role === 'Лице 2') m.role = PICK.kind === 'backsplash' ? 'Гръб' : 'Плот'; }
+          m.line = lineOf(m); done();
+        };
+      });
+    }
+    draw();
   }
 
   /* ---------------- fields ---------------- */
