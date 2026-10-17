@@ -35,6 +35,14 @@
       '.op-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px}',
       '.op-ph{border:1px solid #e1e4df;border-radius:12px;overflow:hidden;background:#fafbf9;display:flex;flex-direction:column}',
       '.op-ph.is-main{border:2px solid #477448}.op-ph img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#eee}',
+      '.op-ph-img{position:relative;cursor:zoom-in;user-select:none}.op-ph-img img{-webkit-user-drag:none}.op-drag{position:absolute;left:6px;top:6px;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:grab;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.2)}',
+      '.op-zoom{position:absolute;right:6px;top:6px;width:30px;height:30px;border-radius:8px;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;pointer-events:none}',
+      '.op-ph.is-dragging{opacity:.3}.op-ghost{position:fixed;z-index:99999;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.3);transform:rotate(1.5deg);opacity:.95}',
+      '.op-lb{position:fixed;inset:0;z-index:99998;background:#111311}.op-lb-in{position:absolute;inset:0 0 56px;overflow:auto;display:flex;align-items:center;justify-content:center}',
+      '.op-lb-in img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}.op-lb.is-big .op-lb-in{display:block}.op-lb.is-big .op-lb-in img{max-width:none;max-height:none;cursor:zoom-out}',
+      '.op-lb-bar{position:absolute;left:0;right:0;bottom:0;height:56px;display:flex;align-items:center;justify-content:center;gap:10px;color:#e8ece6;font:13px Montserrat,Arial,sans-serif}',
+      '.op-lb-bar button{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:8px;min-width:40px;height:38px;font-size:18px;cursor:pointer}.op-lb-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.op-g{position:relative}.op-g .op-edit{position:absolute;right:6px;top:6px;background:rgba(255,255,255,.95);border:1px solid #477448;color:#477448;border-radius:8px;font:600 12px Montserrat,Arial,sans-serif;padding:5px 8px;cursor:pointer}.op-g.is-self{outline:3px solid #477448;outline-offset:-3px}',
       '.op-ph-b{padding:10px;display:flex;flex-direction:column;gap:8px}.op-chips{display:flex;gap:6px;flex-wrap:wrap}',
       '.op-chip{padding:3px 9px;border:1px solid #cfd4cb;border-radius:999px;background:#fff;font-size:12px;cursor:pointer}.op-chip.is-on{background:#477448;border-color:#477448;color:#fff}',
       '.op-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#477448;color:#fff;font-size:11px;font-weight:700}',
@@ -118,6 +126,7 @@
   var S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' };
   var G = null; // gallery + categories from the server
   function saveState() {
+    if (S.editId) return; // editing an existing product is not kept as the local draft
     var keep = { mainCategory: S.mainCategory, kitchenSub: S.kitchenSub, materials: S.materials, note: S.note, fields: S.fields, slot: S.slot,
       photos: S.photos.filter(function (p) { return p.serverId; }).map(function (p) { return { serverId: p.serverId, url: p.url, alt: p.alt || '' }; }) };
     ls(LS_STATE, JSON.stringify(keep));
@@ -195,14 +204,24 @@
       var url = URL.createObjectURL(f);
       loadImg(url).then(function (img) {
         var c = toCanvas(img, MAX_EDGE);
-        ph.variants.push({ label: 'Оригинал', url: encode(c) });
+        ph.variants.push({ label: 'Оригинал', url: encode(c), w: c.width, h: c.height });
         ph.busy = ''; URL.revokeObjectURL(url); renderPhotos();
       }).catch(function () { ph.busy = 'Неуспешно зареждане (формат?)'; renderPhotos(); });
     });
   }
   function current(ph) { return ph.variants[ph.active] || ph.variants[0]; }
+  // a picture from Webflow's CDN is copied to our origin before canvas/AI work on it
+  function ensureLocal(v) {
+    if (!v.remote || v.serverId) return Promise.resolve(v);
+    return call('import', { url: v.remote }).then(function (j) { if (!j.ok) throw new Error(j.error); v.serverId = j.id; v.url = j.url; return v; });
+  }
+  function sizeInfo(v) {
+    if (!v || !/^data:/.test(v.url)) return '';
+    var t = /^data:image\/(\w+)/.exec(v.url), kb = Math.round(v.url.length * 0.75 / 1024);
+    return (t ? t[1].toUpperCase().replace('JPEG', 'JPG') : '') + (v.w ? ' · ' + v.w + '×' + v.h : '') + ' · ' + kb + ' KB';
+  }
   function upload(v) {
-    if (v.serverId) return Promise.resolve(v);
+    if (v.serverId || v.remote) return Promise.resolve(v);
     return call('upload', { dataUrl: v.url }).then(function (j) { if (!j.ok) throw new Error(j.error); v.serverId = j.id; v.publicUrl = j.url; return v; });
   }
   function small(v) {
@@ -212,8 +231,12 @@
   /* ---------------- render ---------------- */
   function render() {
     app.innerHTML = '';
+    if (S.editId) {
+      app.appendChild(el('div', 'op-card op-editing', '<div class="op-row" style="justify-content:space-between"><div><h2>Редакция: ' + esc(S.editName) + '</h2><div class="op-muted">Промените отиват в съществуващия продукт' + (S.editDraft ? ' (чернова)' : '') + '. <a href="https://verde-m.com/product/' + esc(S.editSlug) + '" target="_blank" rel="noopener">Виж на сайта →</a></div></div><button class="op-btn sm" id="op-leave">← Обратно към новия проект</button></div>'));
+      $('#op-leave', app).onclick = function () { if (confirm('Да излезе ли от редакцията без запис?')) leaveEdit(); };
+    } else
     app.appendChild(el('div', 'op-card', '<div class="op-row" style="justify-content:space-between"><div><h2>Нов проект в галерията</h2><div class="op-muted">Снимки → материали → AI предложение → позиция → чернова или публикуване.</div></div><button class="op-btn sm" id="op-reset">Започни отначало</button></div>'));
-    $('#op-reset', app).onclick = function () { if (confirm('Да изчистя ли всичко по този проект?')) { ls(LS_STATE, null); S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' }; render(); } };
+    if (!S.editId) $('#op-reset', app).onclick = function () { if (confirm('Да изчистя ли всичко по този проект?')) { ls(LS_STATE, null); S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' }; render(); } };
 
     var photos = el('div', 'op-card', '<h3>1. Снимки</h3><div class="op-drop" id="op-drop">Пуснете снимките тук или <b>изберете файлове</b><div class="op-muted">Автоматично се смаляват до ' + MAX_EDGE + ' px и се записват като ' + (WEBP ? 'WebP' : 'JPEG') + '.</div><input type="file" id="op-file" accept="image/*" multiple hidden></div><div class="op-photos" id="op-photos"></div>');
     app.appendChild(photos);
@@ -228,7 +251,9 @@
     app.appendChild(el('div', 'op-card', '<h3>4. Полета за сайта</h3><div id="op-fields"></div>'));
     app.appendChild(el('div', 'op-card', '<h3>5. Позиция в галерията</h3><div class="op-row" style="margin-bottom:8px"><span class="op-muted">Редът е отделен за всяка основна категория — показани са проектите от избраната.</span> <b id="op-slot-txt" style="font-size:13px"></b></div><div class="op-gal" id="op-gal"></div>'));
     app.appendChild(toPassportCard());
-    var bar = el('div', 'op-bar', '<span class="op-muted" id="op-bar-msg" style="margin-right:auto"></span><button class="op-btn" id="op-draft">Запази като чернова</button><button class="op-btn pri" id="op-pub">Публикувай</button>');
+    var bar = el('div', 'op-bar', '<span class="op-muted" id="op-bar-msg" style="margin-right:auto"></span>' + (S.editId
+      ? '<button class="op-btn" id="op-draft">' + (S.editDraft ? 'Запази (чернова)' : 'Запази като чернова') + '</button><button class="op-btn pri" id="op-pub">Запази и публикувай</button>'
+      : '<button class="op-btn" id="op-draft">Запази като чернова</button><button class="op-btn pri" id="op-pub">Публикувай</button>'));
     app.appendChild(bar);
     $('#op-draft', app).onclick = function () { submit(true, false); };
     $('#op-pub', app).onclick = function () { submit(false, false); };
@@ -240,28 +265,29 @@
     box.innerHTML = '';
     S.photos.forEach(function (ph, idx) {
       var v = current(ph), card = el('div', 'op-ph' + (idx === 0 ? ' is-main' : ''));
-      card.innerHTML = (v ? '<img src="' + esc(v.url) + '" alt="">' : '<div style="aspect-ratio:4/3;display:flex;align-items:center;justify-content:center" class="op-muted">' + esc(ph.busy || '') + '</div>') +
+      card.dataset.idx = idx;
+      card.innerHTML = (v ? '<div class="op-ph-img"><img src="' + esc(v.url) + '" alt="" data-zoom title="Клик за цял екран · провлачи за подреждане"><span class="op-drag" title="Хвани и провлачи">⠿</span><span class="op-zoom">⤢</span></div>' : '<div style="aspect-ratio:4/3;display:flex;align-items:center;justify-content:center" class="op-muted">' + esc(ph.busy || '') + '</div>') +
         '<div class="op-ph-b">' +
         '<div class="op-row" style="justify-content:space-between">' + (idx === 0 ? '<span class="op-badge">Главна</span>' : '<button class="op-btn sm" data-a="main">Направи главна</button>') +
-        '<span class="op-row"><button class="op-btn sm" data-a="up" title="Наляво">←</button><button class="op-btn sm" data-a="down" title="Надясно">→</button><button class="op-btn sm" data-a="del" title="Махни">✕</button></span></div>' +
+        '<button class="op-btn sm" data-a="del" title="Махни">✕</button></div>' + (sizeInfo(v) ? '<div class="op-muted" style="font-size:12px">' + sizeInfo(v) + '</div>' : '') +
         '<div class="op-chips">' + ph.variants.map(function (x, i) { return '<span class="op-chip' + (i === ph.active ? ' is-on' : '') + '" data-v="' + i + '">' + esc(x.label) + '</span>'; }).join('') + '</div>' +
         (ph.busy ? '<div class="op-muted"><span class="op-busy"></span> ' + esc(ph.busy) + '</div>' : '') + (ph.err ? '<div class="op-err">' + esc(ph.err) + '</div>' : '') +
         '<button class="op-btn sm" data-a="free">Подобри (безплатно)</button>' +
         '<textarea data-a="instr" placeholder="Какво да промени AI? Напр. „махни висящата крушка от тавана“" style="min-height:56px"></textarea>' +
-        '<div class="op-row"><button class="op-btn sm" data-a="ai">AI пробно (~0,02 $)</button><button class="op-btn sm dark" data-a="aihq">AI финално (~0,05 $)</button></div>' +
+        '<div class="op-row"><button class="op-btn sm" data-a="ai">AI редакция по текста (~0,02 $)</button></div>' +
         '<label class="op-l" style="margin:0">Alt текст</label><textarea data-a="alt" style="min-height:48px" placeholder="Попълва се от AI предложението">' + esc(ph.alt || '') + '</textarea>' +
         '</div>';
       $('[data-a="instr"]', card).value = ph.instr || '';
+      var im = $('[data-zoom]', card);
+      if (im) dragSort(card, $('.op-ph-img', card), $('.op-drag', card), function () { zoom(idx); });
       card.addEventListener('click', function (e) {
         var t = e.target.closest('[data-a],[data-v]'); if (!t || t.tagName === 'TEXTAREA') return;
         if (t.dataset.v) { ph.active = Number(t.dataset.v); renderPhotos(); return; }
         var a = t.dataset.a, list = S.photos;
         if (a === 'main') { list.splice(idx, 1); list.unshift(ph); }
-        if (a === 'up' && idx > 0) { list[idx] = list[idx - 1]; list[idx - 1] = ph; }
-        if (a === 'down' && idx < list.length - 1) { list[idx] = list[idx + 1]; list[idx + 1] = ph; }
         if (a === 'del') list.splice(idx, 1);
         if (a === 'free') return freeEnhance(ph);
-        if (a === 'ai' || a === 'aihq') return aiEdit(ph, a === 'aihq' ? 'high' : 'medium');
+        if (a === 'ai') return aiEdit(ph, 'medium');
         renderPhotos(); saveState();
       });
       $('[data-a="instr"]', card).oninput = function (e) { ph.instr = e.target.value; };
@@ -270,19 +296,76 @@
     });
     if (TP.draw) TP.draw();
   }
+  // drag & drop order of the photos (mouse: drag the picture; touch: drag the ⠿ handle). A plain click opens the zoom.
+  function dragSort(card, area, handle, onClick) {
+    function begin(e, viaHandle) {
+      if (e.button > 0) return;
+      if (e.pointerType !== 'mouse' && !viaHandle) return; // on touch, the picture keeps scrolling the page
+      var sx = e.clientX, sy = e.clientY, ghost = null, box = card.parentNode, moved = false;
+      function move(ev) {
+        if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 7) return;
+        ev.preventDefault();
+        if (!moved) {
+          moved = true; var r = card.getBoundingClientRect();
+          ghost = card.cloneNode(true); ghost.className += ' op-ghost'; ghost.style.width = r.width + 'px'; ghost.style.left = r.left + 'px'; ghost.style.top = r.top + 'px';
+          ghost.dataset.dx = sx - r.left; ghost.dataset.dy = sy - r.top; document.body.appendChild(ghost); card.classList.add('is-dragging');
+        }
+        ghost.style.left = (ev.clientX - ghost.dataset.dx) + 'px'; ghost.style.top = (ev.clientY - ghost.dataset.dy) + 'px';
+        ghost.style.display = 'none'; var under = document.elementFromPoint(ev.clientX, ev.clientY); ghost.style.display = '';
+        var t = under && under.closest('.op-ph');
+        if (t && t !== card && t.parentNode === box) { var rr = t.getBoundingClientRect(); box.insertBefore(card, ev.clientX > rr.left + rr.width / 2 ? t.nextSibling : t); }
+        if (ev.clientY < 60) window.scrollBy(0, -14); else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 14);
+      }
+      function end() {
+        document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', end); document.removeEventListener('pointercancel', end);
+        if (!moved) { if (!viaHandle) onClick(); return; }
+        ghost.remove(); card.classList.remove('is-dragging');
+        var order = $$('.op-ph', box).map(function (c) { return S.photos[Number(c.dataset.idx)]; });
+        S.photos = order; renderPhotos(); saveState();
+      }
+      document.addEventListener('pointermove', move, { passive: false }); document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+    }
+    area.addEventListener('pointerdown', function (e) { if (e.target === handle) return; begin(e, false); });
+    area.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    handle.addEventListener('pointerdown', function (e) { e.preventDefault(); begin(e, true); });
+    // a tap on touch screens opens the zoom
+    area.addEventListener('pointerup', function (e) { if (e.pointerType !== 'mouse' && e.target !== handle) onClick(); });
+  }
+  function zoom(start) {
+    var list = S.photos.filter(function (p) { return current(p); }); if (!list.length) return;
+    var i = Math.max(0, list.indexOf(S.photos[start])), big = false;
+    var lb = el('div', 'op-lb', '<div class="op-lb-in"><img alt=""></div><div class="op-lb-bar"><button data-l="prev">‹</button><span></span><button data-l="fit">1:1</button><button data-l="next">›</button><button data-l="x">✕</button></div>');
+    var img = $('img', lb), wrap = $('.op-lb-in', lb), cap = $('.op-lb-bar span', lb);
+    function show() { var p = list[i], v = current(p); img.src = v.url; big = false; lb.classList.remove('is-big'); cap.textContent = (i + 1) + ' / ' + list.length + ' · ' + v.label + (sizeInfo(v) ? ' · ' + sizeInfo(v) : ''); }
+    function close() { lb.remove(); document.removeEventListener('keydown', key); document.documentElement.style.overflow = ''; }
+    function key(e) { if (e.key === 'Escape') close(); if (e.key === 'ArrowLeft') { i = (i - 1 + list.length) % list.length; show(); } if (e.key === 'ArrowRight') { i = (i + 1) % list.length; show(); } }
+    function toggle(e) {
+      big = !big; lb.classList.toggle('is-big', big);
+      if (big && e) { var r = img.getBoundingClientRect(); requestAnimationFrame(function () { wrap.scrollLeft = (e.clientX - r.left) / r.width * img.naturalWidth - innerWidth / 2; wrap.scrollTop = (e.clientY - r.top) / r.height * img.naturalHeight - innerHeight / 2; }); }
+    }
+    img.onclick = function (e) { e.stopPropagation(); toggle(e); };
+    wrap.onclick = function (e) { if (e.target === wrap) close(); };
+    lb.querySelector('.op-lb-bar').onclick = function (e) {
+      var b = e.target.closest('[data-l]'); if (!b) return; var a = b.dataset.l;
+      if (a === 'x') close(); if (a === 'fit') toggle(null);
+      if (a === 'prev') { i = (i - 1 + list.length) % list.length; show(); } if (a === 'next') { i = (i + 1) % list.length; show(); }
+    };
+    document.addEventListener('keydown', key); document.documentElement.style.overflow = 'hidden';
+    document.body.appendChild(lb); show();
+  }
   function freeEnhance(ph) {
     var base = ph.variants[0]; if (!base) return;
     ph.busy = 'Подобрявам…'; renderPhotos();
-    loadImg(base.url).then(function (img) {
+    ensureLocal(base).then(function () { return loadImg(base.url); }).then(function (img) {
       var c = enhance(toCanvas(img, MAX_EDGE));
       ph.variants = ph.variants.filter(function (v) { return v.label !== 'Подобрена'; });
-      ph.variants.splice(1, 0, { label: 'Подобрена', url: encode(c) }); ph.active = 1; ph.busy = ''; renderPhotos();
+      ph.variants.splice(1, 0, { label: 'Подобрена', url: encode(c), w: c.width, h: c.height }); ph.active = 1; ph.busy = ''; renderPhotos();
     }).catch(function () { ph.busy = ''; ph.err = 'Неуспешно подобряване'; renderPhotos(); });
   }
   function aiEdit(ph, quality) {
     var v = current(ph); if (!v) return;
     ph.err = ''; ph.busy = 'AI работи… (30–90 сек.)'; renderPhotos();
-    upload(v).then(function () { return call('edit', { imageId: v.serverId, instruction: ph.instr || '', quality: quality }); }).then(function (j) {
+    ensureLocal(v).then(upload).then(function () { return call('edit', { imageId: v.serverId, instruction: ph.instr || '', quality: quality }); }).then(function (j) {
       if (!j.ok) throw new Error(j.error);
       return new Promise(function (ok, no) {
         var n = 0;
@@ -297,7 +380,7 @@
       });
     }).then(function (s) {
       var nAi = ph.variants.filter(function (x) { return /^AI/.test(x.label); }).length + 1;
-      ph.variants.push({ label: 'AI ' + nAi + (quality === 'high' ? ' HQ' : ''), url: location.origin + s.url, serverId: s.resultId });
+      ph.variants.push({ label: 'AI ' + nAi, url: location.origin + s.url, serverId: s.resultId });
       ph.active = ph.variants.length - 1; ph.busy = ''; renderPhotos(); saveState();
     }).catch(function (e) { ph.busy = ''; ph.err = e.message; renderPhotos(); });
   }
@@ -435,7 +518,7 @@
     if (!photos.length) { msg('Първо добави снимки.', true); return; }
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="op-busy"></span> AI мисли…'; }
     var reject = only && only.indexOf('name') >= 0 && S.fields ? [S.fields.name].concat(S.fields.nameAlternatives || []) : [];
-    Promise.all(photos.slice(0, 6).map(function (p) { return small(current(p)); })).then(function (imgs) {
+    Promise.all(photos.slice(0, 6).map(function (p) { return ensureLocal(current(p)).then(small); })).then(function (imgs) {
       return call('propose', { images: imgs, materials: lines(), note: S.note, mainCategory: S.mainCategory, categories: categoriesNow(), only: only || null, current: S.fields || null, rejectNames: reject });
     }).then(function (j) {
       if (!j.ok) throw new Error(j.error);
@@ -499,7 +582,7 @@
     clearTimeout(nameT);
     nameT = setTimeout(function () {
       var m = $('#op-name-msg', app); if (!m || !S.fields) return;
-      call('check-name', { name: S.fields.name }).then(function (j) { m.className = j.problem ? 'op-err' : 'op-ok'; m.textContent = j.problem ? 'Името ' + j.problem + '.' : 'Името е свободно.'; });
+      call('check-name', { name: S.fields.name, except: S.editId || '' }).then(function (j) { m.className = j.problem ? 'op-err' : 'op-ok'; m.textContent = j.problem ? 'Името ' + j.problem + '.' : 'Името е свободно.'; });
     }, 400);
   }
 
@@ -512,19 +595,41 @@
     function slot(after, before) {
       var key = (after ? after.id : '') + '|' + (before ? before.id : '');
       var on = S.slot && S.slot.key === key;
-      var s = el('div', 'op-slot' + (on ? ' is-on' : ''), on ? 'Новият проект ще е тук' : '＋ тук');
+      var s = el('div', 'op-slot' + (on ? ' is-on' : ''), on ? (S.editId ? 'Ще се премести тук' : 'Новият проект ще е тук') : '＋ тук');
       s.onclick = function () { S.slot = { cat: S.mainCategory, key: key, afterId: after ? after.id : null, beforeId: before ? before.id : null, afterName: after ? after.name : '', beforeName: before ? before.name : '' }; saveState(); renderGallery(); };
       box.appendChild(s);
     }
     slot(null, items[0] || null);
     items.forEach(function (it, i) {
-      var g = el('div', 'op-g', (it.image ? '<img loading="lazy" src="' + esc(it.image) + '" alt="">' : '<div style="aspect-ratio:4/3;background:#eee"></div>') + '<span>' + esc(it.name) + '<br><small>№ ' + it.order + (it.draft ? ' · чернова' : '') + '</small></span>');
+      var self = it.id === S.editId;
+      var g = el('div', 'op-g' + (self ? ' is-self' : ''), (it.image ? '<img loading="lazy" src="' + esc(it.image) + '" alt="">' : '<div style="aspect-ratio:4/3;background:#eee"></div>') + '<span>' + esc(it.name) + '<br><small>№ ' + it.order + (it.draft ? ' · чернова' : '') + (self ? ' · редактира се' : '') + '</small></span>' + (self ? '' : '<button type="button" class="op-edit">✎ Редактирай</button>'));
+      if (!self) $('.op-edit', g).onclick = function () { openEdit(it.id); };
       box.appendChild(g);
       slot(it, items[i + 1] || null);
     });
     var t = $('#op-slot-txt', app);
-    if (t) t.textContent = S.slot ? (S.slot.afterName && S.slot.beforeName ? 'Между ' + S.slot.afterName + ' и ' + S.slot.beforeName : S.slot.beforeName ? 'Най-отпред, преди ' + S.slot.beforeName : 'Най-отзад, след ' + S.slot.afterName) : 'Изберете място (по подразбиране: най-отпред).';
+    if (t) t.textContent = S.slot ? (S.slot.afterName && S.slot.beforeName ? 'Между ' + S.slot.afterName + ' и ' + S.slot.beforeName : S.slot.beforeName ? 'Най-отпред, преди ' + S.slot.beforeName : 'Най-отзад, след ' + S.slot.afterName) : S.editId ? 'Остава на сегашното място (изберете друго, ако искате да го преместите).' : 'Изберете място (по подразбиране: най-отпред).';
   }
+
+  /* ---------------- edit an existing gallery product ---------------- */
+  function openEdit(id) {
+    if (!S.editId && S.photos.length && !confirm('Да отворя ли този продукт за редакция? Новият проект, по който работите, остава запазен и ще се върне след това.')) return;
+    if (S.editId && !confirm('Да оставя ли текущата редакция без запис?')) return;
+    app.innerHTML = '<div class="op-card"><span class="op-busy"></span> Зареждам продукта…</div>'; scrollTo(0, app.offsetTop - 20);
+    call('product', { id: id }).then(function (j) {
+      if (!j.ok) throw new Error(j.error);
+      var p = j.product, subs = G.kitchenSub || {}, mainIds = Object.keys(G.main || {});
+      var main = mainIds.indexOf(p.mainCategory) >= 0 ? p.mainCategory : (p.categories.filter(function (c) { return mainIds.indexOf(c) >= 0; })[0] || KITCHEN);
+      S = { editId: p.id, editMain: main, editName: p.name, editSlug: p.slug, editDraft: p.draft, editCats: p.categories,
+        photos: p.images.map(function (im) { return { alt: im.alt, variants: [{ label: 'Оригинал', url: im.url, remote: im.url }], active: 0 }; }),
+        mainCategory: main, kitchenSub: p.categories.filter(function (c) { return subs[c]; }),
+        materials: p.materials.map(function (l) { return { role: '', sub: '', line: l }; }), note: '',
+        fields: { name: p.name, slug: p.slug, teaser: p.teaser, description: p.description, seoDescription: p.seoDescription, seoLabel: p.seoLabel, categories: p.categories },
+        proposal: null, slot: null, galleryFilter: 'cat' };
+      render();
+    }).catch(function (e) { app.innerHTML = '<div class="op-card op-err">' + esc(e.message) + ' <button class="op-btn sm" id="op-back">Назад</button></div>'; $('#op-back', app).onclick = leaveEdit; });
+  }
+  function leaveEdit() { S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' }; start(); }
 
   /* ---------------- photos → existing Digital Passport (project-gallery-room1..5) ---------------- */
   var TP = { list: null, id: null, name: '', rooms: null, room: 0, skip: {} };
@@ -590,6 +695,7 @@
     if (over.length || richLen(f.description || []) > 600) return msg('Има поле над допустимата дължина.', true);
     var first = G.items.filter(function (i) { return i.categories.indexOf(S.mainCategory) >= 0; })[0];
     var slot = S.slot || { afterId: null, beforeId: first ? first.id : null };
+    if (S.editId) return submitEdit(draft, shift);
     var btns = $$('.op-bar .op-btn', app); btns.forEach(function (b) { b.disabled = true; });
     msg('Качвам снимките…');
     var seq = Promise.resolve();
@@ -615,6 +721,41 @@
         (draft ? '<p class="op-muted">Ще я намерите в Webflow → CMS → Products (непубликувана).</p>' : '<p><a href="' + esc(j.url) + '" target="_blank" rel="noopener">Отвори страницата на проекта →</a></p>') +
         '<button class="op-btn pri" id="op-new">Нов проект</button></div>';
       $('#op-new', app).onclick = function () { S = { photos: [], mainCategory: KITCHEN, kitchenSub: [], materials: [], note: '', fields: null, proposal: null, slot: null, galleryFilter: 'cat' }; call('gallery', { fresh: true }).then(function (g) { if (g.ok) G = g; render(); }); };
+    }).catch(function (e) { btns.forEach(function (b) { b.disabled = false; }); msg(e.message, true); });
+  }
+
+  function submitEdit(draft, shift) {
+    var f = S.fields, btns = $$('.op-bar .op-btn', app); btns.forEach(function (b) { b.disabled = true; });
+    msg('Качвам променените снимки…');
+    var seq = Promise.resolve();
+    S.photos.forEach(function (p) { seq = seq.then(function () { return upload(current(p)); }); });
+    seq.then(function () {
+      msg('Записвам…');
+      var cats = categoriesNow();
+      // keep categories the tool does not show (e.g. 3D or other groupings) that the product already had
+      (S.editCats || []).forEach(function (c) { if (cats.indexOf(c) < 0 && !(G.kitchenSub || {})[c] && c !== S.editMain) cats.push(c); });
+      var input = {
+        name: f.name, slug: f.slug || slugify(f.name), teaser: f.teaser || '', description: f.description || [], seoDescription: f.seoDescription || '', seoLabel: f.seoLabel || '',
+        materials: lines(), mainCategory: S.mainCategory, categories: cats,
+        images: S.photos.map(function (p) { var v = current(p); return v.remote ? { url: v.remote, alt: p.alt || '' } : { id: v.serverId, alt: p.alt || '' }; }),
+        move: !!S.slot, afterId: S.slot ? S.slot.afterId : null, beforeId: S.slot ? S.slot.beforeId : null, draft: draft, shift: shift
+      };
+      return call('update', { id: S.editId, input: input });
+    }).then(function (j) {
+      btns.forEach(function (b) { b.disabled = false; });
+      if (j.needShift) {
+        if (confirm('Между избраните два проекта няма свободен номер. Да преместя ' + j.needShift.length + ' проекта след него с по 10 позиции? (видимият ред остава същият)')) return submitEdit(draft, true);
+        return msg('Отказано. Изберете друго място.', true);
+      }
+      if (!j.ok) throw new Error(j.error);
+      var name = f.name;
+      call('gallery', { fresh: true }).then(function (g) { if (g.ok) G = g; });
+      app.innerHTML = '<div class="op-card"><h2>Промените са записани</h2><p><b>' + esc(name) + '</b>' + (S.slot ? ' · нова позиция № ' + j.order : '') + (j.shifted ? ' (преместени ' + j.shifted + ' проекта)' : '') + (draft ? ' · чернова' : '') + '</p>' +
+        (draft ? '' : '<p><a href="' + esc(j.url) + '" target="_blank" rel="noopener">Отвори страницата на проекта →</a></p>') +
+        '<div class="op-row"><button class="op-btn" id="op-again-edit">Редактирай пак</button><button class="op-btn pri" id="op-new">← Към новия проект</button></div></div>';
+      var id = S.editId;
+      $('#op-again-edit', app).onclick = function () { S.editId = null; S.photos = []; openEdit(id); };
+      $('#op-new', app).onclick = leaveEdit;
     }).catch(function (e) { btns.forEach(function (b) { b.disabled = false; }); msg(e.message, true); });
   }
 
