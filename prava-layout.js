@@ -464,6 +464,17 @@
     }
 
     /* ---------------- room */
+    /* ---------------- island: dragged in the move mode (✥) or in the ✎ mode, sized / turned 90° in the ✎ card; it keeps a 50 cm passage from the cabinets */
+    var ISLLIM = { len: [600, 4000], w: [400, 1500] }, ISL = { pos: null, rot: false }, ISLROOM = null, islandG = null, islandLbl = null, islDrag = null;
+    function islClamp(x, z) { var R = ISLROOM; if (!R) return { x: x, z: z }; var c = function (v, a, b) { return a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v)); }; return { x: c(x, R.x0, R.x1), z: c(z, R.z0, R.z1) }; }
+    function islHit(ev) { if (!islandG) return false; ndc(ev); return ray.intersectObject(islandG, true).length > 0; }
+    function islFloor(ev) { ndc(ev); var p = new T.Vector3(); return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -BH), p) ? p : null; }
+    function islSetDim(key, mm) {   // writes the size back into the form's own pickers (metres + centimetres), so the order carries it too
+      var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return;
+      var cm = Math.round(mm / 10), hasM = !!row.querySelector('.meters-control'), vals = hasM ? [Math.floor(cm / 100), cm % 100] : [0, cm];
+      ['.meters-control', '.centimeters-control'].forEach(function (sel2, i) { row.querySelectorAll(sel2 + ' .picker-value-text,' + sel2 + ' .picker-value').forEach(function (e) { e.textContent = String(vals[i]); }); });
+      row.classList.add('is-touched'); row.setAttribute('data-touched', 'true');
+    }
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, Dp = 3.4;
@@ -488,11 +499,14 @@
       var lt = label(fmt(inp.lengthMm || 3000), .2, '#2f4a30', 'rgba(255,255,255,.85)'); lt.position.set(L / 2, .12, Dp - .1); roomGroup.add(lt);
       var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
       var hl = new T.LineSegments(new T.BufferGeometry().setFromPoints([new T.Vector3(.02, 0, .02), new T.Vector3(.02, H, .02)]), new T.LineBasicMaterial({ color: 0x477448 })); roomGroup.add(hl);
+      islandG = null; islandLbl = null; ISLROOM = null;
       if (inp.island && inp.islandLenMm && inp.islandWidthMm) {
-        var il = inp.islandLenMm / 1000, iw = inp.islandWidthMm / 1000, cx = L / 2, cz = 1.6 + iw / 2;
-        var ig = new T.Group(); box(il, BH - WT - .1, iw, mats.island, 0, .1 + (BH - WT - .1) / 2, 0, ig); box(il - .01, .1, iw - .06, mats.plinth, 0, .05, 0, ig); box(il + .04, WT, iw + .04, mats.top, 0, BH - WT / 2, 0, ig);
-        ig.position.set(cx, 0, cz); roomGroup.add(ig);
-        var it = label('остров ' + fmt(inp.islandLenMm) + ' × ' + fmt(inp.islandWidthMm), .16, '#4a4132', 'rgba(255,255,255,.85)'); it.position.set(cx, BH + .18, cz); roomGroup.add(it);
+        var il = inp.islandLenMm / 1000, iw = inp.islandWidthMm / 1000, sx = ISL.rot ? iw : il, sz = ISL.rot ? il : iw;   // "Завърти 90°" in the ✎ card swaps the sides
+        ISLROOM = { x0: sx / 2 + .05, x1: L - sx / 2 - .05, z0: D + .5 + sz / 2, z1: Dp - sz / 2 - .05 };
+        var cc = islClamp(ISL.pos ? ISL.pos.x : L / 2, ISL.pos ? ISL.pos.z : 1.6 + sz / 2), cx = cc.x, cz = cc.z;
+        var ig = new T.Group(); box(sx, BH - WT - .1, sz, mats.island, 0, .1 + (BH - WT - .1) / 2, 0, ig); box(sx - .01, .1, sz - .06, mats.plinth, 0, .05, 0, ig); box(sx + .04, WT, sz + .04, mats.top, 0, BH - WT / 2, 0, ig);
+        ig.position.set(cx, 0, cz); ig.userData = { island: true }; roomGroup.add(ig); islandG = ig;
+        var it = label('остров ' + fmt(inp.islandLenMm) + ' × ' + fmt(inp.islandWidthMm), .16, '#4a4132', 'rgba(255,255,255,.85)'); it.position.set(cx, BH + .18, cz); roomGroup.add(it); islandLbl = it;
       }
     }
 
@@ -572,7 +586,7 @@
       if (inp2) inp2.value = json;
       root.pravaLayout.current = JSON.parse(json);
       CUT.on = false; root.pravaLayout.current.cut = { kitchen: 'prava', heightMm: inp.heightMm || 0, splashH: Math.round((upperSpec(inp.deep).ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
-      if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
+      if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); edRender(); } else edClose(); }
     }
 
     /* ---------------- camera fit + sync */
@@ -612,6 +626,7 @@
     function dragKeys(d) { return d.layer ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
       if (edPointerDown(ev)) return;
+      if (moveMode && !panMode && ev.button <= 0 && islHit(ev)) { var p0 = islFloor(ev); if (p0) { islDrag = { ox: p0.x - islandG.position.x, oz: p0.z - islandG.position.z }; controls.enabled = false; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing'; return; } }
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var gx = groundX(ev, pk.layer); if (gx === null) return;
@@ -624,6 +639,10 @@
     function runOf(id, layer) { var R = runsOf(layer); for (var i = 0; i < R.length; i++) if (R[i].indexOf(id) >= 0) return i; return -1; }
     function upperSwapOk(a, b, layer) { var P = posOf(layer); return runOf(a, layer) === runOf(b, layer) || (P[a] && P[b] && P[a].w === P[b].w); }
     function onMove(ev) {
+      if (edDown && edDown.io && Math.abs(ev.clientX - edDown.x) + Math.abs(ev.clientY - edDown.y) > 8) {   // ✎ mode: a drag on the island moves it
+        islDrag = edDown.io; edDown = null; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing';
+      }
+      if (islDrag) { var pi = islFloor(ev); if (pi && islandG) { var ci = islClamp(pi.x - islDrag.ox, pi.z - islDrag.oz); islandG.position.set(ci.x, 0, ci.z); if (islandLbl) islandLbl.position.set(ci.x, BH + .18, ci.z); ISL.pos = ci; } return; }
       if (!drag) return;
       var gx = groundX(ev, drag.layer); if (gx === null) return; drag.moved = true;
       var cx = Math.max(0, Math.min(plan.lengthMm / 1000, gx - drag.off)), keys = dragKeys(drag);
@@ -641,8 +660,8 @@
     /* green tint on the cabinet whose place the dragged one will take (materials are cloned, the shared ones stay untouched) */
     function clearHL() { hl.saved.forEach(function (o) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); o.material.dispose(); }); hl.saved = []; hl.key = null; }
     function setHL(key) {
-      if (hl.key === key) return; clearHL(); if (!key || !meshById[key]) return;
-      var g = meshById[key], box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
+      if (hl.key === key) return; clearHL(); var g0 = key === 'island' ? islandG : meshById[key]; if (!key || !g0) return;
+      var g = g0, box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
       g.traverse(function (o) { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)); } });
       if (box.isEmpty()) return;
       var sz = box.getSize(new T.Vector3()), c = box.getCenter(new T.Vector3());
@@ -651,6 +670,7 @@
     }
     function onUp(ev) {
       if (edPointerUp(ev)) return;
+      if (islDrag) { islDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } if (editMode) edSelect({ id: 'island', island: true }); return; }
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
       if (d.moved && d.target) {
@@ -708,7 +728,8 @@
       '.sf-page-prava .prava-3d-edit-seg{display:flex;flex-wrap:wrap;gap:4px}.sf-page-prava .prava-3d-edit-lbl{font-size:11px;color:#606760;margin:6px 0 3px}' +
       '.sf-page-prava .prava-3d-edit-note{font-size:11px;color:#7a2d1f;margin-top:6px}.sf-page-prava .prava-3d-edit-info{font-size:11px;color:#606760;margin-top:6px}';
     document.head.appendChild(edCss);
-    function edKey(s) { return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
+    function edMesh(s) { return s && s.island ? islandG : meshById[edKey(s)]; }
+    function edKey(s) { if (s.island) return 'island'; return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
     function edModule(id) { for (var i = 0; i < items.length; i++) if (items[i].id === id) return items[i]; return null; }
     function edPos(s) { var P = s.layer === 'd' ? dpos : upos; return P && P[s.id]; }
     function frontOf(m, W) {   // the default front of an ordinary lower cabinet (what the sketch draws without an edit)
@@ -818,6 +839,15 @@
     }
     function edRender() {
       if (!sel) { edBox.hidden = true; return; }
+      if (sel.island) {
+        if (!islandG) { edClose(); return; }
+        var il = dimMm('island_len_3a'), iw = dimMm('island_width_3a'), rowI = function (lbl, v, a, mn, mx) { return '<div class="prava-3d-edit-row"><span>' + lbl + '</span><span class="prava-3d-edit-w"><button type="button" class="prava-3d-ed" data-ed="' + a + '-"' + (v <= mn ? ' disabled' : '') + '>−</button><b>' + (v / 10) + ' см</b><button type="button" class="prava-3d-ed" data-ed="' + a + '+"' + (v >= mx ? ' disabled' : '') + '>+</button></span></div>'; };
+        edBox.innerHTML = '<div class="prava-3d-edit-head"><span>Остров</span><button type="button" class="prava-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>' +
+          rowI('Дължина', il, 'il', ISLLIM.len[0], ISLLIM.len[1]) + rowI('Ширина', iw, 'iw', ISLLIM.w[0], ISLLIM.w[1]) +
+          '<div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed" data-ed="irot">Завърти 90°</button><button type="button" class="prava-3d-ed" data-ed="ipos">Върни на мястото</button></div>' +
+          '<div class="prava-3d-edit-info">Местене: хванете острова и го плъзнете.</div>';
+        edBox.hidden = false; edPlace(); return;
+      }
       var html = '', m = sel.upper ? null : edModule(sel.id), p = sel.upper ? edPos(sel) : null;
       if (!sel.upper && !m) { edClose(); return; }
       if (sel.upper && !p) { edClose(); return; }
@@ -888,10 +918,18 @@
     (function () { var st = document.createElement('style'); st.textContent = '.prava-3d-edit-head{cursor:move;touch-action:none;user-select:none}.prava-3d-edit-head span::before{content:"⠿ ";color:#9aa09a;font-weight:400}'; document.head.appendChild(st); })();
     function edSelect(s) { sel = s; edNote = ''; clearHL(); setHL(edKey(s)); edRender(); }
     function edClose() { sel = null; edBox.hidden = true; edNote = ''; clearHL(); }
-    function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (meshById[edKey(sel)]) setHL(edKey(sel)); edRender(); } }
+    function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); } edRender(); } }
     edBox.addEventListener('click', function (ev) {
       var b = ev.target.closest('[data-ed]'); if (!b || !sel) return; var a = b.dataset.ed; edNote = '';
       if (a === 'close') { edClose(); return; }
+      if (sel.island) {
+        var stp = a.slice(-1) === '+' ? 50 : -50;
+        if (a === 'il-' || a === 'il+') islSetDim('island_len_3a', Math.max(ISLLIM.len[0], Math.min(ISLLIM.len[1], dimMm('island_len_3a') + stp)));
+        else if (a === 'iw-' || a === 'iw+') islSetDim('island_width_3a', Math.max(ISLLIM.w[0], Math.min(ISLLIM.w[1], dimMm('island_width_3a') + stp)));
+        else if (a === 'irot') ISL.rot = !ISL.rot;
+        else if (a === 'ipos') ISL.pos = null;
+        edRebuild(); return;
+      }
       if (a === 'w-' || a === 'w+') {
         var dw = a === 'w+' ? STEP_W : -STEP_W;
         if (sel.upper) { var slot = edSlotOf(sel); if (slot) EDIT.slot[slot.id] = slot.w + dw; }
@@ -906,11 +944,13 @@
     /* in edit mode a tap on a cabinet selects it; a drag on empty space still turns the view */
     function edPointerDown(ev) {
       if (!editMode || ev.button > 0 || !items.length) return false;
+      if (islHit(ev)) { var ip = islFloor(ev); edDown = { x: ev.clientX, y: ev.clientY, pk: { island: true, id: 'island' }, io: ip ? { ox: ip.x - islandG.position.x, oz: ip.z - islandG.position.z } : null }; controls.enabled = false; return true; }
       var pk = pickModule(ev); if (!pk) { edDown = null; return false; }
       edDown = { x: ev.clientX, y: ev.clientY, pk: pk }; controls.enabled = false; return true;
     }
     function edPointerUp(ev) {
       if (!edDown) return false; var d = edDown; edDown = null; controls.enabled = true;
+      if (d.pk.island) { if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) < 10) edSelect({ id: 'island', island: true }); return true; }
       if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) < 10) edSelect({ id: d.pk.id, upper: !!d.pk.upper, layer: d.pk.upper ? (d.pk.layer || 'u') : null, wall: d.pk.wall });
       return true;
     }
@@ -973,7 +1013,7 @@
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
       else if (a === 'edit') setMode('edit');
-      else if (a === 'auto') { EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { ISL = { pos: null, rot: false }; EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });

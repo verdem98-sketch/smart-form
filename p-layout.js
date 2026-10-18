@@ -587,6 +587,17 @@
       if (inp.deep) { TOPROW.uh = .33; TOPROW.ub = top - TOPROW.uh; UPPER.uh = Math.max(.3, TOPROW.ub - UPPER.ub); }
       else UPPER.uh = Math.max(.3, top - UPPER.ub);
     }
+    /* ---------------- island: dragged in the move mode (✥) or in the ✎ mode, sized / turned 90° in the ✎ card; it keeps a 50 cm passage from the cabinets */
+    var ISLLIM = { len: [600, 4000], w: [400, 1500] }, ISL = { pos: null, rot: false }, ISLROOM = null, islandG = null, islandLbl = null, islDrag = null;
+    function islClamp(x, z) { var R = ISLROOM; if (!R) return { x: x, z: z }; var c = function (v, a, b) { return a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v)); }; return { x: c(x, R.x0, R.x1), z: c(z, R.z0, R.z1) }; }
+    function islHit(ev) { if (!islandG) return false; ndc(ev); return ray.intersectObject(islandG, true).length > 0; }
+    function islFloor(ev) { ndc(ev); var p = new T.Vector3(); return ray.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), -BH), p) ? p : null; }
+    function islSetDim(key, mm) {   // writes the size back into the form's own pickers (metres + centimetres), so the order carries it too
+      var row = q('.dimension-row[data-dim="' + key + '"]'); if (!row) return;
+      var cm = Math.round(mm / 10), hasM = !!row.querySelector('.meters-control'), vals = hasM ? [Math.floor(cm / 100), cm % 100] : [0, cm];
+      ['.meters-control', '.centimeters-control'].forEach(function (sel2, i) { row.querySelectorAll(sel2 + ' .picker-value-text,' + sel2 + ' .picker-value').forEach(function (e) { e.textContent = String(vals[i]); }); });
+      row.classList.add('is-touched'); row.setAttribute('data-touched', 'true');
+    }
     function buildRoom(inp) {
       while (roomGroup.children.length) roomGroup.remove(roomGroup.children[0]);
       var L1 = (inp.wall1Mm || 3000) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, L3 = (inp.wall3Mm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, LZ = Math.max(L1, L3);
@@ -662,12 +673,14 @@
         var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(X0(cB + .3), H - .3, cA / 2); roomGroup.add(la);
         var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(X0(cB / 2 - .05), H - .62, cA + .34); roomGroup.add(lb2);
       }
+      islandG = null; islandLbl = null; ISLROOM = null;
       if (inp.showCabinets && inp.island && inp.islandLenMm && inp.islandWidthMm) {   // free-standing island in the middle of the U, along the back wall
-        var bl = inp.islandLenMm / 1000, bw = inp.islandWidthMm / 1000, ig = new T.Group();
-        box(bl, BH - WT - .1, bw, mats.island, 0, .1 + (BH - WT - .1) / 2, 0, ig); box(bl - .01, .1, bw - .06, mats.plinth, 0, .05, 0, ig); box(bl + .04, WT, bw + .04, mats.top, 0, BH - WT / 2, 0, ig);
-        var px = L2 / 2, pz = D + 1.1 + bw / 2;
-        ig.position.set(px, 0, pz); roomGroup.add(ig);
-        var it = label('остров ' + fmt(inp.islandLenMm) + ' × ' + fmt(inp.islandWidthMm), .16, '#4a4132', 'rgba(255,255,255,.85)'); it.position.set(px, BH + .18, pz); roomGroup.add(it);
+        var bl = inp.islandLenMm / 1000, bw = inp.islandWidthMm / 1000, sx = ISL.rot ? bw : bl, sz = ISL.rot ? bl : bw, ig = new T.Group();   // "Завърти 90°" in the ✎ card swaps the sides
+        box(sx, BH - WT - .1, sz, mats.island, 0, .1 + (BH - WT - .1) / 2, 0, ig); box(sx - .01, .1, sz - .06, mats.plinth, 0, .05, 0, ig); box(sx + .04, WT, sz + .04, mats.top, 0, BH - WT / 2, 0, ig);
+        ISLROOM = { x0: D + .5 + sx / 2, x1: L2 - D - .5 - sx / 2, z0: D + .5 + sz / 2, z1: LZ - sz / 2 - .05 };
+        var pc = islClamp(ISL.pos ? ISL.pos.x : L2 / 2, ISL.pos ? ISL.pos.z : D + 1.1 + sz / 2), px = pc.x, pz = pc.z;
+        ig.position.set(px, 0, pz); ig.userData = { island: true }; roomGroup.add(ig); islandG = ig;
+        var it = label('остров ' + fmt(inp.islandLenMm) + ' × ' + fmt(inp.islandWidthMm), .16, '#4a4132', 'rgba(255,255,255,.85)'); it.position.set(px, BH + .18, pz); roomGroup.add(it); islandLbl = it;
       }
     }
 
@@ -820,7 +833,7 @@
       WALLS.forEach(function (w) { cur.walls[w] = { startMm: plan.walls[w].startMm, endMm: plan.walls[w].endMm, fillerMm: plan.walls[w].fillerMm, modules: items.filter(function (m) { return m.wall === w; }).map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: unitList.filter(function (id) { return upos[id].wall === w; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) }; });
       CUT.on = false; cur.cut = { kitchen: 'p', heightMm: inp.heightMm || 0, splashH: Math.round((UPPER.ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
       root.pLayout.current = cur;
-      if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
+      if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); edRender(); } else edClose(); }
     }
 
     /* ---------------- camera fit + sync */
@@ -874,6 +887,7 @@
     function dragKeys(d) { return d.upper ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
       if (edPointerDown(ev)) return;
+      if (moveMode && !panMode && ev.button <= 0 && islHit(ev)) { var p0 = islFloor(ev); if (p0) { islDrag = { ox: p0.x - islandG.position.x, oz: p0.z - islandG.position.z }; controls.enabled = false; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing'; return; } }
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
       var m0 = pk.upper ? null : items.filter(function (m) { return m.id === pk.id; })[0];
@@ -890,6 +904,10 @@
       return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase' && ma.w === mb.w));
     }
     function onMove(ev) {
+      if (edDown && edDown.io && Math.abs(ev.clientX - edDown.x) + Math.abs(ev.clientY - edDown.y) > 8) {   // ✎ mode: a drag on the island moves it
+        islDrag = edDown.io; edDown = null; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing';
+      }
+      if (islDrag) { var pi = islFloor(ev); if (pi && islandG) { var ci = islClamp(pi.x - islDrag.ox, pi.z - islDrag.oz); islandG.position.set(ci.x, 0, ci.z); if (islandLbl) islandLbl.position.set(ci.x, BH + .18, ci.z); ISL.pos = ci; } return; }
       if (!drag) return;
       var gx = groundX(ev, drag.wall, drag.upper ? drag.layer : null); if (gx === null) return; drag.moved = true;
       var cx = Math.max(0, Math.min(WALL[drag.wall] / 1000, gx - drag.off)), keys = dragKeys(drag);
@@ -917,8 +935,8 @@
     var hl = { key: null, saved: [] };
     function clearHL() { hl.saved.forEach(function (o) { if (o.parent) o.parent.remove(o); o.geometry.dispose(); o.material.dispose(); }); hl.saved = []; hl.key = null; }
     function setHL(key) {
-      if (hl.key === key) return; clearHL(); if (!key || !meshById[key]) return;
-      var g = meshById[key], box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
+      if (hl.key === key) return; clearHL(); var g0 = key === 'island' ? islandG : meshById[key]; if (!key || !g0) return;
+      var g = g0, box = new T.Box3(), inv = new T.Matrix4(); g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
       g.traverse(function (o) { if (o.isMesh && o.geometry) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)); } });
       if (box.isEmpty()) return;
       var sz = box.getSize(new T.Vector3()), c = box.getCenter(new T.Vector3());
@@ -927,6 +945,7 @@
     }
     function onUp(ev) {
       if (edPointerUp(ev)) return;
+      if (islDrag) { islDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } if (editMode) edSelect({ id: 'island', island: true }); return; }
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ }
       if (d.moved && d.target) {
@@ -990,7 +1009,8 @@
       '.sf-page-p .p-3d-edit-seg{display:flex;flex-wrap:wrap;gap:4px}.sf-page-p .p-3d-edit-lbl{font-size:11px;color:#606760;margin:6px 0 3px}' +
       '.sf-page-p .p-3d-edit-note{font-size:11px;color:#7a2d1f;margin-top:6px}.sf-page-p .p-3d-edit-info{font-size:11px;color:#606760;margin-top:6px}';
     document.head.appendChild(edCss);
-    function edKey(s) { return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
+    function edMesh(s) { return s && s.island ? islandG : meshById[edKey(s)]; }
+    function edKey(s) { if (s.island) return 'island'; return s.upper ? s.id + ':' + (s.layer || 'u') : s.id; }
     function edModule(id) { for (var i = 0; i < items.length; i++) if (items[i].id === id) return items[i]; return null; }
     function edPos(s) { var P = s.layer === 'd' ? dpos : upos; return P && P[s.id]; }
     function frontOf(m, W) {   // the default front of an ordinary lower cabinet (what the sketch draws without an edit)
@@ -1101,6 +1121,15 @@
     }
     function edRender() {
       if (!sel) { edBox.hidden = true; return; }
+      if (sel.island) {
+        if (!islandG) { edClose(); return; }
+        var il = dimMm('island_len_p'), iw = dimMm('island_width_p'), rowI = function (lbl, v, a, mn, mx) { return '<div class="p-3d-edit-row"><span>' + lbl + '</span><span class="p-3d-edit-w"><button type="button" class="p-3d-ed" data-ed="' + a + '-"' + (v <= mn ? ' disabled' : '') + '>−</button><b>' + (v / 10) + ' см</b><button type="button" class="p-3d-ed" data-ed="' + a + '+"' + (v >= mx ? ' disabled' : '') + '>+</button></span></div>'; };
+        edBox.innerHTML = '<div class="p-3d-edit-head"><span>Остров</span><button type="button" class="p-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>' +
+          rowI('Дължина', il, 'il', ISLLIM.len[0], ISLLIM.len[1]) + rowI('Ширина', iw, 'iw', ISLLIM.w[0], ISLLIM.w[1]) +
+          '<div class="p-3d-edit-seg"><button type="button" class="p-3d-ed" data-ed="irot">Завърти 90°</button><button type="button" class="p-3d-ed" data-ed="ipos">Върни на мястото</button></div>' +
+          '<div class="p-3d-edit-info">Местене: хванете острова и го плъзнете.</div>';
+        edBox.hidden = false; edPlace(); return;
+      }
       var html = '', m = sel.upper ? null : edModule(sel.id), p = sel.upper ? edPos(sel) : null;
       if (!sel.upper && !m) { edClose(); return; }
       if (sel.upper && !p) { edClose(); return; }
@@ -1171,10 +1200,18 @@
     (function () { var st = document.createElement('style'); st.textContent = '.p-3d-edit-head{cursor:move;touch-action:none;user-select:none}.p-3d-edit-head span::before{content:"⠿ ";color:#9aa09a;font-weight:400}'; document.head.appendChild(st); })();
     function edSelect(s) { sel = s; edNote = ''; clearHL(); setHL(edKey(s)); edRender(); }
     function edClose() { sel = null; edBox.hidden = true; edNote = ''; clearHL(); }
-    function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (meshById[edKey(sel)]) setHL(edKey(sel)); edRender(); } }
+    function edRebuild() { inputsSig = ''; sync(true); if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); } edRender(); } }
     edBox.addEventListener('click', function (ev) {
       var b = ev.target.closest('[data-ed]'); if (!b || !sel) return; var a = b.dataset.ed; edNote = '';
       if (a === 'close') { edClose(); return; }
+      if (sel.island) {
+        var stp = a.slice(-1) === '+' ? 50 : -50;
+        if (a === 'il-' || a === 'il+') islSetDim('island_len_p', Math.max(ISLLIM.len[0], Math.min(ISLLIM.len[1], dimMm('island_len_p') + stp)));
+        else if (a === 'iw-' || a === 'iw+') islSetDim('island_width_p', Math.max(ISLLIM.w[0], Math.min(ISLLIM.w[1], dimMm('island_width_p') + stp)));
+        else if (a === 'irot') ISL.rot = !ISL.rot;
+        else if (a === 'ipos') ISL.pos = null;
+        edRebuild(); return;
+      }
       if (a === 'w-' || a === 'w+') {
         var dw = a === 'w+' ? STEP_W : -STEP_W;
         if (sel.upper) { var slot = edSlotOf(sel); if (slot) EDIT.slot[slot.id] = slot.w + dw; }
@@ -1189,11 +1226,13 @@
     /* in edit mode a tap on a cabinet selects it; a drag on empty space still turns the view */
     function edPointerDown(ev) {
       if (!editMode || ev.button > 0 || !items.length) return false;
+      if (islHit(ev)) { var ip = islFloor(ev); edDown = { x: ev.clientX, y: ev.clientY, pk: { island: true, id: 'island' }, io: ip ? { ox: ip.x - islandG.position.x, oz: ip.z - islandG.position.z } : null }; controls.enabled = false; return true; }
       var pk = pickModule(ev); if (!pk) { edDown = null; return false; }
       edDown = { x: ev.clientX, y: ev.clientY, pk: pk }; controls.enabled = false; return true;
     }
     function edPointerUp(ev) {
       if (!edDown) return false; var d = edDown; edDown = null; controls.enabled = true;
+      if (d.pk.island) { if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) < 10) edSelect({ id: 'island', island: true }); return true; }
       if (Math.abs(ev.clientX - d.x) + Math.abs(ev.clientY - d.y) < 10) edSelect({ id: d.pk.id, upper: !!d.pk.upper, layer: d.pk.upper ? (d.pk.layer || 'u') : null, wall: d.pk.wall });
       return true;
     }
@@ -1254,7 +1293,7 @@
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
       else if (a === 'edit') setMode('edit');
-      else if (a === 'auto') { EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; xfer = []; order = { 1: [], 2: [], 3: [] }; glassPick = null; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { ISL = { pos: null, rot: false }; EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; xfer = []; order = { 1: [], 2: [], 3: [] }; glassPick = null; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
