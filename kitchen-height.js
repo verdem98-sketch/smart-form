@@ -100,7 +100,7 @@
   function style() {
     if (document.getElementById('kh-css')) return;
     var st = document.createElement('style'); st.id = 'kh-css';
-    st.textContent = '.kh-ceiling-btn{margin:8px 0 0;padding:6px 14px;border:1px solid #2f4a3a;border-radius:999px;background:#fff;color:#2f4a3a;font:inherit;font-size:13px;line-height:1.2;cursor:pointer}' +
+    st.textContent = '.kh-ceiling-btn{grid-column:1/-1;justify-self:center;margin:4px 0 0;padding:6px 14px;border:1px solid #2f4a3a;border-radius:999px;background:#fff;color:#2f4a3a;font:inherit;font-size:13px;line-height:1.2;cursor:pointer}' +
       '.kh-ceiling-btn:hover{background:#eef2ef}.kh-ceiling-btn.is-on{background:#2f4a3a;color:#fff}';
     document.head.append(st);
   }
