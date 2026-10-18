@@ -109,6 +109,12 @@
       '.sf-page-prava .prava-3d-msg{position:absolute;left:10px;right:56px;top:10px;font:12px/1.4 sans-serif;color:#7a2d1f;background:#fff1ec;border:1px solid #e6b8ab;padding:8px 10px;border-radius:10px;pointer-events:none}' +
       '.sf-page-prava .prava-3d-btns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}' +
       '.sf-page-prava .prava-3d-btns button{width:36px;height:36px;border:1px solid #c8cbc7;border-radius:10px;background:#fff;color:#333533;font:600 17px/1 sans-serif;cursor:pointer;padding:0}' +
+      '.sf-page-prava .prava-3d-btns button svg{display:block;margin:auto}' +
+      '.sf-page-prava .prava-3d-legend{position:absolute;right:56px;top:10px;width:270px;max-width:calc(100% - 70px);max-height:calc(100% - 20px);overflow:auto;background:#fff;border:1px solid #c8cbc7;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:10px 12px;font:12px/1.4 sans-serif;color:#333533;z-index:5}' +
+      '.sf-page-prava .prava-3d-legend[hidden]{display:none}.sf-page-prava .prava-3d-legend>b{display:block;font-size:13px;margin:0 22px 8px 0}' +
+      '.sf-page-prava .prava-3d-legend-x{position:absolute;right:6px;top:4px;width:26px;height:26px;border:0;background:none;font:20px/1 sans-serif;color:#606760;cursor:pointer}' +
+      '.sf-page-prava .prava-3d-legend-row{display:flex;gap:9px;align-items:flex-start;margin:0 0 7px}.sf-page-prava .prava-3d-legend-row>span{flex:0 0 28px;height:28px;border:1px solid #c8cbc7;border-radius:8px;display:flex;align-items:center;justify-content:center;font:600 15px/1 sans-serif}' +
+      '.sf-page-prava .prava-3d-legend-row>span svg{width:18px;height:18px}.sf-page-prava .prava-3d-legend p{margin:0}.sf-page-prava .prava-3d-legend-note{margin-top:4px!important;padding-top:7px;border-top:1px solid #e3e5e1;color:#4a554e}' +
       '.sf-page-prava .prava-3d-btns button:hover,.sf-page-prava .prava-3d-btns button[aria-pressed="true"]{background:#e8f0e8;border-color:#477448}' +
       '.sf-page-prava .cad-stage.prava-3d-on .cad-img,.sf-page-prava .cad-stage.prava-3d-on .cad-img-kitchen,.sf-page-prava .cad-stage.prava-3d-on .cad-img-deep_cabinets,.sf-page-prava .cad-stage.prava-3d-on .cad-img-island,.sf-page-prava .cad-stage.prava-3d-on .cad-img-base{visibility:hidden!important}' +
       '.sf-page-prava .cad-stage.prava-3d-on .cad-base,.sf-page-prava .cad-stage.prava-3d-on .cad-kitchen,.sf-page-prava .cad-stage.prava-3d-on .cad-deep_cabinets,.sf-page-prava .cad-stage.prava-3d-on .cad-island{pointer-events:none!important}';
@@ -116,13 +122,25 @@
     var hint = document.createElement('div'); hint.className = 'prava-3d-hint'; host.appendChild(hint);
     var msg = document.createElement('div'); msg.className = 'prava-3d-msg'; msg.hidden = true; host.appendChild(msg);
     var btns = document.createElement('div'); btns.className = 'prava-3d-btns'; host.appendChild(btns);
+    var ORBIT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><path d="M13.3 4.6A7.5 7.5 0 0 1 19.4 13.3" stroke="#d6402f"/><path d="M19.2 14.5L22.4 11.2L17.3 10.3Z" fill="#d6402f" stroke="none"/><path d="M17.7 16.8A7.5 7.5 0 0 1 7.2 17.7" stroke="#2e9a3c"/><path d="M6.3 17.0L7.5 21.4L10.8 17.4Z" fill="#2e9a3c" stroke="none"/><path d="M5.0 14.6A7.5 7.5 0 0 1 9.4 5.0" stroke="#2f6bd6"/><path d="M10.6 4.5L6.1 3.4L7.9 8.3Z" fill="#2f6bd6" stroke="none"/><circle cx="12" cy="12" r="1.8" fill="#333533"/></svg>';
     function mkBtn(label, title, act) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = b.ariaLabel = title; b.dataset.act = act; btns.appendChild(b); return b; }
-    mkBtn('+', 'Приближи', 'in'); mkBtn('−', 'Отдалечи', 'out'); mkBtn('⟲', 'Начален изглед', 'reset');
+    mkBtn('⌂', 'Начален изглед', 'reset');   // zoom: mouse wheel on desktop, two fingers on a phone (no +/− buttons)
     var rotBtn = mkBtn('⟳', 'Въртане на изгледа (Orbit): влачете за завъртане', 'rotate');
+    rotBtn.innerHTML = ORBIT_SVG;
     var modeBtn = mkBtn('✥', 'Местене на шкафове: хванете шкаф и го пуснете върху друг', 'mode');
     var panBtn = mkBtn('✋', 'Преместване на изгледа (Pan): влачете наляво/надясно и нагоре/надолу. Десен бутон или Shift + влачене също местят изгледа.', 'pan');
     var editBtn = mkBtn('✎', 'Промяна на шкаф: изберете шкаф, за да смените ширината и вида му', 'edit');
-    var autoBtn = mkBtn('↺', 'Автоматично подреждане', 'auto');
+    var autoBtn = document.createElement('button');   // "Автоматично подреждане" is no longer offered: one wrong click threw away the arrangement made by hand (kept detached so the code that hides it still works)
+    var helpBtn = mkBtn('?', 'Какво прави всеки бутон', 'help');
+    var legend = document.createElement('div'); legend.className = 'prava-3d-legend'; legend.hidden = true; host.appendChild(legend);
+    legend.innerHTML = '<button type="button" class="prava-3d-legend-x" aria-label="Затвори">×</button><b>Бутони на скицата</b>' +
+      [['⌂', 'Начален изглед', 'връща скицата в първоначалния ѝ изглед.'], [ORBIT_SVG, 'Въртене', 'влачете, за да завъртите кухнята и да я разгледате от всички страни.'],
+       ['✥', 'Местене', 'хванете шкаф, уред или острова и го пуснете на новото място.'], ['✋', 'Преместване на изгледа', 'влачете, за да плъзнете цялата скица наляво, надясно, нагоре или надолу.'],
+       ['✎', 'Промяна на шкаф', 'изберете шкаф, за да смените ширината и вида му.'], ['?', 'Помощ', 'отваря тази карта.']].map(function (r) { return '<div class="prava-3d-legend-row"><span>' + r[0] + '</span><p><b>' + r[1] + '</b> – ' + r[2] + '</p></div>'; }).join('') +
+      '<p class="prava-3d-legend-note"><b>Приближаване:</b> колелцето на мишката на компютър, два пръста на телефон.</p>';
+    helpBtn.addEventListener('click', function (e) { e.stopPropagation(); legend.hidden = !legend.hidden; helpBtn.setAttribute('aria-pressed', String(!legend.hidden)); });
+    legend.addEventListener('click', function (e) { if (e.target.closest('.prava-3d-legend-x')) { legend.hidden = true; helpBtn.setAttribute('aria-pressed', 'false'); } });
+    ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { legend.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
     var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, dorder = null, upos = {}, dpos = {}, uRunIds = [], dRunIds = [], curDeep = false, order = [], items = [], plan = null, inputsSig = '', fitSig = '';
