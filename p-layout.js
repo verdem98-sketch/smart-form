@@ -963,7 +963,15 @@
       return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase' && ma.w === mb.w));
     }
     function onMove(ev) {
-      if (freeDrag) { var fx = (function (ev, w) { return groundX(ev, w, null); })(ev, freeDrag.wall); if (fx !== null) { freeDrag.g.position.x = Math.max(0, Math.min((function (w) { return WALL[w]; })(freeDrag.wall) / 1000, fx - freeDrag.off)); freeDrag.moved = true; } return; }
+      if (freeDrag) {   // it slides along the counter and may change to another wall (the run nearest to the pointer)
+        var fp = groundWorld(ev, null), fbest = null, fbd = Infinity;
+        if (fp) Object.keys(wg).forEach(function (k) { var w = Number(k), l = wg[w].worldToLocal(fp.clone()); if (l.x < -.2 || l.x > WALL[w] / 1000 + .2) return; var d = Math.abs(l.z - D / 2); if (d < fbd) { fbd = d; fbest = { wall: w, x: l.x }; } });
+        if (fbest) {
+          if (fbest.wall !== freeDrag.wall) { wg[fbest.wall].add(freeDrag.g); freeDrag.g.userData.wall = fbest.wall; freeDrag.wall = fbest.wall; freeDrag.off = 0; }
+          freeDrag.g.position.x = Math.max(0, Math.min(WALL[freeDrag.wall] / 1000, fbest.x - freeDrag.off)); freeDrag.moved = true;
+        }
+        return;
+      }
       if (edDown && edDown.io && Math.abs(ev.clientX - edDown.x) + Math.abs(ev.clientY - edDown.y) > 8) {   // ✎ mode: a drag on the island moves it
         islDrag = edDown.io; edDown = null; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing';
       }
