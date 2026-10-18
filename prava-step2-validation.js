@@ -11,7 +11,7 @@
       var pill = page.querySelector('[data-field="island"] .is-selected,[data-field="island"] .active');
       return !!pill && /^(yes|да)$/i.test(pill.dataset.value || '');
     }
-    function keys() { var k = ['len_prava_3', 'height_prava_3']; if (islandEnabled()) k.push('island_len_3a', 'island_width_3a'); return k; }
+    function keys() { return ['len_prava_3', 'height_prava_3']; }   // the island sizes are checked in step 2 (Конфигурация), next to the island question
     function rowOf(key) { return page.querySelector('.dimension-row[data-dim="' + key + '"]'); }
     function value(row) {
       function n(sel) { var el = row.querySelector(sel + ' .picker-value-text') || row.querySelector(sel + ' .picker-value'); return Number((el && el.textContent) || 0); }

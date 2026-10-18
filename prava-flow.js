@@ -17,9 +17,15 @@
     // Display order: step 1 = dimensions (phases[1]), step 2 = configuration (phases[0]); legacy data-prava-phase numbers are unchanged.
     const ORDER=[1,0,2,3,4,5,6,7,8,9];
     const legacyToStep=n=>n===1?2:n===2?1:n;
-    // The island question moves next to the dimensions so its size rows can appear before cabinets are laid out.
+    // The island question is the last question of step 2 (Конфигурация); its size rows follow right under it.
     const islandQuestion=page.querySelector('.question-wrap-prava[data-field="island"]');
-    if(islandQuestion&&islandQuestion.closest('.combo-phase-prava'))phases[1].append(islandQuestion);
+    const islandGroup=page.querySelector('.dimensions-group-island');
+    if(islandQuestion){
+      const qs=[...phases[0].querySelectorAll('.question-wrap-prava[data-field]')].filter(q=>q!==islandQuestion);
+      const last=qs[qs.length-1];
+      if(last)last.after(islandQuestion);else phases[0].append(islandQuestion);
+      if(islandGroup){islandGroup.classList.add('prava-island-sizes');islandQuestion.after(islandGroup);}
+    }
     const finalTitle=page.querySelector('.final-title-subtitle');if(finalTitle)phases[9].prepend(finalTitle);
     const finalBack=document.createElement('button');finalBack.type='button';finalBack.dataset.pravaNav='back';finalBack.textContent='← Назад';
     const finalNav=document.createElement('div');finalNav.className='prava-navigation prava-final-nav';finalNav.append(finalBack);phases[9].prepend(finalNav);
@@ -43,8 +49,7 @@
     progress.replaceChildren(progressHead,progressTrack);columns.before(progress);
     const header=document.createElement('div');header.className='prava-step-header';header.append(heading);right.prepend(header);
     const configQuestions=[...phases[0].querySelectorAll('.question-wrap-prava[data-field]')];
-    const dimQuestions=islandQuestion?[islandQuestion]:[];
-    [islandQuestion].filter(Boolean).forEach(q=>{q.querySelectorAll('.question-head').forEach(n=>{n.hidden=true;n.inert=true;});});
+    const dimQuestions=[];
     configQuestions.forEach(question=>{
       question.querySelectorAll('[data-action="reset-prava"]').forEach(node=>node.remove());
       question.querySelectorAll('.question-head').forEach(node=>{node.hidden=true;node.inert=true;});
@@ -90,6 +95,21 @@
       const pill=page.querySelector('[data-field="island"] .is-selected,[data-field="island"] .active');
       return pill && /^(yes|да)$/i.test(pill.dataset.value||'');
     }
+    function syncIslandSizes(){
+      if(!islandGroup)return;const on=!!islandEnabled();
+      ['display','visibility','opacity'].forEach(p=>islandGroup.style.removeProperty(p));
+      if(!on)islandGroup.style.setProperty('display','none','important');
+    }
+    page.addEventListener('click',()=>setTimeout(syncIslandSizes,80));
+    syncIslandSizes();
+    function dimMissing(keys){
+      for(const key of keys) {
+        const row=page.querySelector('.dimension-row[data-dim="'+key+'"]');if(!row)continue;
+        const number=selector=>Number((row.querySelector(selector+' .picker-value-text')||row.querySelector(selector+' .picker-value'))?.textContent||0);
+        if(number('.meters-control')*100+number('.centimeters-control')<=0) return row;
+      }
+      return null;
+    }
     function firstMissingQuestion(){return configQuestions.find(question=>!question.querySelector('.option-pill.is-selected,.option-pill.active'));}
     function clearQuestionValidation(question){
       question.classList.remove('prava-question-invalid','prava-question-shake');question.removeAttribute('aria-invalid');
@@ -117,16 +137,10 @@
       if(step===2) {
         const missing=firstMissingQuestion();
         if(missing) return 'Изберете вариант за всеки въпрос.';
+        if(islandEnabled()&&dimMissing(['island_len_3a','island_width_3a'])) return 'Въведете дължината и ширината на острова.';
       }
       if(step===1) {
-        if(dimQuestions.some(q=>!q.querySelector('.option-pill.is-selected,.option-pill.active'))) return 'Изберете дали желаете остров.';
-        const keys=['len_prava_3','height_prava_3'];
-        if(islandEnabled()) keys.push('island_len_3a','island_width_3a');
-        for(const key of keys) {
-          const row=page.querySelector('.dimension-row[data-dim="'+key+'"]');
-          const number=selector=>Number((row.querySelector(selector+' .picker-value-text')||row.querySelector(selector+' .picker-value'))?.textContent||0);
-          if(number('.meters-control')*100+number('.centimeters-control')<=0) return 'Въведете всички приложими размери.';
-        }
+        if(dimMissing(['len_prava_3','height_prava_3'])) return 'Въведете всички приложими размери.';
       }
       return '';
     }
