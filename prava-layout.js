@@ -178,6 +178,17 @@
       if (!texMat[k]) { var t = m.map.clone(); t.center.set(.5, .5); t.rotation = Math.PI / 2; t.needsUpdate = true; texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: rough, metalness: 0 }); texMat[k].userData.tile = .6; }
       return texMat[k];
     }
+    /* wall backsplash: one continuous panel - the sample fills the full height, runs on along the length with mirrored joins (no seams that read as tiles)
+       and its pattern always lies horizontally (a sample with vertical lines is turned) */
+    function splashMat(field, hex) {
+      var m = fin(field, hex, 0, .4); if (!m.map) return m;
+      var u = decorUrl(field), rot = grainCache[u] === 'v' || (isWoodField(field) && grainCache[u] !== 'h'), k = u + '|splash|' + (rot ? 1 : 0);
+      if (!texMat[k]) {
+        var t = m.map.clone(); t.wrapS = t.wrapT = T.MirroredRepeatWrapping; if (rot) { t.center.set(.5, .5); t.rotation = Math.PI / 2; } t.needsUpdate = true;
+        texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: .4, metalness: 0 });
+      }
+      return texMat[k];
+    }
     function fin(field, hex, shift, rough, grain) {
       var u = decorUrl(field), tx = u && texCache[u];
       if (!tx) return tone(hex, shift, rough);
@@ -481,7 +492,7 @@
       texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? finLen('countertop_finish', inp.cTop, .45) : mats.topDefault;
       mats.island = inp.cLower !== null && inp.cLower !== undefined ? fin('lower_finish', inp.cLower, -.03) : mats.islandDefault;
       if (inp.showCabinets && inp.x && inp.x.light) { var gw = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), new T.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .22 })); gw.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .006); roomGroup.add(gw); }
-      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bm = finLen('backsplash_finish', inp.cBack, .4), bgm = new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH); if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * L / .6, buv.getY(bi) * (upperSpec(inp.deep).ub - BH) / .6); } var bs = new T.Mesh(bgm, bm); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bm = splashMat('backsplash_finish', inp.cBack), bgm = new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH); if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * L / (upperSpec(inp.deep).ub - BH), buv.getY(bi)); } var bs = new T.Mesh(bgm, bm); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
       for (x = 0; x <= L + 1e-6; x += .5) { pts.push(x, 0, 0, x, 0, Dp); }

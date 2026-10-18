@@ -299,6 +299,17 @@
       if (!texMat[k]) { var t = m.map.clone(); t.center.set(.5, .5); t.rotation = Math.PI / 2; t.needsUpdate = true; texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: rough, metalness: 0 }); texMat[k].userData.tile = .6; }
       return texMat[k];
     }
+    /* wall backsplash: one continuous panel - the sample fills the full height, runs on along the length with mirrored joins (no seams that read as tiles)
+       and its pattern always lies horizontally (a sample with vertical lines is turned) */
+    function splashMat(field, hex) {
+      var m = fin(field, hex, 0, .4); if (!m.map) return m;
+      var u = decorUrl(field), rot = grainCache[u] === 'v' || (isWoodField(field) && grainCache[u] !== 'h'), k = u + '|splash|' + (rot ? 1 : 0);
+      if (!texMat[k]) {
+        var t = m.map.clone(); t.wrapS = t.wrapT = T.MirroredRepeatWrapping; if (rot) { t.center.set(.5, .5); t.rotation = Math.PI / 2; } t.needsUpdate = true;
+        texMat[k] = new T.MeshStandardMaterial({ map: t, color: 0xffffff, roughness: .4, metalness: 0 });
+      }
+      return texMat[k];
+    }
     function fin(field, hex, shift, rough, grain) {
       var u = decorUrl(field), tx = u && texCache[u];
       if (!tx) return tone(hex, shift, rough);
@@ -622,11 +633,11 @@
         strips.forEach(function (sp) { if (sp[2] > sp[1]) stripMesh(new T.PlaneGeometry(sp[2] - sp[1], bh), m1, sp, .006); });
       }
       if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) {
-        var bm = finLen('backsplash_finish', inp.cBack, .4);
+        var bm = splashMat('backsplash_finish', inp.cBack);
         strips.forEach(function (sp) {
           var len = sp[2] - sp[1]; if (len <= 0) return;
           var bgm = new T.PlaneGeometry(len, bh);
-          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * len / .6, buv.getY(bi) * bh / .6); }
+          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * len / bh, buv.getY(bi)); }
           stripMesh(bgm, bm, sp, .004);
         });
       }
