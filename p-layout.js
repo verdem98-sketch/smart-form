@@ -1166,7 +1166,7 @@
     function edPlace() {   // the card goes next to the selected cabinet, never on top of it (above, below, right or left - the first side with room)
       if (!sel || edBox.hidden || !T) return;
       if (edManual) { var mw = host.clientWidth - (edBox.offsetWidth || 230) - 4, mh = host.clientHeight - (edBox.offsetHeight || 160) - 4; edBox.style.left = Math.round(Math.max(4, Math.min(mw, edManual.l))) + 'px'; edBox.style.top = Math.round(Math.max(4, Math.min(mh, edManual.t))) + 'px'; return; }
-      var g = meshById[edKey(sel)]; if (!g) return;
+      var g = edMesh(sel); if (!g) return;   // edMesh also finds the island
       var bb = new T.Box3().setFromObject(g); if (bb.isEmpty()) return;
       var W = host.clientWidth, H = host.clientHeight, bw = edBox.offsetWidth || 230, bh = edBox.offsetHeight || 160, gap = 12;
       var r = { l: 1e9, t: 1e9, r: -1e9, b: -1e9 };
