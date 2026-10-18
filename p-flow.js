@@ -50,9 +50,9 @@
 
     /* ---------------- step 1: chimney + walls + height */
     const step1 = el('div', 'p-step p-step-dims');
-    const wallsNote = el('p', 'p-walls-note', 'Стена 1 е лявата, стена 2 – срещуположната (задната), стена 3 – дясната. Номерата се виждат и на скицата.');
-    const chimNote = el('p', 'p-chim-note', 'При комин дължините на двете стени до него се мерят от комина навън — без самия комин. A е по страничната стена, B – по задната.'); chimNote.hidden = true;
-    step1.append(qChim, chimNote, wallsNote, gMain, gChim);
+    // walls + height first, then the chimney question; its note shows only for a chimney left / right
+    const chimNote = el('p', 'p-chim-note', 'При комин дължините на двете стени до него се мерят от комина навън — без самия комин.'); chimNote.hidden = true;
+    step1.append(gMain, qChim, chimNote, gChim);
     /* ---------------- step 2: configuration */
     const step2 = el('div', 'p-step p-step-config');
     const tools = el('div', 'p-config-tools'), reset = el('button', 'p-config-reset', 'Нулиране'); reset.type = 'button'; tools.append(reset);
