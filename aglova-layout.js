@@ -765,7 +765,7 @@
       [1, 2].forEach(function (w) { cur.walls[w] = { startMm: plan.walls[w].startMm, fillerMm: plan.walls[w].fillerMm, modules: items.filter(function (m) { return m.wall === w; }).map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: unitList.filter(function (id) { return upos[id].wall === w; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) }; });
       CUT.on = false; cur.cut = { kitchen: 'aglova', heightMm: inp.heightMm || 0, splashH: Math.round((UPPER.ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.barMode && inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm ? { kind: inp.barMode === 'island' ? 'island' : 'bar', len: inp.barLenMm, w: inp.barWidthMm } : null };
       root.agLayout.current = cur;
-      if (sel) { if (meshById[edKey(sel)]) { setHL(edKey(sel)); edRender(); } else edClose(); }
+      if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); edRender(); } else edClose(); }   // the island is not in meshById: look it up with edMesh
     }
 
     /* ---------------- camera fit + sync */
@@ -830,6 +830,9 @@
       return !!(ma && mb && ma.wall !== mb.wall && !(ma.type === 'genericBase' && mb.type === 'genericBase' && ma.w === mb.w));
     }
     function onMove(ev) {
+      if (edDown && edDown.io && Math.abs(ev.clientX - edDown.x) + Math.abs(ev.clientY - edDown.y) > 8) {   // ✎ mode: a drag on the island moves it
+        islDrag = edDown.io; edDown = null; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing';
+      }
       if (islDrag) { var pi = islFloor(ev); if (pi && islandG) { var ci = islClamp(pi.x - islDrag.ox, pi.z - islDrag.oz); islandG.position.set(ci.x, 0, ci.z); if (islandLbl) islandLbl.position.set(ci.x, BH + .18, ci.z); ISL.pos = ci; } return; }
       if (!drag) return;
       var gx = groundX(ev, drag.wall, drag.upper ? drag.layer : null); if (gx === null) return; drag.moved = true;
@@ -868,7 +871,7 @@
     }
     function onUp(ev) {
       if (edPointerUp(ev)) return;
-      if (islDrag) { islDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } return; }
+      if (islDrag) { islDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; if (editMode) edSelect({ id: 'island', island: true }); try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } return; }
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ }
       if (d.moved && d.target) {
@@ -1050,7 +1053,7 @@
         edBox.innerHTML = '<div class="ag-3d-edit-head"><span>Остров</span><button type="button" class="ag-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>' +
           rowI('Дължина', il, 'il', ISLLIM.len[0], ISLLIM.len[1]) + rowI('Ширина', iw, 'iw', ISLLIM.w[0], ISLLIM.w[1]) +
           '<div class="ag-3d-edit-seg"><button type="button" class="ag-3d-ed" data-ed="irot">Завърти 90°</button><button type="button" class="ag-3d-ed" data-ed="ipos">Върни на мястото</button></div>' +
-          '<div class="ag-3d-edit-info">Местене: бутонът ✥ и влачене на острова.</div>';
+          '<div class="ag-3d-edit-info">Местене: хванете острова и го плъзнете.</div>';
         edBox.hidden = false; edPlace(); return;
       }
       var html = '', m = sel.upper ? null : edModule(sel.id), p = sel.upper ? edPos(sel) : null;
@@ -1149,7 +1152,7 @@
     /* in edit mode a tap on a cabinet selects it; a drag on empty space still turns the view */
     function edPointerDown(ev) {
       if (!editMode || ev.button > 0 || !items.length) return false;
-      if (islHit(ev)) { edDown = { x: ev.clientX, y: ev.clientY, pk: { island: true, id: 'island' } }; controls.enabled = false; return true; }
+      if (islHit(ev)) { var ip = islFloor(ev); edDown = { x: ev.clientX, y: ev.clientY, pk: { island: true, id: 'island' }, io: ip ? { ox: ip.x - islandG.position.x, oz: ip.z - islandG.position.z } : null }; controls.enabled = false; return true; }
       var pk = pickModule(ev); if (!pk) { edDown = null; return false; }
       edDown = { x: ev.clientX, y: ev.clientY, pk: pk }; controls.enabled = false; return true;
     }
