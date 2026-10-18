@@ -97,8 +97,8 @@
     }
     function syncIslandSizes(){
       if(!islandGroup)return;const on=!!islandEnabled();
-      ['display','visibility','opacity'].forEach(p=>islandGroup.style.removeProperty(p));
-      if(!on)islandGroup.style.setProperty('display','none','important');
+      ['visibility','opacity'].forEach(p=>islandGroup.style.removeProperty(p));
+      islandGroup.style.setProperty('display',on?'block':'none','important');   // the Webflow class hides the group until it is turned on
     }
     page.addEventListener('click',()=>setTimeout(syncIslandSizes,80));
     syncIslandSizes();
