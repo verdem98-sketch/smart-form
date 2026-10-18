@@ -394,6 +394,54 @@
     }
     // cut model for the order e-mail (cut list / SketchUp file): every cabinet built while CUT.on is recorded
     var CUT = { on: false, cab: [], tops: [], fills: [] };
+    /* ---------------- free-standing microwave / coffee machine: their own objects on the countertop, moved with ✥ by grabbing them.
+       Each keeps the place it was put on (moving a cabinet does not move it); only a spot that is no longer free counter
+       (sink, hob, tall unit, the other appliance) sends it to the nearest free one. */
+    var FREE = { pos: {} }, freeDrag = null, freeG = {}, FREE_W = { micro: 460, coffee: 280 }, FREE_OK = { genericBase: 1, basket: 1, dishwasher: 1, washingMachine: 1 };
+    function freeSpans() {
+      var by = {}, spans = [];
+      items.forEach(function (m) { var w = m.wall || 1; (by[w] = by[w] || []).push(m); });
+      Object.keys(by).forEach(function (wk) {
+        var cur = null;
+        by[wk].slice().sort(function (a, b) { return a.x - b.x; }).forEach(function (m) {
+          if (!FREE_OK[m.type]) { cur = null; return; }
+          if (cur && Math.abs(cur.x1 - m.x) < 2) cur.x1 = m.x + m.w; else { cur = { wall: Number(wk), x0: m.x, x1: m.x + m.w }; spans.push(cur); }
+        });
+      });
+      return spans;
+    }
+    function freeFix(inp) {
+      var want = []; if (inp.microFree) want.push('micro'); if (inp.coffeeFree) want.push('coffee');
+      Object.keys(FREE.pos).forEach(function (k) { if (want.indexOf(k) < 0) delete FREE.pos[k]; });
+      var spans = freeSpans(), M = 40, GAP = 60, placed = [];
+      want.forEach(function (k) {
+        var hw = FREE_W[k] / 2, p = FREE.pos[k], best = null, bd = Infinity;
+        spans.forEach(function (sp) {
+          var lo = sp.x0 + M + hw, hi = sp.x1 - M - hw; if (lo > hi) return;
+          var mid = (lo + hi) / 2, cands = [p && p.wall === sp.wall ? Math.max(lo, Math.min(hi, p.x)) : mid, lo, hi];
+          placed.forEach(function (o) { if (o.wall === sp.wall) cands.push(o.x - o.hw - hw - GAP, o.x + o.hw + hw + GAP); });
+          cands.forEach(function (x) {
+            if (x < lo - .5 || x > hi + .5) return;
+            if (placed.some(function (o) { return o.wall === sp.wall && Math.abs(o.x - x) < o.hw + hw + GAP - 1; })) return;
+            var d = p ? (p.wall === sp.wall ? Math.abs(x - p.x) : 1e7 + Math.abs(x - p.x)) : -(sp.x1 - sp.x0) * 10 + Math.abs(x - mid);
+            if (d < bd) { bd = d; best = { wall: sp.wall, x: x }; }
+          });
+        });
+        if (best) { FREE.pos[k] = best; placed.push({ wall: best.wall, x: best.x, hw: hw }); } else delete FREE.pos[k];
+      });
+    }
+    function freeBuild() {
+      freeG = {};
+      Object.keys(FREE.pos).forEach(function (k) {
+        var p = FREE.pos[k], g = new T.Group(); if (k === 'micro') standMicro(g, 0); else standCoffee(g, 0);
+        g.position.x = (function (w, mm) { return mm / 1000; })(p.wall, p.x); g.userData = { freeApp: k, wall: p.wall }; (function () { return cabGroup; })(p.wall).add(g); freeG[k] = g;
+      });
+    }
+    function freeHit(ev) {
+      var objs = Object.keys(freeG).map(function (k) { return freeG[k]; }); if (!objs.length) return null;
+      ndc(ev); var h = ray.intersectObjects(objs, true)[0]; if (!h) return null;
+      var o = h.object; while (o && !(o.userData && o.userData.freeApp)) o = o.parent; return o || null;
+    }
     function buildBase(m, w) {
       if (CUT.on) CUT.cab.push({ row: 'lower', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((BH - PL - WT) * 1000), free: !!m.free });
       var g = new T.Group(), y0 = PL, y1 = BH - WT, W = w;
@@ -565,7 +613,7 @@
       if (!lu.ok) uorder = null; if (!ld.ok) dorder = null;
       uRunIds = lu.ids; upos = lu.pos; dRunIds = ld.ids; dpos = ld.pos;
       items.forEach(function (m) { m.free = (m.type === 'dishwasher' && inp.dishFree) || (m.type === 'washingMachine' && inp.washFree); m.host = null; });
-      placeFree(items, inp);
+      freeFix(inp);
       var runs = [], cur = null;
       items.forEach(function (m) {
         var w = m.w / 1000, cx = (m.x + m.w / 2) / 1000; var hasL = inp.cLower !== null && inp.cLower !== undefined, hasU = inp.cUpper !== null && inp.cUpper !== undefined; var hasD = inp.cDeep !== null && inp.cDeep !== undefined && !!fieldVal('deep_finish'); mats.front = hasL ? fin('lower_finish', inp.cLower, 0, inp.glL ? .12 : undefined, inp.gL) : mats.frontA; mats.carcass = hasL ? mats.front : mats.carcassDefault; mats.upper = hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gU) : mats.front; mats.deep = hasD ? fin('deep_finish', inp.cDeep, 0, inp.glD ? .12 : undefined, inp.gD) : (hasU ? fin('upper_finish', inp.cUpper, 0, inp.glU ? .12 : undefined, inp.gD) : mats.front); var g = TALL[m.type] ? buildTall(m, w) : buildBase(m, w);
@@ -573,6 +621,7 @@
         var lb = label(String(m.w / 10), .12, '#3b423b', 'rgba(255,255,255,.78)'); lb.position.set(cx, .02, D + .22); lb.userData.follow = m.id; labelGroup.add(lb);
         if (inp.showCabinets && !TALL[m.type]) { if (!cur) { cur = { x0: m.x, x1: m.x + m.w }; runs.push(cur); } else cur.x1 = m.x + m.w; } else cur = null;
       });
+      freeBuild();
       // upper cabinets: their own slots (independent of merges in the lower row)
       upList.forEach(function (id) {
         if (upos[id]) { var ux = (upos[id].x + upos[id].w / 2) / 1000; var up = buildUpper(upos[id].w / 1000, upperSpec(inp.deep).ub, upperSpec(inp.deep).uh, .35, mats.upper, { glass: uGlass(id), lift: uLift(id), s0: upos[id].x }); up.position.x = ux; worldUV(up); up.userData = { id: id, upper: true, layer: 'u', targetX: ux }; cabGroup.add(up); meshById[id + ':u'] = up; }
@@ -637,6 +686,7 @@
     function dragKeys(d) { return d.layer ? [d.id + ':' + d.layer] : [d.id]; }
     function onDown(ev) {
       if (edPointerDown(ev)) return;
+      if (moveMode && !panMode && ev.button <= 0) { var fo = freeHit(ev); if (fo) { var gx0 = groundX(ev, fo.userData.wall); if (gx0 !== null) { freeDrag = { k: fo.userData.freeApp, wall: fo.userData.wall, g: fo, off: gx0 - fo.position.x, moved: false }; controls.enabled = false; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing'; return; } } }
       if (moveMode && !panMode && ev.button <= 0 && islHit(ev)) { var p0 = islFloor(ev); if (p0) { islDrag = { ox: p0.x - islandG.position.x, oz: p0.z - islandG.position.z }; controls.enabled = false; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing'; return; } }
       if (!moveMode || panMode || !items.length || ev.button > 0) return;
       var pk = pickModule(ev); if (!pk) return;
@@ -650,6 +700,7 @@
     function runOf(id, layer) { var R = runsOf(layer); for (var i = 0; i < R.length; i++) if (R[i].indexOf(id) >= 0) return i; return -1; }
     function upperSwapOk(a, b, layer) { var P = posOf(layer); return runOf(a, layer) === runOf(b, layer) || (P[a] && P[b] && P[a].w === P[b].w); }
     function onMove(ev) {
+      if (freeDrag) { var fx = groundX(ev, freeDrag.wall); if (fx !== null) { freeDrag.g.position.x = Math.max(0, Math.min((function () { return plan.lengthMm; })(freeDrag.wall) / 1000, fx - freeDrag.off)); freeDrag.moved = true; } return; }
       if (edDown && edDown.io && Math.abs(ev.clientX - edDown.x) + Math.abs(ev.clientY - edDown.y) > 8) {   // ✎ mode: a drag on the island moves it
         islDrag = edDown.io; edDown = null; try { renderer.domElement.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ } renderer.domElement.style.cursor = 'grabbing';
       }
@@ -681,6 +732,7 @@
     }
     function onUp(ev) {
       if (edPointerUp(ev)) return;
+      if (freeDrag) { var fd = freeDrag; freeDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } if (fd.moved) FREE.pos[fd.k] = { wall: fd.wall, x: (function (w, lx) { return lx * 1000; })(fd.wall, fd.g.position.x) }; inputsSig = ''; sync(true); return; }
       if (islDrag) { islDrag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } if (editMode) edSelect({ id: 'island', island: true }); return; }
       if (!drag) return; var d = drag; drag = null; controls.enabled = true; renderer.domElement.style.cursor = ''; clearHL();
       try { renderer.domElement.releasePointerCapture(ev.pointerId); } catch (e) {}
@@ -1024,7 +1076,7 @@
       else if (a === 'mode') setMode('move');
       else if (a === 'pan') setMode('pan');
       else if (a === 'edit') setMode('edit');
-      else if (a === 'auto') { ISL = { pos: null, rot: false }; EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
+      else if (a === 'auto') { ISL = { pos: null, rot: false }; FREE.pos = {}; EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }; edClose(); dirty = false; uorder = null; dorder = null; order = []; inputsSig = ''; sync(true); }
       controls.update();
     });
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { btns.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
