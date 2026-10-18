@@ -300,7 +300,7 @@
       return texMat[k];
     }
     /* wall backsplash: one continuous panel - the sample fills the full height, runs on along the length with mirrored joins (no seams that read as tiles)
-       and its pattern always lies horizontally (a sample with vertical lines is turned) */
+       and its pattern always lies horizontally (a sample with vertical lines is turned; one sample spans 2.5x the panel height, so veins lie flat) */
     function splashMat(field, hex) {
       var m = fin(field, hex, 0, .4); if (!m.map) return m;
       var u = decorUrl(field), rot = grainCache[u] === 'v' || (isWoodField(field) && grainCache[u] !== 'h'), k = u + '|splash|' + (rot ? 1 : 0);
@@ -637,7 +637,7 @@
         strips.forEach(function (sp) {
           var len = sp[2] - sp[1]; if (len <= 0) return;
           var bgm = new T.PlaneGeometry(len, bh);
-          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * len / bh, buv.getY(bi)); }
+          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * len / (bh * 2.5), buv.getY(bi)); }
           stripMesh(bgm, bm, sp, .004);
         });
       }

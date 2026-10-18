@@ -179,7 +179,7 @@
       return texMat[k];
     }
     /* wall backsplash: one continuous panel - the sample fills the full height, runs on along the length with mirrored joins (no seams that read as tiles)
-       and its pattern always lies horizontally (a sample with vertical lines is turned) */
+       and its pattern always lies horizontally (a sample with vertical lines is turned; one sample spans 2.5x the panel height, so veins lie flat) */
     function splashMat(field, hex) {
       var m = fin(field, hex, 0, .4); if (!m.map) return m;
       var u = decorUrl(field), rot = grainCache[u] === 'v' || (isWoodField(field) && grainCache[u] !== 'h'), k = u + '|splash|' + (rot ? 1 : 0);
@@ -492,7 +492,7 @@
       texN = 0; mats.top = inp.cTop !== null && inp.cTop !== undefined ? finLen('countertop_finish', inp.cTop, .45) : mats.topDefault;
       mats.island = inp.cLower !== null && inp.cLower !== undefined ? fin('lower_finish', inp.cLower, -.03) : mats.islandDefault;
       if (inp.showCabinets && inp.x && inp.x.light) { var gw = new T.Mesh(new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH), new T.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .22 })); gw.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .006); roomGroup.add(gw); }
-      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bm = splashMat('backsplash_finish', inp.cBack), bgm = new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH); if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * L / (upperSpec(inp.deep).ub - BH), buv.getY(bi)); } var bs = new T.Mesh(bgm, bm); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
+      if (inp.showCabinets && inp.cBack !== null && inp.cBack !== undefined) { var bm = splashMat('backsplash_finish', inp.cBack), bgm = new T.PlaneGeometry(L, upperSpec(inp.deep).ub - BH); if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * L / ((upperSpec(inp.deep).ub - BH) * 2.5), buv.getY(bi)); } var bs = new T.Mesh(bgm, bm); bs.position.set(L / 2, (upperSpec(inp.deep).ub + BH) / 2, .004); roomGroup.add(bs); }
       var floor = new T.Mesh(new T.PlaneGeometry(L + 1.0, Dp + .5), mats.floor); floor.rotation.x = -Math.PI / 2; floor.position.set(L / 2, -.001, Dp / 2 - .25); floor.receiveShadow = true; roomGroup.add(floor);
       var pts = [], x;
       for (x = 0; x <= L + 1e-6; x += .5) { pts.push(x, 0, 0, x, 0, Dp); }

@@ -274,7 +274,7 @@
       return texMat[k];
     }
     /* wall backsplash: one continuous panel - the sample fills the full height, runs on along the length with mirrored joins (no seams that read as tiles)
-       and its pattern always lies horizontally (a sample with vertical lines is turned) */
+       and its pattern always lies horizontally (a sample with vertical lines is turned; one sample spans 2.5x the panel height, so veins lie flat) */
     function splashMat(field, hex) {
       var m = fin(field, hex, 0, .4); if (!m.map) return m;
       var u = decorUrl(field), rot = grainCache[u] === 'v' || (isWoodField(field) && grainCache[u] !== 'h'), k = u + '|splash|' + (rot ? 1 : 0);
@@ -596,7 +596,7 @@
         var bm = splashMat('backsplash_finish', inp.cBack);
         [[2, L2 - cx0, cx0, 0], [1, L1 - cz0, cz0, 1]].forEach(function (s) {
           var bgm = new T.PlaneGeometry(s[1], bh);
-          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * s[1] / bh, buv.getY(bi)); }
+          if (bm.map) { var buv = bgm.attributes.uv; for (var bi = 0; bi < buv.count; bi++) buv.setXY(bi, buv.getX(bi) * s[1] / (bh * 2.5), buv.getY(bi)); }
           var bs = new T.Mesh(bgm, bm);
           if (s[3]) { bs.rotation.y = Math.PI / 2; bs.position.set(.004, (UPPER.ub + BH) / 2, s[2] + s[1] / 2); } else bs.position.set(s[2] + s[1] / 2, (UPPER.ub + BH) / 2, .004);
           roomGroup.add(bs);
