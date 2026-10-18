@@ -17,6 +17,10 @@
       function n(sel) { var el = row.querySelector(sel + ' .picker-value-text') || row.querySelector(sel + ' .picker-value'); return Number((el && el.textContent) || 0); }
       return n('.meters-control') * 100 + n('.centimeters-control');
     }
+    function islandMissing() {   // step 2: the island sizes sit right under the island question
+      if (!islandEnabled()) return null;
+      return ['island_len_3a', 'island_width_3a'].map(rowOf).find(function (r) { return r && value(r) <= 0; });
+    }
     function firstMissing() { return keys().map(rowOf).find(function (r) { return r && value(r) <= 0; }); }
     function clear(row) {
       row.classList.remove('prava-question-invalid', 'prava-question-shake');
@@ -39,8 +43,9 @@
     }
     page.addEventListener('click', function (e) {
       var next = e.target.closest('[data-prava-nav="next"]');
-      if (!next || !window.pravaFlow || window.pravaFlow.getStep() !== 1) return;
-      var missing = firstMissing();
+      var st = window.pravaFlow && window.pravaFlow.getStep();
+      if (!next || (st !== 1 && st !== 2)) return;
+      var missing = st === 1 ? firstMissing() : islandMissing();
       if (!missing) return;
       e.preventDefault(); e.stopImmediatePropagation();
       show(missing);
