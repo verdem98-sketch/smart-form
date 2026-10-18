@@ -274,8 +274,8 @@
       if (X.panel && (!mat || mat === mats.front) && h > .3 && w > .25) box(w - G - .12, h - .12, .008, mat || mats.front, x || 0, y0 + h / 2 + G / 2, D + FT + .004, g);   // shaker panel
       return h;
     }
-    function doors(g, w, y0, y1, n) {
-      var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleH(g, cx, y1 - .06, Math.min(.2, dw * .55)); }
+    function doors(g, w, y0, y1, n, low) {   // low: the handle on the bottom edge (doors above eye level, e.g. the top of a tall unit)
+      var dw = w / n; for (var i = 0; i < n; i++) { var cx = -w / 2 + dw * (i + .5); front(g, dw, y0, y1, mats.front, cx); handleH(g, cx, low ? y0 + .06 : y1 - .06, Math.min(.2, dw * .55)); }
     }
     function drawers(g, w, y0, y1, heights) {
       var tot = heights.reduce(function (a, b) { return a + b; }, 0), y = y1;
@@ -486,8 +486,8 @@
         if (apps.indexOf('oven') >= 0) { ovenFront(g, W, y, y + .6); y += .6; }
         if (apps.indexOf('microwave') >= 0) { microFront(g, W, y, y + .4); y += .4; }
         if (apps.indexOf('coffeeMachine') >= 0) { front(g, W, y, y + .45, mats.steel, 0); box(.12, .1, .02, mats.glass, 0, y + .22, D + FT + .01, g); y += .45; }
-        if (y < H - .75) { front(g, W, y, y + .55, mats.front, 0); handleH(g, 0, y + .5, W * .5); y += .55; }
-        doors(g, W, y, H, 1);
+        if (y < H - .75) { front(g, W, y, y + .55, mats.front, 0); handleH(g, 0, y + .05, W * .5); y += .55; }   // above the oven: handle on the bottom edge
+        doors(g, W, y, H, 1, true);
       }
       return g;
     }
