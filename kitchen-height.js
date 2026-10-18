@@ -99,9 +99,12 @@
   }
   function style() {
     if (document.getElementById('kh-css')) return;
-    var st = document.createElement('style'); st.id = 'kh-css';
+    var st = document.createElement('style'), R = '.dimension-row[data-dim^="kitchen_height_"]'; st.id = 'kh-css';
     st.textContent = '.kh-ceiling-btn{grid-column:1/-1;justify-self:center;margin:4px 0 0;padding:6px 14px;border:1px solid #2f4a3a;border-radius:999px;background:#fff;color:#2f4a3a;font:inherit;font-size:13px;line-height:1.2;cursor:pointer}' +
-      '.kh-ceiling-btn:hover{background:#eef2ef}.kh-ceiling-btn.is-on{background:#2f4a3a;color:#fff}';
+      '.kh-ceiling-btn:hover{background:#eef2ef}.kh-ceiling-btn.is-on{background:#2f4a3a;color:#fff}' +
+      // desktop: the button sits on the picker line, between metres and centimetres (pickers keep their columns)
+      '@media(min-width:992px){' + R + '{container-type:inline-size}}@container (min-width:380px){' + R + '>.div-m-cm:has(.meters-control){grid-area:2/1}' + R + '>.div-m-cm:has(.centimeters-control){grid-area:2/2}' +
+      R + '>.kh-ceiling-btn{grid-area:2/1/3/3;justify-self:center;align-self:start;margin:5px 0 0;padding:5px 8px;font-size:12px;white-space:nowrap;position:relative;z-index:1}' + R + '>.question-hint{grid-column:1/-1}}';
     document.head.append(st);
   }
 
