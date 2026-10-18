@@ -97,6 +97,25 @@
     row.dispatchEvent(new Event('change', { bubbles: true }));
     var api = window[k.refresh]; if (api && typeof api.refresh === 'function') api.refresh();
   }
+  // step 9 "Вашият избор": the room row is renamed and a "Височина на кухнята" row follows it.
+  // The order e-mail is built from these rows, so it carries the kitchen height too.
+  function fmtLike(cm, sample) {
+    if (/^\s*\d+\s*см\s*$/.test(sample || '')) return cm + ' см';
+    var m = Math.floor(cm / 100), c = cm % 100; return ((m ? m + ' м ' : '') + (c ? c + ' см' : '')).trim();
+  }
+  function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
+  function syncSummary(k, page) {
+    var box = page.querySelector('[id$="step9-summary"]'); if (!box) return;
+    var r = box.querySelector('[data-summary-target="dim:' + k.room + '"]'); if (!r) return;
+    var VAL = '[class*="summary-valueclick"],[class*="summary-value"]';
+    setText(r.querySelector('[class*="summary-label"]'), ROOM_LABEL);
+    var kr = box.querySelector('[data-summary-target="dim:' + k.id + '"]'), cm = valueCm(rowOf(page, k.id));
+    if (cm <= 0) { if (kr) kr.remove(); return; }
+    if (!kr) { kr = r.cloneNode(true); kr.setAttribute('data-summary-target', 'dim:' + k.id); }
+    if (kr.previousElementSibling !== r) r.after(kr);
+    setText(kr.querySelector('[class*="summary-label"]'), KITCHEN_LABEL);
+    var rv = r.querySelector(VAL); setText(kr.querySelector(VAL), fmtLike(cm, rv && rv.textContent));
+  }
   function style() {
     if (document.getElementById('kh-css')) return;
     var st = document.createElement('style'), R = '.dimension-row[data-dim^="kitchen_height_"]'; st.id = 'kh-css';
@@ -115,7 +134,7 @@
       var tries = 0;
       (function wait() { if (!setup(k, page) && ++tries < 100) setTimeout(wait, 100); })();
       // labels can be rewritten later by older scripts: keep ours
-      new MutationObserver(function () { var r = rowOf(page, k.room), n = rowOf(page, k.id); if (r) setLabel(r, ROOM_LABEL); if (n) setLabel(n, KITCHEN_LABEL); }).observe(page, { childList: true, subtree: true, characterData: true });
+      new MutationObserver(function () { var r = rowOf(page, k.room), n = rowOf(page, k.id); if (r) setLabel(r, ROOM_LABEL); if (n) setLabel(n, KITCHEN_LABEL); syncSummary(k, page); }).observe(page, { childList: true, subtree: true, characterData: true });
       // Next on the step that shows the kitchen height: it must be filled in and not higher than the room
       document.addEventListener('click', function (e) {
         var next = e.target.closest && e.target.closest(NEXT); if (!next || !page.contains(next)) return;
