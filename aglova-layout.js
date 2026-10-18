@@ -98,8 +98,8 @@
     var cnt = {};
     [1, 2].forEach(function (w) { res.walls[w].modules.forEach(function (m) { cnt[m.type] = (cnt[m.type] || 0) + 1; m.id = m.type + '#' + (cnt[m.type] - 1); m.wall = w; }); });
     var anyTall = res.walls[1].modules.concat(res.walls[2].modules).some(function (m) { return TALL[m.type]; });
-    var required = anyTall ? 2400 : 900;   // the upper row (standard or deep) always ends at the height of the tall column, never above it
-    if (cfg.heightMm && required > cfg.heightMm) errors.push('Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
+    var required = cfg.kitchenHMm || (anyTall ? 2400 : 900);   // the upper row (standard or deep) always ends at the kitchen height (the top of the tall column), never above it
+    if (cfg.heightMm && required > cfg.heightMm) errors.push(cfg.kitchenHMm ? 'Височината на кухнята (' + required + ' мм) е по-голяма от височината на помещението (' + cfg.heightMm + ' мм).' : 'Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
     return res;
   }
 
@@ -329,7 +329,7 @@
       // with a chimney the entered wall lengths run from the chimney outwards (the chimney is not included): the real wall is longer by A (wall 1) and B (wall 2)
       var phys1 = chim && cA && cB && w1 > 0 && w2 > 0 ? w1 + cA : w1, phys2 = chim && cA && cB && w1 > 0 && w2 > 0 ? w2 + cB : w2;
       return {
-        wall1Mm: phys1, wall2Mm: phys2, heightMm: dimMm('visochina_aglova') || 2600,
+        wall1Mm: phys1, wall2Mm: phys2, heightMm: dimMm('visochina_aglova') || 2600, kitchenHMm: dimMm('kitchen_height_aglova'),
         chimney: /^да$/i.test(pill('chimney_exists')), chimneyAMm: chimA(), chimneyBMm: chimB(), chimneyAGuess: !dimMm('chimney_a_aglova'), chimneyBGuess: !dimMm('chimney_b_aglova'),
         waterWall: /2/.test(pill('water_position_aglova')) ? 2 : 1, ovenTower: /^да$/i.test(pill('oven_tall_unit_aglova')), fridge: fridge,
         deep: pill('deep-cabinets') === 'yes', barMode: barMode,
@@ -545,7 +545,7 @@
           box(W - .002, H - 1.9, D - .01, mats.carcass, 0, 1.9 + (H - 1.9) / 2, (D - .01) / 2, g); front(g, W, 1.9, H, mats.front, 0); handleH(g, 0, 1.94, W * .5);
         } else {
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
-          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, 2.1, mats.front, 0); front(g, W, 2.1, H, mats.front, 0);
+          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
           handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
         }
       } else {
@@ -726,7 +726,7 @@
       WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
       if (!inp.showCabinets) return;
-      var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep }; plan = planCorner(cfgPlan);
+      var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, heightMm: inp.heightMm, kitchenHMm: inp.kitchenHMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep }; plan = planCorner(cfgPlan);
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
       lastApplied = applyMoves(plan, xfer);
       if (moveCheck && !moveCheck.mv.every(function (m) { return lastApplied.indexOf(m) >= 0; })) {   // the move does not fit: undo it
@@ -841,6 +841,7 @@
     function sync(force) {
       if (failed || !renderer) return;
       var inp = readInputs(), sig = JSON.stringify(inp);
+      TALLH = Math.min(Math.max(2, Math.min(3, (inp.kitchenHMm || 2400) / 1000)), (inp.heightMm || 2600) / 1000);   // top of the tall units and of the upper row: the kitchen height from step 1 (never above the room)
       var show = card.dataset.previewState === 'planner';
       host.hidden = !show; stage.classList.toggle('ag-3d-on', show);
       if (!show) return;

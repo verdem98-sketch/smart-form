@@ -228,7 +228,7 @@
       if (/вграден/i.test(fr) && !/свободно/i.test(fr)) fridge = 'built_in'; else if (/свободно/i.test(fr)) fridge = 'free_standing';
       var dw = fieldVal('dishwasher_type').match(/(45|60)$/), step = Number(page.dataset.pravaStep || 1);
       return {
-        lengthMm: dimMm('len_prava_3'), heightMm: dimMm('height_prava_3') || 2600,
+        lengthMm: dimMm('len_prava_3'), heightMm: dimMm('height_prava_3') || 2600, kitchenHMm: dimMm('kitchen_height_prava'),
         water: pill('water_position_prava') || 'center', ovenTower: pill('oven_tall_unit') === 'yes', fridge: fridge,
         deep: pill('deep_cabinets') === 'yes', island: pill('island') === 'yes', islandLenMm: dimMm('island_len_3a'), islandWidthMm: dimMm('island_width_3a'),
         dishwasherMm: dw ? Number(dw[1]) * 10 : 0, washer: !!fieldVal('washing_machine_type'),
@@ -475,7 +475,7 @@
           box(W - .002, H - 1.9, D - .01, mats.carcass, 0, 1.9 + (H - 1.9) / 2, (D - .01) / 2, g); front(g, W, 1.9, H, mats.front, 0); handleH(g, 0, 1.94, W * .5);
         } else {
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
-          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, 2.1, mats.front, 0); front(g, W, 2.1, H, mats.front, 0);
+          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
           handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
         }
       } else {
@@ -662,6 +662,7 @@
     function sync(force) {
       if (failed || !renderer) return;
       var inp = readInputs(), sig = JSON.stringify(inp); curInp = inp;
+      TALLH = Math.min(Math.max(2, Math.min(3, (inp.kitchenHMm || 2400) / 1000)), (inp.heightMm || 2600) / 1000);   // top of the tall units and of the upper row: the kitchen height from step 1 (never above the room)
       var show = card.dataset.previewState === 'planner';
       host.hidden = !show; stage.classList.toggle('prava-3d-on', show);
       if (!show) return;

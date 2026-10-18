@@ -120,8 +120,8 @@
     var cnt = {};
     WALLS.forEach(function (w) { res.walls[w].modules.forEach(function (m) { cnt[m.type] = (cnt[m.type] || 0) + 1; m.id = m.type + '#' + (cnt[m.type] - 1); m.wall = w; }); });
     var anyTall = WALLS.some(function (w) { return res.walls[w].modules.some(function (m) { return TALL[m.type]; }); });
-    var required = anyTall ? 2400 : 900;   // the upper row (standard or deep) always ends at the height of the tall column, never above it
-    if (cfg.heightMm && required > cfg.heightMm) errors.push('Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
+    var required = cfg.kitchenHMm || (anyTall ? 2400 : 900);   // the upper row (standard or deep) always ends at the kitchen height (the top of the tall column), never above it
+    if (cfg.heightMm && required > cfg.heightMm) errors.push(cfg.kitchenHMm ? 'Височината на кухнята (' + required + ' мм) е по-голяма от височината на помещението (' + cfg.heightMm + ' мм).' : 'Шкафовете изискват ' + required + ' мм височина, а помещението е само ' + cfg.heightMm + ' мм.');
     return res;
   }
 
@@ -360,7 +360,7 @@
       tops.forEach(function (v) { var m = String(v).match(/[123]$/); if (m) up[m[0]] = true; });
       var island = pill('island_enabled_p') === 'yes';
       return {
-        wall1Mm: p1, wall2Mm: p2, wall3Mm: p3, heightMm: dimMm('visochina_p') || 2600,
+        wall1Mm: p1, wall2Mm: p2, wall3Mm: p3, heightMm: dimMm('visochina_p') || 2600, kitchenHMm: dimMm('kitchen_height_p'),
         chimney: chOk ? ch : null, chimneyAMm: cA, chimneyBMm: cB,
         waterWall: wr ? Number(wr[0]) : 2, ovenTower: pill('oven_tall_unit_p') === 'yes', fridge: fridge,
         uppers: up, anyUpper: up[1] || up[2] || up[3],
@@ -576,7 +576,7 @@
           box(W - .002, H - 1.9, D - .01, mats.carcass, 0, 1.9 + (H - 1.9) / 2, (D - .01) / 2, g); front(g, W, 1.9, H, mats.front, 0); handleH(g, 0, 1.94, W * .5);
         } else {
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
-          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, 2.1, mats.front, 0); front(g, W, 2.1, H, mats.front, 0);
+          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
           handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
         }
       } else {
@@ -771,7 +771,7 @@
       wg[3].rotation.y = -Math.PI / 2; wg[3].position.set(inp.wall2Mm / 1000, 0, 0);
       WALLS.forEach(function (w) { wg[w].updateMatrixWorld(true); });
       if (!inp.showCabinets) { plan = null; return; }
-      var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, wall3Mm: inp.wall3Mm, heightMm: inp.heightMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep };
+      var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, wall3Mm: inp.wall3Mm, heightMm: inp.heightMm, kitchenHMm: inp.kitchenHMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep };
       plan = planU(cfgPlan);
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
       lastApplied = applyMoves(plan, xfer);
@@ -915,6 +915,7 @@
     function sync(force) {
       if (failed || !renderer) return;
       var inp = readInputs(), sig = JSON.stringify(inp);
+      TALLH = Math.min(Math.max(2, Math.min(3, (inp.kitchenHMm || 2400) / 1000)), (inp.heightMm || 2600) / 1000);   // top of the tall units and of the upper row: the kitchen height from step 1 (never above the room)
       var ps = card.dataset.previewState, show = !ps || ps === 'planner';
       host.hidden = !show; stage.classList.toggle('p-3d-on', show);
       if (!show && !force) return;   // hidden behind the AI picture: still rebuilt when a decor arrives, so the next picture of the sketch is right
