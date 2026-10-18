@@ -901,8 +901,8 @@
     function frame(inp, asp, el, pad, near) {   // near: the on-screen view sits closer (the side walls' front ends may leave the picture); the AI picture keeps the whole room
       var L1 = (inp.wall1Mm || 3000) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, L3 = (inp.wall3Mm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000, LZ = Math.max(L1, L3);
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp, halfW = L2 / 2 + .2;
-      var target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05), Math.min(LZ * .45, 1.5));
-      var dist = near ? Math.max((halfW * pad) / th + LZ * .45, (H / 2 * 1.35) / tv, 3.6) + .5 : Math.max((halfW * pad) / th + LZ * .55, (H / 2 * 1.35) / tv, 3.8) + .6;
+      var target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05) + (near ? .3 : 0), Math.min(LZ * .45, 1.5));   // on screen: room above the walls for the dimension labels
+      var dist = near ? Math.max((halfW * pad) / th + LZ * .45, ((H + .6) / 2 * 1.35) / tv, 3.6) + .5 : Math.max((halfW * pad) / th + LZ * .55, (H / 2 * 1.35) / tv, 3.8) + .6;
       var dir = new T.Vector3(0, Math.sin(el), Math.cos(el));
       return { target: target, pos: target.clone().add(dir.multiplyScalar(dist)), dist: dist, L2: L2, H: H, LZ: LZ };
     }

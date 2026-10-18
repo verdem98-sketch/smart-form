@@ -673,7 +673,7 @@
         new T.Vector3(L2 + .08, 0, 0), new T.Vector3(L2 + .08, H, 0), new T.Vector3(L2 + .02, 0, 0), new T.Vector3(L2 + .14, 0, 0), new T.Vector3(L2 + .02, H, 0), new T.Vector3(L2 + .14, H, 0)]), gl));
       var t2 = label('стена 2 · ' + fmt((inp.wall2Mm || 3600) - (ch ? inp.chimneyBMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set((s2 + L2) / 2, H + .26, 0); roomGroup.add(t2);
       var t1 = label('стена 1 · ' + fmt((inp.wall1Mm || 3600) - (ch ? inp.chimneyAMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(0, H + .26, (s1 + L1) / 2); roomGroup.add(t1);
-      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .15, '#2f4a30', 'rgba(255,255,255,.85)'); ht.material.rotation = Math.PI / 2; ht.position.set(L2 + .26, H / 2, 0); roomGroup.add(ht);
+      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .17, '#2f4a30', 'rgba(255,255,255,.9)'); ht.material.rotation = Math.PI / 2; ht.position.set(L2 + .4, H / 2, 0); roomGroup.add(ht);
       if (inp.chimney && inp.chimneyAMm && inp.chimneyBMm) {
         var cA = inp.chimneyAMm / 1000, cB = inp.chimneyBMm / 1000, OR = 0xd9822b;
         var cb = box(cB, H, cA, mats.chimney, cB / 2, H / 2, cA / 2, roomGroup); cb.castShadow = false;
@@ -833,10 +833,10 @@
       var L1 = (inp.wall1Mm || 3600) / 1000, L2 = (inp.wall2Mm || 3600) / 1000, H = (inp.heightMm || 2600) / 1000;
       var el = renderer && renderer.domElement, asp = el && el.clientHeight ? el.clientWidth / el.clientHeight : 1.6; asp = Math.max(.6, Math.min(2.5, asp));
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp, halfW = (L1 + L2) / (2 * Math.SQRT2);
-      var dist = Math.max((halfW * 1.15) / th, (H / 2 * 1.35) / tv, 3.4) + .6;
+      var dist = Math.max((halfW * 1.15) / th, ((H + .6) / 2 * 1.35) / tv, 3.4) + .6;   // + room above the walls for the dimension labels
       var el26 = 26 * Math.PI / 180, dir = new T.Vector3(Math.SQRT1_2 * Math.cos(el26), Math.sin(el26), Math.SQRT1_2 * Math.cos(el26));
       bounds = { x: L2, y: H, z: L1 };
-      home.target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05), L1 / 2); home.pos = home.target.clone().add(dir.multiplyScalar(dist));
+      home.target = new T.Vector3(L2 / 2, Math.min(H * .42, 1.05) + .3, L1 / 2); home.pos = home.target.clone().add(dir.multiplyScalar(dist));
       camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
     }
     function sync(force) {

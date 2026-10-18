@@ -559,7 +559,7 @@
       roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([V(0, Ht, 0), V(L, Ht, 0), V(0, Ht - .06, 0), V(0, Ht + .06, 0), V(L, Ht - .06, 0), V(L, Ht + .06, 0),
         V(-.08, 0, 0), V(-.08, H, 0), V(-.14, 0, 0), V(-.02, 0, 0), V(-.14, H, 0), V(-.02, H, 0)]), gl));
       var lt = label(fmt(inp.lengthMm || 3000), .2, '#2f4a30', 'rgba(255,255,255,.85)'); lt.position.set(L / 2, H + .26, 0); roomGroup.add(lt);
-      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .15, '#2f4a30', 'rgba(255,255,255,.85)'); ht.material.rotation = Math.PI / 2; ht.position.set(-.24, H / 2, 0); roomGroup.add(ht);
+      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .17, '#2f4a30', 'rgba(255,255,255,.9)'); ht.material.rotation = Math.PI / 2; ht.position.set(-.42, H / 2, 0); roomGroup.add(ht);
       islandG = null; islandLbl = null; ISLROOM = null;
       if (inp.island && inp.islandLenMm && inp.islandWidthMm) {
         var il = inp.islandLenMm / 1000, iw = inp.islandWidthMm / 1000, sx = ISL.rot ? iw : il, sz = ISL.rot ? il : iw;   // "Завърти 90°" in the ✎ card swaps the sides
@@ -657,8 +657,8 @@
       var L = (inp.lengthMm || 3000) / 1000, H = (inp.heightMm || 2600) / 1000;
       var el = renderer && renderer.domElement, asp = el && el.clientHeight ? el.clientWidth / el.clientHeight : 1.3; asp = Math.max(.6, Math.min(2.5, asp));
       var tv = Math.tan(21 * Math.PI / 180), th = tv * asp;
-      var dist = Math.max((L / 2 * 1.2) / th, (H / 2 * 1.25) / tv, 3.2) + .9;
-      home.target = new T.Vector3(L / 2, Math.min(H * .42, 1.1), .3); home.pos = new T.Vector3(L / 2 + L * .1, Math.max(1.7, H * .62), .3 + dist);
+      var dist = Math.max((L / 2 * 1.2) / th, ((H + .6) / 2 * 1.25) / tv, 3.2) + .9;   // + room above the walls for the dimension labels
+      home.target = new T.Vector3(L / 2, Math.min(H * .42, 1.1) + .25, .3); home.pos = new T.Vector3(L / 2 + L * .1, Math.max(1.7, H * .62), .3 + dist);
       bounds = { x: L, y: H, z: 1 }; camera.position.copy(home.pos); controls.target.copy(home.target); controls.maxDistance = dist * 2.2; controls.minDistance = 1.2; controls.update();
     }
     function sync(force) {
