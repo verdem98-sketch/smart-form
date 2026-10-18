@@ -663,16 +663,17 @@
       var w1 = new T.Mesh(new T.PlaneGeometry(L1, H), mats.side); w1.rotation.y = Math.PI / 2; w1.position.set(-.001, H / 2, L1 / 2); roomGroup.add(w1);
       var edges = [0, 0, 0, 0, H, 0, L2, 0, 0, L2, H, 0, 0, 0, L1, 0, H, L1, 0, H, 0, L2, H, 0, 0, H, 0, 0, H, L1, 0, 0, 0, L2, 0, 0, 0, 0, 0, 0, 0, L1];
       var eg = new T.BufferGeometry(); eg.setAttribute('position', new T.Float32BufferAttribute(edges, 3)); roomGroup.add(new T.LineSegments(eg, new T.LineBasicMaterial({ color: 0x9aa09a })));
-      // dimension lines on the floor in front of each run (wall 2 along x, wall 1 along z) + the height on the corner edge
-      var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 });
+      // dimension lines above the walls, clear of the kitchen (wall 2 along x, wall 1 along z);
+      // the room height as an upright label just past the free end of wall 2
+      var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 }), Ht = H + .08;
       var ch = inp.chimney && inp.chimneyAMm && inp.chimneyBMm, s2 = ch ? inp.chimneyBMm / 1000 : 0, s1 = ch ? inp.chimneyAMm / 1000 : 0;   // the wall lengths are measured from the chimney outwards
       roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
-        new T.Vector3(s2, .004, off), new T.Vector3(L2, .004, off), new T.Vector3(s2, .004, off - .07), new T.Vector3(s2, .004, off + .07), new T.Vector3(L2, .004, off - .07), new T.Vector3(L2, .004, off + .07),
-        new T.Vector3(off, .004, s1), new T.Vector3(off, .004, L1), new T.Vector3(off - .07, .004, s1), new T.Vector3(off + .07, .004, s1), new T.Vector3(off - .07, .004, L1), new T.Vector3(off + .07, .004, L1),
-        new T.Vector3(.02, 0, .02), new T.Vector3(.02, H, .02)]), gl));
-      var t2 = label('стена 2 · ' + fmt((inp.wall2Mm || 3600) - (ch ? inp.chimneyBMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set((s2 + L2) / 2, .14, off + .1); roomGroup.add(t2);
-      var t1 = label('стена 1 · ' + fmt((inp.wall1Mm || 3600) - (ch ? inp.chimneyAMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(off + .1, .14, (s1 + L1) / 2); roomGroup.add(t1);
-      var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
+        new T.Vector3(s2, Ht, 0), new T.Vector3(L2, Ht, 0), new T.Vector3(s2, Ht - .06, 0), new T.Vector3(s2, Ht + .06, 0), new T.Vector3(L2, Ht - .06, 0), new T.Vector3(L2, Ht + .06, 0),
+        new T.Vector3(0, Ht, s1), new T.Vector3(0, Ht, L1), new T.Vector3(0, Ht - .06, s1), new T.Vector3(0, Ht + .06, s1), new T.Vector3(0, Ht - .06, L1), new T.Vector3(0, Ht + .06, L1),
+        new T.Vector3(L2 + .08, 0, 0), new T.Vector3(L2 + .08, H, 0), new T.Vector3(L2 + .02, 0, 0), new T.Vector3(L2 + .14, 0, 0), new T.Vector3(L2 + .02, H, 0), new T.Vector3(L2 + .14, H, 0)]), gl));
+      var t2 = label('стена 2 · ' + fmt((inp.wall2Mm || 3600) - (ch ? inp.chimneyBMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t2.position.set((s2 + L2) / 2, H + .26, 0); roomGroup.add(t2);
+      var t1 = label('стена 1 · ' + fmt((inp.wall1Mm || 3600) - (ch ? inp.chimneyAMm : 0)), .2, '#2f4a30', 'rgba(255,255,255,.85)'); t1.position.set(0, H + .26, (s1 + L1) / 2); roomGroup.add(t1);
+      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .15, '#2f4a30', 'rgba(255,255,255,.85)'); ht.material.rotation = Math.PI / 2; ht.position.set(L2 + .26, H / 2, 0); roomGroup.add(ht);
       if (inp.chimney && inp.chimneyAMm && inp.chimneyBMm) {
         var cA = inp.chimneyAMm / 1000, cB = inp.chimneyBMm / 1000, OR = 0xd9822b;
         var cb = box(cB, H, cA, mats.chimney, cB / 2, H / 2, cA / 2, roomGroup); cb.castShadow = false;
@@ -682,8 +683,8 @@
         roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
           new T.Vector3(cB, ty, 0), new T.Vector3(cB, ty, cA), new T.Vector3(cB - tk, ty, 0), new T.Vector3(cB + tk, ty, 0), new T.Vector3(cB - tk, ty, cA), new T.Vector3(cB + tk, ty, cA),
           new T.Vector3(0, ty, cA), new T.Vector3(cB, ty, cA), new T.Vector3(0, ty, cA - tk), new T.Vector3(0, ty, cA + tk)]), new T.LineBasicMaterial({ color: OR })));
-        var la = label('A  ' + (inp.chimneyAGuess ? '?' : fmt(inp.chimneyAMm)), .2, '#ffffff', '#d9822b'); la.position.set(cB + .3, H - .3, cA / 2); roomGroup.add(la);
-        var lb2 = label('B  ' + (inp.chimneyBGuess ? '?' : fmt(inp.chimneyBMm)), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2 - .05, H - .62, cA + .34); roomGroup.add(lb2);
+        var la = label('A  ' + (inp.chimneyAGuess ? '?' : fmt(inp.chimneyAMm)), .2, '#ffffff', '#d9822b'); la.position.set(cB, H + .26, cA / 2); roomGroup.add(la);
+        var lb2 = label('B  ' + (inp.chimneyBGuess ? '?' : fmt(inp.chimneyBMm)), .2, '#ffffff', '#d9822b'); lb2.position.set(cB / 2, H + .55, cA); roomGroup.add(lb2);
       }
       if (inp.barMode !== 'none' && inp.barLenMm && inp.barWidthMm) {
         var bl = inp.barLenMm / 1000, bw = inp.barWidthMm / 1000, isl = inp.barMode === 'island', ax = inp.barMode === 'wall1' ? 'z' : 'x', gap = 1.2;

@@ -707,19 +707,20 @@
       if (showW[1]) edges.push(0, H, 0, 0, H, L1, 0, 0, L1, 0, H, L1, 0, 0, 0, 0, H, 0);
       if (showW[3]) edges.push(L2, H, 0, L2, H, L3, L2, 0, L3, L2, H, L3, L2, 0, 0, L2, H, 0);
       var eg = new T.BufferGeometry(); eg.setAttribute('position', new T.Float32BufferAttribute(edges, 3)); roomGroup.add(new T.LineSegments(eg, new T.LineBasicMaterial({ color: 0x9aa09a })));
-      // dimension lines on the floor in front of each run + the height on the left corner edge; the entered lengths run from the chimney outwards
-      var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 }), V = function (x, y, z) { return new T.Vector3(x, y, z); }, t = .07;
+      // dimension lines on the top edges of the walls, clear of the kitchen; the entered lengths run from the chimney outwards.
+      // The room height: a label above the corner without a chimney, with a line down that corner edge
+      var off = D + .45, gl = new T.LineBasicMaterial({ color: 0x477448 }), V = function (x, y, z) { return new T.Vector3(x, y, z); }, t = .06, Ht = H + .08;
+      var hx = ch === 'left' ? L2 - .02 : .02;
       roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
-        V(x0, .004, off), V(x1, .004, off), V(x0, .004, off - t), V(x0, .004, off + t), V(x1, .004, off - t), V(x1, .004, off + t),
-        V(off, .004, z1), V(off, .004, L1), V(off - t, .004, z1), V(off + t, .004, z1), V(off - t, .004, L1), V(off + t, .004, L1),
-        V(L2 - off, .004, z3), V(L2 - off, .004, L3), V(L2 - off - t, .004, z3), V(L2 - off + t, .004, z3), V(L2 - off - t, .004, L3), V(L2 - off + t, .004, L3),
-        V(.02, 0, .02), V(.02, H, .02)]), gl));
-      // the back wall's label lies on the floor; the side walls' labels sit above the front edge of their worktops, so the three never overlap
-      function dimLabel(text, x, y, z) { var lb = label(text, .17, '#2f4a30', 'rgba(255,255,255,.85)'); lb.position.set(x, y, z); roomGroup.add(lb); }
-      dimLabel('стена 1 · ' + fmt(Math.round((L1 - z1) * 1000)), D * .8, BH + .14, (z1 + L1) / 2 + .2);
-      dimLabel('стена 2 · ' + fmt(Math.round((x1 - x0) * 1000)), (x0 + x1) / 2, .14, off + .1);
-      dimLabel('стена 3 · ' + fmt(Math.round((L3 - z3) * 1000)), L2 - D * .8, BH + .14, (z3 + L3) / 2 + .2);
-      var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
+        V(x0, Ht, 0), V(x1, Ht, 0), V(x0, Ht - t, 0), V(x0, Ht + t, 0), V(x1, Ht - t, 0), V(x1, Ht + t, 0),
+        V(0, Ht, z1), V(0, Ht, L1), V(0, Ht - t, z1), V(0, Ht + t, z1), V(0, Ht - t, L1), V(0, Ht + t, L1),
+        V(L2, Ht, z3), V(L2, Ht, L3), V(L2, Ht - t, z3), V(L2, Ht + t, z3), V(L2, Ht - t, L3), V(L2, Ht + t, L3),
+        V(hx, 0, .02), V(hx, H + .4, .02)]), gl));
+      function dimLabel(text, x, y, z) { var lb = label(text, .17, '#2f4a30', 'rgba(255,255,255,.85)'); lb.position.set(x, y, z); roomGroup.add(lb); return lb; }
+      dimLabel('стена 1 · ' + fmt(Math.round((L1 - z1) * 1000)), 0, H + .26, (z1 + L1) / 2);
+      dimLabel('стена 2 · ' + fmt(Math.round((x1 - x0) * 1000)), (x0 + x1) / 2, H + .26, 0);
+      dimLabel('стена 3 · ' + fmt(Math.round((L3 - z3) * 1000)), L2, H + .26, (z3 + L3) / 2);
+      dimLabel('височина на помещението · ' + fmt(inp.heightMm || 2600), hx, H + .55, 0);
       if (ch) {
         var OR = 0xd9822b, R = ch === 'right', X0 = function (x) { return R ? L2 - x : x; };   // the right-corner chimney is the mirror image of the left one
         var cb = box(cB, H, cA, mats.chimney, X0(cB / 2), H / 2, cA / 2, roomGroup); cb.castShadow = false;
@@ -729,8 +730,8 @@
         roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([
           V(X0(cB), ty, 0), V(X0(cB), ty, cA), V(X0(cB - tk), ty, 0), V(X0(cB + tk), ty, 0), V(X0(cB - tk), ty, cA), V(X0(cB + tk), ty, cA),
           V(X0(0), ty, cA), V(X0(cB), ty, cA), V(X0(0), ty, cA - tk), V(X0(0), ty, cA + tk)]), new T.LineBasicMaterial({ color: OR })));
-        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(X0(cB + .3), H - .3, cA / 2); roomGroup.add(la);
-        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(X0(cB / 2 - .05), H - .62, cA + .34); roomGroup.add(lb2);
+        var la = label('A  ' + fmt(inp.chimneyAMm), .2, '#ffffff', '#d9822b'); la.position.set(X0(cB), H + .26, cA / 2); roomGroup.add(la);
+        var lb2 = label('B  ' + fmt(inp.chimneyBMm), .2, '#ffffff', '#d9822b'); lb2.position.set(X0(cB / 2), H + .55, cA); roomGroup.add(lb2);
       }
       islandG = null; islandLbl = null; ISLROOM = null;
       if (inp.showCabinets && inp.island && inp.islandLenMm && inp.islandWidthMm) {   // free-standing island in the middle of the U, along the back wall

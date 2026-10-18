@@ -553,11 +553,13 @@
       var wall = new T.Mesh(new T.PlaneGeometry(L, H), mats.wall); wall.position.set(L / 2, H / 2, -.001); wall.receiveShadow = true; roomGroup.add(wall);
       [0, L].forEach(function (sx, i) { var sw = new T.Mesh(new T.PlaneGeometry(Dp, H), mats.side); sw.rotation.y = i ? -Math.PI / 2 : Math.PI / 2; sw.position.set(sx, H / 2, Dp / 2); sw.material.side = T.DoubleSide; roomGroup.add(sw); });
       var edge = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(L, H, Dp)), new T.LineBasicMaterial({ color: 0x9aa09a })); edge.position.set(L / 2, H / 2, Dp / 2); roomGroup.add(edge);
-      // dimension lines: length along the floor, height on the left wall edge
-      var dl = new T.LineSegments(new T.BufferGeometry().setFromPoints([new T.Vector3(0, 0, Dp - .1), new T.Vector3(L, 0, Dp - .1), new T.Vector3(0, 0, Dp - .17), new T.Vector3(0, 0, Dp - .03), new T.Vector3(L, 0, Dp - .17), new T.Vector3(L, 0, Dp - .03)]), new T.LineBasicMaterial({ color: 0x477448 })); dl.position.y = .004; roomGroup.add(dl);
-      var lt = label(fmt(inp.lengthMm || 3000), .2, '#2f4a30', 'rgba(255,255,255,.85)'); lt.position.set(L / 2, .12, Dp - .1); roomGroup.add(lt);
-      var ht = label(fmt(inp.heightMm || 2600), .2, '#2f4a30', 'rgba(255,255,255,.85)'); ht.position.set(.0, H / 2, .1); roomGroup.add(ht);
-      var hl = new T.LineSegments(new T.BufferGeometry().setFromPoints([new T.Vector3(.02, 0, .02), new T.Vector3(.02, H, .02)]), new T.LineBasicMaterial({ color: 0x477448 })); roomGroup.add(hl);
+      // dimension lines above the room, clear of the kitchen: the length on the top edge of the back wall,
+      // the room height as an upright label just outside the back-left corner
+      var Ht = H + .08, gl = new T.LineBasicMaterial({ color: 0x477448 }), V = function (x, y, z) { return new T.Vector3(x, y, z); };
+      roomGroup.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([V(0, Ht, 0), V(L, Ht, 0), V(0, Ht - .06, 0), V(0, Ht + .06, 0), V(L, Ht - .06, 0), V(L, Ht + .06, 0),
+        V(-.08, 0, 0), V(-.08, H, 0), V(-.14, 0, 0), V(-.02, 0, 0), V(-.14, H, 0), V(-.02, H, 0)]), gl));
+      var lt = label(fmt(inp.lengthMm || 3000), .2, '#2f4a30', 'rgba(255,255,255,.85)'); lt.position.set(L / 2, H + .26, 0); roomGroup.add(lt);
+      var ht = label('височина на помещението · ' + fmt(inp.heightMm || 2600), .15, '#2f4a30', 'rgba(255,255,255,.85)'); ht.material.rotation = Math.PI / 2; ht.position.set(-.24, H / 2, 0); roomGroup.add(ht);
       islandG = null; islandLbl = null; ISLROOM = null;
       if (inp.island && inp.islandLenMm && inp.islandWidthMm) {
         var il = inp.islandLenMm / 1000, iw = inp.islandWidthMm / 1000, sx = ISL.rot ? iw : il, sz = ISL.rot ? il : iw;   // "Завърти 90°" in the ✎ card swaps the sides
