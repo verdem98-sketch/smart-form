@@ -66,16 +66,47 @@
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         var up = /up|\+/.test(b.className + ' ' + b.textContent), cm = valueCm(row);
         cm += inM ? (up ? 100 : -100) : (up ? 5 : -5);
+        linkCeiling(row, false);
         if (inM && !up && cm < 0) cm = valueCm(row) % 100;
         setCm(row, cm); hint(row, '');
         row.dispatchEvent(new Event('change', { bubbles: true }));
         var api = window[k.refresh]; if (api && typeof api.refresh === 'function') api.refresh();
       }, true);
+      // "до тавана": the kitchen takes the room height and keeps following it until the pickers are used
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'kh-ceiling-btn'; btn.textContent = 'до тавана';
+      btn.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        linkCeiling(row, true); copyRoom(k, page, row);
+      }, true);
+      row.append(btn);
+      // room height changed by its own pickers: follow it while linked
+      room.addEventListener('click', function () { setTimeout(function () { if (row.dataset.ceiling === '1') copyRoom(k, page, row); }, 0); });
+      room.addEventListener('change', function () { if (row.dataset.ceiling === '1') copyRoom(k, page, row); });
     }
     return true;
   }
+  function linkCeiling(row, on) {
+    if (on) row.dataset.ceiling = '1'; else delete row.dataset.ceiling;
+    var b = row.querySelector('.kh-ceiling-btn'); if (b) b.classList.toggle('is-on', !!on);
+  }
+  function copyRoom(k, page, row) {
+    var cm = valueCm(rowOf(page, k.room)); if (cm <= 0) return;
+    if (valueCm(row) === cm && row.classList.contains('is-touched')) return;
+    setCm(row, cm); hint(row, '');
+    row.dispatchEvent(new Event('change', { bubbles: true }));
+    var api = window[k.refresh]; if (api && typeof api.refresh === 'function') api.refresh();
+  }
+  function style() {
+    if (document.getElementById('kh-css')) return;
+    var st = document.createElement('style'); st.id = 'kh-css';
+    st.textContent = '.kh-ceiling-btn{margin:8px 0 0;padding:6px 14px;border:1px solid #2f4a3a;border-radius:999px;background:#fff;color:#2f4a3a;font:inherit;font-size:13px;line-height:1.2;cursor:pointer}' +
+      '.kh-ceiling-btn:hover{background:#eef2ef}.kh-ceiling-btn.is-on{background:#2f4a3a;color:#fff}';
+    document.head.append(st);
+  }
 
   function init() {
+    style();
     KITCHENS.forEach(function (k) {
       var page = document.querySelector(k.page); if (!page) return;
       var tries = 0;
