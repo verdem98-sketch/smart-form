@@ -1326,7 +1326,7 @@
           var url = cv.toDataURL('image/jpeg', .9);
           return url && url.length > 4000 ? url : null;
         } catch (e) { return null; }
-        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); if (sel && meshById[edKey(sel)]) setHL(edKey(sel)); }
+        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); if (sel && edMesh(sel)) setHL(edKey(sel)); }
       }
       /* short feature key for the AI prompt: appliances per wall (sides from the corner outwards, back wall left to right), then surfaces and extras (data only) */
       function sketchLegend() {

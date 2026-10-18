@@ -1041,7 +1041,7 @@
           var url = cv.toDataURL('image/jpeg', .9);
           return url && url.length > 4000 ? url : null;
         } catch (e) { return null; }
-        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); if (sel && meshById[edKey(sel)]) setHL(edKey(sel)); }
+        finally { hide.forEach(function (o, i) { o.visible = prev[i]; }); if (r) r.dispose(); if (sel && edMesh(sel)) setHL(edKey(sel)); }
       }
       function sketchLegend() {
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout' };
