@@ -5,6 +5,8 @@
   'use strict';
   var API = location.origin + '/contract-automation/api/analytics-tool';
   var LS_DAYS = 'va-days';
+  var SEO_API = location.origin + '/contract-automation/api/seo-agent';
+  var LS_VIEW = 'va-view';
 
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } return null; }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -38,7 +40,16 @@
       '.va-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}',
       '.va-err{color:#9b1c10}.va-muted{color:#6a716b;font-size:13px}',
       '.va-bar{height:8px;border-radius:4px;background:#477448;min-width:2px}',
-      '.va-help ol{margin:6px 0 0;padding-left:20px}.va-help li{margin:0 0 4px}.va code{background:#f3f4f1;padding:1px 5px;border-radius:4px}'
+      '.va-help ol{margin:6px 0 0;padding-left:20px}.va-help li{margin:0 0 4px}.va code{background:#f3f4f1;padding:1px 5px;border-radius:4px}',
+      '.va-views{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid #e1e4df}.va-view{border:0;background:none;padding:10px 14px;font:600 14px Montserrat,Arial,sans-serif;color:#6a716b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}',
+      '.va-view.is-on{color:#2f332f;border-bottom-color:#2f332f}.va-badge{display:inline-block;min-width:18px;padding:1px 6px;margin-left:6px;border-radius:9px;background:#c98a2b;color:#fff;font-size:11px;line-height:16px;text-align:center}',
+      '.sp-meta{font-size:12px;color:#6a716b;margin:0 0 8px}.sp-meta a{color:#477448}.sp-old{font-size:13px;color:#9b1c10;margin:0 0 6px;text-decoration:line-through;text-decoration-color:rgba(155,28,16,.35)}',
+      '.sp-new{width:100%;box-sizing:border-box;border:1px solid #cfd4cb;border-radius:8px;padding:8px 10px;font:600 14px/1.45 Montserrat,Arial,sans-serif;color:#2f332f;resize:vertical;min-height:44px}',
+      '.sp-count{font-size:11px;color:#6a716b;text-align:right;margin:2px 0 8px}.sp-count.bad{color:#9b1c10;font-weight:600}',
+      '.sp-why{font-size:13px;margin:0 0 4px}.sp-exp{font-size:12px;color:#477448;margin:0 0 10px}.sp-acts{display:flex;gap:8px;flex-wrap:wrap}',
+      '.va-btn.ok{background:#477448;border-color:#477448;color:#fff}.va-btn.sm{min-height:30px;padding:4px 10px;font-size:12px}',
+      '.sp-st{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:9px;margin-right:6px}.sp-st.applied{background:#e3efe3;color:#2f5a30}.sp-st.rejected,.sp-st.stale{background:#eef0ec;color:#6a716b}.sp-st.reverted{background:#f6ead6;color:#8a5a12}.sp-st.failed{background:#f7e1de;color:#9b1c10}',
+      '.sp-h{border-top:1px solid #eef0ec;padding:10px 0}.sp-h:first-child{border-top:0}.sp-q{font-size:12px;color:#6a716b;margin:0 0 8px}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -139,7 +150,7 @@
     box.innerHTML = html;
   }
 
-  function start(panel) {
+  function startReport(panel) {
     var days = Number(ls(LS_DAYS)) || 7;
     panel.innerHTML = '<div class="va-top"></div><div class="va-body"><p class="va-muted">Зареждам…</p></div>';
     var top = panel.querySelector('.va-top'), body = panel.querySelector('.va-body');
@@ -170,6 +181,135 @@
       if (b.dataset.days) { days = Number(b.dataset.days); ls(LS_DAYS, String(days)); load(false); } else load(true);
     });
     load(false);
+  }
+
+  /* ---------------- SEO предложения ---------------- */
+
+  var FIELD = { title: 'Заглавие в Google', description: 'Описание в Google' };
+  var LIMIT = { title: [20, 65], description: [70, 165] };
+  var STATUS = { applied: 'Приложено', rejected: 'Отказано', reverted: 'Върнато', failed: 'Неуспешно', stale: 'Изтекло' };
+  function bgTime(iso) { return iso ? new Date(iso).toLocaleString('bg-BG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
+
+  function seoCall(action, extra) {
+    return fetch(SEO_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' },
+      body: JSON.stringify(Object.assign({ action: action }, extra || {}))
+    }).then(function (res) { return res.json().catch(function () { return { ok: false, error: 'Сървърът не отговори (' + res.status + ')' }; }); });
+  }
+
+  function startSeo(box, setCount) {
+    var state = null, busy = false, autoRan = false;
+
+    function metricsLine(p) {
+      var m = {}; try { m = JSON.parse(p.metrics_json || '{}'); } catch (e) { /* ignore */ }
+      if (!m.impressions && !m.clicks) return '<p class="sp-q">Почти няма данни от Google за тази страница – предложението е заради правилата или текста.</p>';
+      var q = (m.queries || []).slice(0, 3).map(function (x) { return '„' + esc(x.q) + '“ (' + num(x.impressions) + ' показв., поз. ' + x.position + ')'; }).join(', ');
+      return '<p class="sp-q">За 28 дни: ' + num(m.impressions) + ' показвания, ' + num(m.clicks) + ' клика (' + m.ctr + '%), средна позиция ' + m.position + '.' + (q ? ' Търсят: ' + q + '.' : '') + '</p>';
+    }
+
+    function card(p) {
+      return '<div class="va-card" data-id="' + esc(p.id) + '">' +
+        '<p class="sp-meta"><b>' + esc(FIELD[p.field]) + '</b> · ' + esc(p.name) + ' · <a href="https://verde-m.com' + esc(p.path) + '" target="_blank" rel="noopener">' + esc(p.path) + '</a>' + (p.priority === 1 ? ' · <b style="color:#c98a2b">важно</b>' : '') + '</p>' +
+        '<p class="sp-old">' + esc(p.current_value || '(празно)') + '</p>' +
+        '<textarea class="sp-new" rows="' + (p.field === 'title' ? 1 : 3) + '" data-field="' + p.field + '">' + esc(p.proposed_value) + '</textarea>' +
+        '<div class="sp-count"></div>' +
+        '<p class="sp-why">' + esc(p.reason) + '</p>' +
+        (p.expected ? '<p class="sp-exp">Очаквано: ' + esc(p.expected) + '</p>' : '') +
+        metricsLine(p) +
+        (p.error ? '<p class="va-err">Последен опит: ' + esc(p.error) + '</p>' : '') +
+        '<div class="sp-acts"><button type="button" class="va-btn ok" data-act="approve">✓ Одобри и публикувай</button>' +
+        '<button type="button" class="va-btn" data-act="reject">Откажи</button></div></div>';
+    }
+
+    function hist(p) {
+      var rv = null; try { rv = p.review_json ? JSON.parse(p.review_json) : null; } catch (e) { rv = null; }
+      return '<div class="sp-h" data-id="' + esc(p.id) + '"><p class="sp-meta"><span class="sp-st ' + p.status + '">' + (STATUS[p.status] || p.status) + '</span>' +
+        esc(FIELD[p.field]) + ' · <a href="https://verde-m.com' + esc(p.path) + '" target="_blank" rel="noopener">' + esc(p.path) + '</a> · ' + bgTime(p.decided_at || p.created_at) + '</p>' +
+        '<div style="font-size:13px">' + esc(p.final_value || p.proposed_value) + '</div>' +
+        (rv ? '<p class="sp-q">След 4 седмици: <b>' + esc(rv.verdict) + '</b> – кликове ' + rv.before.clicks + ' → ' + rv.after.clicks + ', показвания ' + rv.before.impressions + ' → ' + rv.after.impressions + '.</p>' : '') +
+        (p.status === 'applied' ? '<div class="sp-acts" style="margin-top:6px"><button type="button" class="va-btn sm" data-act="revert">↶ Върни стария текст</button></div>' : '') +
+        (p.status === 'failed' && p.error ? '<p class="va-err" style="font-size:12px">' + esc(p.error) + '</p>' : '') + '</div>';
+    }
+
+    function counters() {
+      [].forEach.call(box.querySelectorAll('.sp-new'), function (t) {
+        var lim = LIMIT[t.dataset.field], n = t.value.trim().length, c = t.nextElementSibling;
+        c.textContent = n + ' знака (добре е ' + lim[0] + '–' + lim[1] + ')';
+        c.classList.toggle('bad', n < lim[0] || n > lim[1]);
+      });
+    }
+
+    function render(msg, isErr) {
+      var d = state || { pending: [], history: [] };
+      setCount(d.pending.length);
+      var html = '<div class="va-card"><h3>SEO агентът</h3><p class="va-sub">Всяка седмица чете Google търсене и посещенията, преглежда заглавията и описанията на страниците в Google и предлага конкретни подобрения. ' +
+        'Одобреното се записва и публикува в сайта веднага. Всяка промяна може да се върне. След 4 седмици агентът проверява дали е помогнала.</p>' +
+        '<div class="sp-acts"><button type="button" class="va-btn" data-act="run">↻ Провери сега</button>' +
+        '<span class="va-muted" style="align-self:center">' + (d.lastRun ? 'Последна проверка: ' + bgTime(d.lastRun) : 'Още не е проверявал.') + '</span></div>' +
+        (msg ? '<p class="' + (isErr ? 'va-err' : 'va-muted') + '" style="margin:10px 0 0">' + esc(msg) + '</p>' : '') +
+        (d.analysis && d.analysis.text ? '<p style="margin:12px 0 0;white-space:pre-wrap">' + esc(d.analysis.text) + '</p>' : '') + '</div>';
+      if (d.pending.length) html += d.pending.map(card).join('');
+      else html += '<div class="va-card"><p class="va-muted" style="margin:0">Няма чакащи предложения.</p></div>';
+      if (d.history.length) html += '<div class="va-card"><h3>История</h3>' + d.history.map(hist).join('') + '</div>';
+      box.innerHTML = html;
+      counters();
+    }
+
+    function act(action, extra, waitText) {
+      if (busy) return; busy = true;
+      [].forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+      if (waitText) {
+        var info = box.querySelector('.va-card .va-sub');
+        if (info) info.insertAdjacentHTML('afterend', '<p class="va-muted" style="margin:10px 0 0">' + esc(waitText) + '</p>');
+      }
+      return seoCall(action, extra).then(function (d) {
+        if (d.pending) state = d;
+        var msg = '';
+        if (d.ok && action === 'approve') msg = 'Готово – промяната е записана и публикувана.';
+        if (d.ok && action === 'revert') msg = 'Старият текст е върнат и публикуван.';
+        if (d.ok && action === 'run') msg = d.run && d.run.created ? 'Агентът направи ' + d.run.created + ' нови предложения.' : 'Агентът не намери нищо, което си струва да се сменя в момента.';
+        render(d.ok ? msg : (d.error || 'Грешка'), !d.ok);
+      }).catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); })
+        .then(function () { busy = false; });
+    }
+
+    box.addEventListener('input', function (e) { if (e.target.classList.contains('sp-new')) counters(); });
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-act]'); if (!b) return;
+      var row = b.closest('[data-id]'), id = row ? row.dataset.id : '';
+      var a = b.dataset.act;
+      if (a === 'run') return act('run', {}, 'Агентът анализира данните и пише предложения… обикновено 30–90 секунди.');
+      if (a === 'approve') { var t = row.querySelector('.sp-new'); b.textContent = 'Публикувам…'; return act('approve', { id: id, value: t ? t.value : undefined }); }
+      if (a === 'reject') return act('reject', { id: id });
+      if (a === 'revert') { if (!confirm('Да върна ли стария текст и да публикувам сайта?')) return; b.textContent = 'Връщам…'; return act('revert', { id: id }); }
+    });
+
+    box.innerHTML = '<p class="va-muted">Зареждам предложенията…</p>';
+    seoCall('list').then(function (d) {
+      if (!d.ok) return render(d.error || 'Грешка', true);
+      state = d; render();
+      // safety net: if the weekly run has not happened for over a week, run it now
+      if (d.due && !autoRan) { autoRan = true; act('run', {}, 'Седмичната проверка закъснява – агентът я прави сега (30–90 секунди)…'); }
+    }).catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); });
+  }
+
+  function start(panel) {
+    panel.innerHTML = '<div class="va-views"><button type="button" class="va-view" data-view="report">Отчет</button>' +
+      '<button type="button" class="va-view" data-view="seo">SEO предложения<span class="va-badge" hidden></span></button></div>' +
+      '<div data-box="report"></div><div data-box="seo" hidden></div>';
+    var views = panel.querySelector('.va-views'), report = panel.querySelector('[data-box="report"]'), seo = panel.querySelector('[data-box="seo"]');
+    var badge = views.querySelector('.va-badge'), started = {};
+    function setCount(n) { badge.hidden = !n; badge.textContent = n; }
+    function show(v) {
+      [].forEach.call(views.children, function (b) { b.classList.toggle('is-on', b.dataset.view === v); });
+      report.hidden = v !== 'report'; seo.hidden = v !== 'seo'; ls(LS_VIEW, v);
+      if (!started[v]) { started[v] = 1; if (v === 'report') startReport(report); else startSeo(seo, setCount); }
+    }
+    views.addEventListener('click', function (e) { var b = e.target.closest('.va-view'); if (b) show(b.dataset.view); });
+    show(ls(LS_VIEW) === 'seo' ? 'seo' : 'report');
+    // show the number of waiting proposals on the tab even before it is opened
+    if (!started.seo) seoCall('list').then(function (d) { if (d.ok && !started.seo) setCount(d.pending.length); }).catch(function () {});
   }
 
   function mount(bar) {
