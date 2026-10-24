@@ -229,7 +229,8 @@
         '<div style="font-size:13px">' + esc(p.final_value || p.proposed_value) + '</div>' +
         (rv ? '<p class="sp-q">След 4 седмици: <b>' + esc(rv.verdict) + '</b> – кликове ' + rv.before.clicks + ' → ' + rv.after.clicks + ', показвания ' + rv.before.impressions + ' → ' + rv.after.impressions + '.</p>' : '') +
         (p.status === 'applied' ? '<div class="sp-acts" style="margin-top:6px"><button type="button" class="va-btn sm" data-act="revert">↶ Върни стария текст</button></div>' : '') +
-        (p.status === 'failed' && p.error ? '<p class="va-err" style="font-size:12px">' + esc(p.error) + '</p>' : '') + '</div>';
+        (p.status === 'failed' ? (p.error ? '<p class="va-err" style="font-size:12px">' + esc(p.error) + '</p>' : '') +
+          '<div class="sp-acts" style="margin-top:6px"><button type="button" class="va-btn sm ok" data-act="retry">↻ Опитай пак</button></div>' : '') + '</div>';
     }
 
     function counters() {
@@ -267,6 +268,7 @@
         if (d.pending) state = d;
         var msg = '';
         if (d.ok && action === 'approve') msg = 'Готово – промяната е записана и публикувана.';
+        if (!d.ok && action === 'approve') msg = d.error || 'Грешка';
         if (d.ok && action === 'revert') msg = 'Старият текст е върнат и публикуван.';
         if (d.ok && action === 'run') msg = d.run && d.run.created ? 'Агентът направи ' + d.run.created + ' нови предложения.' : 'Агентът не намери нищо, което си струва да се сменя в момента.';
         render(d.ok ? msg : (d.error || 'Грешка'), !d.ok);
@@ -282,6 +284,7 @@
       if (a === 'run') return act('run', {}, 'Агентът анализира данните и пише предложения… обикновено 30–90 секунди.');
       if (a === 'approve') { var t = row.querySelector('.sp-new'); b.textContent = 'Публикувам…'; return act('approve', { id: id, value: t ? t.value : undefined }); }
       if (a === 'reject') return act('reject', { id: id });
+      if (a === 'retry') { b.textContent = 'Публикувам…'; return act('approve', { id: id }); }
       if (a === 'revert') { if (!confirm('Да върна ли стария текст и да публикувам сайта?')) return; b.textContent = 'Връщам…'; return act('revert', { id: id }); }
     });
 
