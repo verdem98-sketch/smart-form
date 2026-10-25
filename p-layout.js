@@ -434,7 +434,11 @@
     function drawers(g, w, y0, y1, heights) {
       var tot = heights.reduce(function (a, b) { return a + b; }, 0), y = y1;
       heights.forEach(function (hh) { var h = (y1 - y0) * hh / tot; front(g, w, y - h, y, mats.front, 0); handleH(g, 0, y - 0.04, Math.min(w * .6, .3)); y -= h; });
+      // cut list: the drawer fronts of this cabinet, bottom-up in mm (the cabinet entry was pushed just before its fronts are drawn)
+      if (CUT.on && CUT.cab.length) CUT.cab[CUT.cab.length - 1].drawers = heights.slice().reverse().map(function (hh) { return Math.round((y1 - y0) * hh / tot * 1000); });
     }
+    // averaged decor colour as '#rrggbb' for the order files (SketchUp model); null when the sample is not read yet
+    function hex6(c) { return typeof c === 'number' ? '#' + ('000000' + (c & 0xffffff).toString(16)).slice(-6) : null; }
     function hobPlate(g, w) {
       var pw = Math.min(w - .06, .58), k = pw / .58;
       box(pw, 0.008, .5, mats.hob, 0, BH + 0.004, .31, g);
@@ -908,7 +912,7 @@
       });
       var cur = { wall1Mm: plan.wallMm[1], wall2Mm: plan.wallMm[2], wall3Mm: plan.wallMm[3], chimney: plan.chimney, walls: {} };
       WALLS.forEach(function (w) { cur.walls[w] = { startMm: plan.walls[w].startMm, endMm: plan.walls[w].endMm, fillerMm: plan.walls[w].fillerMm, modules: items.filter(function (m) { return m.wall === w; }).map(function (m) { return { id: m.id, type: m.type, widthMm: m.w, xMm: m.x }; }), uppers: unitList.filter(function (id) { return upos[id].wall === w; }).map(function (id) { return { id: id, widthMm: upos[id].w, xMm: upos[id].x }; }) }; });
-      CUT.on = false; cur.cut = { kitchen: 'p', heightMm: inp.heightMm || 0, splashH: Math.round((UPPER.ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
+      CUT.on = false; cur.cut = { kitchen: 'p', colors: { lower: hex6(inp.cLower), upper: hex6(inp.cUpper), deep: hex6(inp.cDeep), countertop: hex6(inp.cTop), backsplash: hex6(inp.cBack) }, heightMm: inp.heightMm || 0, splashH: Math.round((UPPER.ub - BH) * 1000), cabinets: CUT.cab, tops: CUT.tops, fills: CUT.fills, island: inp.island && inp.islandLenMm && inp.islandWidthMm ? { kind: 'island', len: inp.islandLenMm, w: inp.islandWidthMm } : null };
       root.pLayout.current = cur;
       if (sel) { if (edMesh(sel)) { hl.key = null; setHL(edKey(sel)); edRender(); } else edClose(); }
     }
