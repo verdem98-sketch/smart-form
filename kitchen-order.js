@@ -728,6 +728,16 @@
     found.page.addEventListener('click', function () { setTimeout(function () { planCard(found.page); }, 80); }, true);
     var merged = false;
     [300, 1500, 4000].forEach(function (ms) { setTimeout(function () { if (!merged) merged = mergeCustomCard(found.page); }, ms); });
+    // a hidden legacy contact block (П-образна keeps one with a required e-mail) must not block the native validation:
+    // the browser refuses to submit a form with an empty required field it cannot show, and says nothing to the visitor
+    function freeHiddenRequired() {
+      form.querySelectorAll('.contact-block').forEach(function (cb) {
+        if (getComputedStyle(cb).display !== 'none') return;
+        cb.querySelectorAll('[required]').forEach(function (i) { i.required = false; });
+      });
+    }
+    form.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('input[type="submit"],button[type="submit"],.w-button')) freeHiddenRequired(); }, true);
+    form.addEventListener('keydown', function (e) { if (e.key === 'Enter') freeHiddenRequired(); }, true);
     var sent = false;
     form.addEventListener('submit', function () {
       if (sent) return;
