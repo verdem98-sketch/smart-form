@@ -738,12 +738,22 @@
     }
     form.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('input[type="submit"],button[type="submit"],.w-button')) freeHiddenRequired(); }, true);
     form.addEventListener('keydown', function (e) { if (e.key === 'Enter') freeHiddenRequired(); }, true);
+    // the order goes only to our API: Webflow's own form submission (and its "New form submission" e-mail with the raw
+    // fields) is switched off for this form, and the success state is shown by hand the way Webflow would
+    function muteWebflowForm(e) {
+      e.preventDefault();
+      try { var wf = window.jQuery && window.jQuery.data(form, '.w-form'); if (wf) wf.handler = null; } catch (err) { /* no jQuery: nothing to mute */ }
+      var b = form.closest('.w-form'), done = b && b.querySelector('.w-form-done');
+      form.style.display = 'none'; form.setAttribute('aria-hidden', 'true');
+      if (done) { done.style.display = 'block'; done.setAttribute('aria-hidden', 'false'); }
+    }
     var sent = false;
-    form.addEventListener('submit', function () {
-      if (sent) return;
-      var payload; try { payload = build(form, found); } catch (e) { return; }
+    form.addEventListener('submit', function (e) {
+      if (sent) { e.preventDefault(); return; }
+      var payload; try { payload = build(form, found); } catch (e2) { return; }
       if (!payload.contact.email && !payload.contact.phone) return;   // the native validation will stop this one anyway
       sent = true;
+      muteWebflowForm(e);
       showSuccess(form, found, payload);
       fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         .then(function (r) { return r.json(); })
