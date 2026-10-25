@@ -10,7 +10,7 @@
 /* PRAVA critical pipeline state: scoped events, no observers. */
 (function () {
   "use strict";
-  var fields = ["upper_finish", "lower_finish", "countertop_finish", "backsplash_finish"];
+  var fields = ["upper_finish", "lower_finish", "deep_finish", "countertop_finish", "backsplash_finish"];   // deep_finish: the deep upper row's own decor (prava-material-extras.js), same catalogue as the upper row
   var selections = Object.create(null);
   var catalogs = Object.create(null);
 
@@ -20,6 +20,7 @@
   }
   function catalogFor(page, field) {
     if (catalogs[field]) return catalogs[field];
+    if (field === "deep_finish") return catalogFor(page, "upper_finish");   // the deep row picks from the upper row's cabinet catalogue
     var wrap = fieldWrap(page, field);
     var structured = wrap && wrap.querySelector('script[data-prava-catalog]');
     if (structured) {
@@ -58,7 +59,7 @@
     var catalog = catalogFor(page, field);
     var row = catalog && catalog.items.find(function (item) { return item[0] === id; });
     if (!row) return null;
-    var cabinet = field === "upper_finish" || field === "lower_finish";
+    var cabinet = field === "upper_finish" || field === "lower_finish" || field === "deep_finish";
     return {
       value: row[0], id: row[0],
       manufacturer: row[1] || null,
