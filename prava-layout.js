@@ -487,15 +487,17 @@
       return g;
     }
     function buildTall(m, w) {
-      if (CUT.on) CUT.cab.push({ row: 'tall', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round((TALLH - PL) * 1000), free: !!m.free || m.applianceType === 'free_standing' });
+      if (CUT.on) CUT.cab.push({ row: 'tall', type: m.type, wall: m.wall || 1, x: Math.round(m.x || 0), w: Math.round(m.w), h: Math.round(((m.type === 'fridge' && m.applianceType !== 'free_standing' ? frH(m) / 1000 : TALLH) - PL) * 1000), free: !!m.free || m.applianceType === 'free_standing', fridgeH: m.type === 'fridge' ? frH(m) : undefined });
       var g = new T.Group(), H = TALLH, W = w;
       if (m.type === 'fridge') {
         if (m.applianceType === 'free_standing') {
-          box(W - .01, 1.9, D + .02, mats.steel, 0, .95, (D + .02) / 2, g);
-          front(g, W - .01, 1.2, 1.9, mats.steel, 0); front(g, W - .01, .02, 1.2, mats.steel, 0);
-          box(.014, .5, .02, mats.sink, W / 2 - .05, 1.55, D + .03, g); box(.014, .5, .02, mats.sink, W / 2 - .05, .85, D + .03, g);
-          box(W - .002, H - 1.9, D - .01, mats.carcass, 0, 1.9 + (H - 1.9) / 2, (D - .01) / 2, g); front(g, W, 1.9, H, mats.front, 0); handleH(g, 0, 1.94, W * .5);
+          var FH = frH(m) / 1000, split = Math.round(FH * .63 * 100) / 100;   // appliance height; freezer door below the split
+          box(W - .01, FH, D + .02, mats.steel, 0, FH / 2, (D + .02) / 2, g);
+          front(g, W - .01, split, FH, mats.steel, 0); front(g, W - .01, .02, split, mats.steel, 0);
+          box(.014, Math.min(.5, (FH - split) * .7), .02, mats.sink, W / 2 - .05, (split + FH) / 2, D + .03, g); box(.014, Math.min(.5, split * .5), .02, mats.sink, W / 2 - .05, split * .68, D + .03, g);
+          if (H - FH >= .25) { box(W - .002, H - FH, D - .01, mats.carcass, 0, FH + (H - FH) / 2, (D - .01) / 2, g); front(g, W, FH, H, mats.front, 0); handleH(g, 0, FH + .04, W * .5); }   // cabinet above the fridge up to the top of the tall units
         } else {
+          H = frH(m) / 1000;   // built-in: the column may be lower than the other tall units
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
           front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
           handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
@@ -798,8 +800,16 @@
        Edits are kept per cabinet id and re-applied on every rebuild; the sketch picture and its key carry them to the AI. */
     var EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }, sel = null, editMode = false, edDown = null, edNote = '';
     var STEP_W = 50, MIN_W = 150, MAX_W = 1200;
-    function wLim(t) { return t === 'sinkBase' ? [450, 1200] : [MIN_W, MAX_W]; }   // ordinary cabinets 15-120 cm, sink base 45-120 cm
-    function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase'); }
+    function wLim(t) { return t === 'sinkBase' ? [450, 1200] : t === 'fridge' ? FR_W : [MIN_W, MAX_W]; }   // ordinary cabinets 15-120 cm, sink base 45-120 cm
+    function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase' || m.type === 'fridge'); }
+    var FR_W = [500, 1000];   // fridge column 50-100 cm wide (the neighbouring cabinets take up the difference)
+    function frLim(m) {   // fridge height limits (mm): free-standing appliance 140-210 cm, built-in column 180 cm - kitchen height
+      var top = Math.round(TALLH * 1000); return m && m.applianceType === 'free_standing' ? [1400, Math.min(2100, top)] : [1800, top];
+    }
+    function frH(m) {   // the fridge height to draw (mm)
+      var e = m && EDIT.low[m.id], lim = frLim(m), d = m && m.applianceType === 'free_standing' ? 1900 : lim[1];
+      return Math.max(lim[0], Math.min(lim[1], e && e.h ? e.h : d));
+    }
     var edBox = document.createElement('div'); edBox.className = 'prava-3d-edit'; edBox.hidden = true; host.appendChild(edBox);
     ['pointerdown', 'pointerup', 'touchstart', 'wheel', 'mousedown'].forEach(function (t) { edBox.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
     // the editor cursor is the same pencil as the ✎ button (tip = hot spot)
@@ -939,7 +949,7 @@
       var html = '', m = sel.upper ? null : edModule(sel.id), p = sel.upper ? edPos(sel) : null;
       if (!sel.upper && !m) { edClose(); return; }
       if (sel.upper && !p) { edClose(); return; }
-      var w = sel.upper ? p.w : m.w, title = sel.upper ? (sel.layer === 'd' ? 'Горен шкаф (дълбок ред)' : 'Горен шкаф') : (TALL[m.type] ? 'Колона' : 'Долен шкаф');
+      var w = sel.upper ? p.w : m.w, title = sel.upper ? (sel.layer === 'd' ? 'Горен шкаф (дълбок ред)' : 'Горен шкаф') : (m.type === 'fridge' ? (m.applianceType === 'free_standing' ? 'Свободно стоящ хладилник' : 'Колона за хладилник') : TALL[m.type] ? 'Колона' : 'Долен шкаф');
       var canW = sel.upper ? !!edSlots : canResize(m), lim = sel.upper ? [MIN_W, MAX_W] : wLim(m.type);
       html += '<div class="prava-3d-edit-head"><span>' + title + '</span><button type="button" class="prava-3d-edit-x" data-ed="close" aria-label="Затвори">×</button></div>';
       html += '<div class="prava-3d-edit-row"><span>Ширина</span><span class="prava-3d-edit-w">' + (canW ? '<button type="button" class="prava-3d-ed" data-ed="w-" aria-label="По-тесен с 5 см"' + (w <= lim[0] ? ' disabled' : '') + '>−</button>' : '') +
@@ -949,7 +959,11 @@
         html += '<div class="prava-3d-edit-lbl">' + (f === 'doors' ? 'Шкаф с врати – смени на чекмеджета:' : 'Шкаф с чекмеджета – смени на:') + '</div><div class="prava-3d-edit-seg">' +
           opts.map(function (o) { return '<button type="button" class="prava-3d-ed' + (o[0] === f ? ' is-on' : '') + '" data-ed="front" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
       } else if (!sel.upper && m.type === 'sinkBase') html += '<div class="prava-3d-edit-info">Шкаф за мивка: сменя се само ширината (45–120 см).</div>';
-      else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
+      else if (!sel.upper && m.type === 'fridge') {
+        var fh = frH(m), fl = frLim(m);
+        html += '<div class="prava-3d-edit-row"><span>Височина</span><span class="prava-3d-edit-w"><button type="button" class="prava-3d-ed" data-ed="h-" aria-label="По-нисък с 5 см"' + (fh <= fl[0] ? ' disabled' : '') + '>−</button><b>' + (fh / 10) + ' см</b><button type="button" class="prava-3d-ed" data-ed="h+" aria-label="По-висок с 5 см"' + (fh >= fl[1] ? ' disabled' : '') + '>+</button></span></div>';
+        html += '<div class="prava-3d-edit-info">' + (m.applianceType === 'free_standing' ? 'Ширина 50–100 см, височина 140–210 см. Над хладилника се прави шкаф до височината на кухнята.' : 'Ширина 50–100 см, височина 180 см – до височината на кухнята. Съседните шкафове поемат разликата.') + '</div>';
+      } else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
       if (sel.upper) {
         var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));   // both on = two glass flaps one above the other
         if (sel.layer !== 'd') html += '<div class="prava-3d-edit-lbl">Отваряне:</div><div class="prava-3d-edit-seg"><button type="button" class="prava-3d-ed' + (!lift ? ' is-on' : '') + '" data-ed="lift" data-v="0">Обикновени врати</button><button type="button" class="prava-3d-ed' + (lift ? ' is-on' : '') + '" data-ed="lift" data-v="1">Повдигащ механизъм</button></div>';
@@ -1018,7 +1032,9 @@
         else if (a === 'ipos') ISL.pos = null;
         edRebuild(); return;
       }
-      if (a === 'w-' || a === 'w+') {
+      if ((a === 'h-' || a === 'h+') && !sel.upper) {
+        var fm = edModule(sel.id); if (fm && fm.type === 'fridge') { var fl2 = frLim(fm); EDIT.low[fm.id] = EDIT.low[fm.id] || {}; EDIT.low[fm.id].h = Math.max(fl2[0], Math.min(fl2[1], frH(fm) + (a === 'h+' ? 50 : -50))); }
+      } else if (a === 'w-' || a === 'w+') {
         var dw = a === 'w+' ? STEP_W : -STEP_W;
         if (sel.upper) { var slot = edSlotOf(sel); if (slot) EDIT.slot[slot.id] = slot.w + dw; }
         else { var mm = edModule(sel.id); if (mm) { EDIT.low[mm.id] = EDIT.low[mm.id] || {}; EDIT.low[mm.id].w = mm.w + dw; } }
@@ -1052,6 +1068,7 @@
         if (curDeepRow() && uGlass(id + ':d')) glass.push(edWhere(id, true) + ' (deep top row)');
       });
       function chunk(head, list) { var line = head; list.forEach(function (s) { if ((line + s).length > 190) { out.push(line.replace(/ \+ $/, '')); line = head; } line += s + ' + '; }); if (line !== head) out.push(line.replace(/ \+ $/, '')); }
+      items.forEach(function (m) { var e = EDIT.low[m.id]; if (m.type === 'fridge' && e && (e.w || e.h)) fronts.push(edWhere(m.id, false) + ': fridge ' + Math.round(m.w / 10) + ' cm wide, ' + Math.round(frH(m) / 10) + ' cm high'); });
       chunk('lower cabinet fronts changed by the client: ', fronts);
       chunk('lift-up flap fronts on: ', liftOn); chunk('ordinary hinged doors, not lift-up, on: ', liftOff);
       if (glass.length) { chunk('glass display cabinet' + (glass.length > 1 ? 's' : '') + ' at: ', glass); out.push(glassText); }
@@ -1134,7 +1151,7 @@
       function sketchLegend() {
         var nm = { fridge: 'fridge', ovenTower: 'tall oven tower', ovenHobBase: 'oven with hob', hobBase: 'hob', sinkBase: 'sink', dishwasher: 'dishwasher', washingMachine: 'washing machine', applianceTower: 'built-in appliance tower', basket: 'narrow bottle pullout' };
         function nmOf(m) {   // what the image model must draw: built-in appliances stay hidden behind cabinet fronts
-          if (m.type === 'fridge') return m.applianceType === 'free_standing' ? 'free-standing black fridge' : 'built-in fridge behind cabinet doors';
+          if (m.type === 'fridge') return (m.applianceType === 'free_standing' ? 'free-standing black fridge' : 'built-in fridge behind cabinet doors') + ' (' + Math.round(m.w / 10) + ' cm wide, ' + Math.round(frH(m) / 10) + ' cm high' + (m.applianceType === 'free_standing' && TALLH * 1000 - frH(m) >= 250 ? ', a cabinet above it up to the top of the tall units' : '') + ')';
           if (m.type === 'dishwasher') return m.free ? 'free-standing black dishwasher' : 'integrated dishwasher behind a front';
           if (m.type === 'washingMachine') return m.free ? 'free-standing washer' : 'built-in washer behind a front';
           if (m.type === 'ovenTower') { var a = (m.appliances || []).map(function (x) { return x === 'microwave' ? 'microwave' : x === 'coffeeMachine' ? 'coffee machine' : 'oven'; }); return 'tall oven tower (built-in ' + (a.length ? a.join(', ') : 'oven') + ')'; }
