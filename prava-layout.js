@@ -844,7 +844,9 @@
     }
     /* change one ordinary lower cabinet's width; the other ordinary cabinets of the same run (then the filler) take up the difference */
     function edAbsorb(list, target, delta, fill, maxFill) {
-      var others = list.filter(function (x) { return x !== target && x.type === 'genericBase'; }), saved = others.map(function (o) { return o.w; }), left = -delta;
+      var ti = list.indexOf(target), others = list.filter(function (x) { return x !== target && x.type === 'genericBase'; }), left = -delta;
+      others.sort(function (p, q) { return Math.abs(list.indexOf(q) - ti) - Math.abs(list.indexOf(p) - ti); });   // the nearest neighbours take up the difference first (the loop runs from the end)
+      var saved = others.map(function (o) { return o.w; });
       for (var i = others.length - 1; i >= 0 && left !== 0; i--) { var nw = Math.max(MIN_W, Math.min(MAX_W, others[i].w + left)); left -= nw - others[i].w; others[i].w = nw; }
       if (left === 0) return { ok: true, filler: fill };
       var nf = fill + left; if (nf >= 0 && nf <= maxFill) return { ok: true, filler: nf };
