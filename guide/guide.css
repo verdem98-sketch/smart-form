@@ -14,6 +14,7 @@
 .vg details[open] summary{background:#f6f8f3}
 .vg .vg-a{padding:4px 18px 18px;font-size:15.5px;line-height:1.55}
 .vg .vg-a p{margin:0 0 12px}
+.vg .vg-a video{display:block;width:100%;max-width:734px;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin-top:4px;background:#f3f4f1}
 .vg .vg-a img{display:block;width:100%;max-width:734px;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin-top:4px}
 .vg .vg-cta{-webkit-text-fill-color:#fff;margin-top:48px;padding:24px;border-radius:14px;background:#2f4a2a;color:#fff;text-align:center}
 .vg .vg-cta a{-webkit-text-fill-color:#2f4a2a;display:inline-block;margin:12px 6px 0;padding:12px 22px;border-radius:8px;background:#fff;color:#2f4a2a;font-weight:600;text-decoration:none}

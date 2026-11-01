@@ -11,7 +11,7 @@
       'Въведете дължината на стената с бутоните „–“ и „+“ за метри и сантиметри.',
       '„Височина на помещението“ е от пода до тавана; „височина на кухнята“ – докъде стигат горните шкафове.',
       'Размерите могат да се променят по всяко време с „← Назад“.'] },
-    'Конфигурация': { q: 'q11', img: 'g12_water.gif', tips: [
+    'Конфигурация': { q: 'q11', img: 'v12_water.mp4', tips: [
       '„Къде е водата“ определя мястото на мивката – ляво, център или дясно, както гледате стената.',
       'Колоната за фурна вдига фурната на удобна височина; при „НЕ“ фурната е под котлоните.',
       'Хладилникът и дълбокият горен ред се редактират по-късно с молива ✎ на скицата.',
@@ -20,7 +20,7 @@
       '◎ върти кухнята, ✋ мести изгледа, ⌂ връща началния изглед.',
       '✥ – хванете шкаф или уред и го пуснете върху друг, за да ги размените.',
       '✎ – щракнете върху шкаф, за да смените ширина, чекмеджета, витрина или повдигащ механизъм.'] },
-    'Горен ред': { q: 'q33', img: 'q33_selected_upper.jpg', tips: [
+    'Горен ред': { q: 'q33', img: 'v33_material.mp4', tips: [
       'Щракнете върху мостра – скицата се оцветява веднага.',
       'Филтрирайте по покритие, производител, категория или плоскост, или търсете по код (например U702).',
       'При дървесни декори изберете посока на шарката – вертикална или хоризонтална.'] },
@@ -39,7 +39,7 @@
     'Електроуреди': { q: 'q40', img: 'q39_step7_appliances.jpg', tips: [
       'Отбележете само уредите, които планирате – вградените се появяват в колоната на скицата.',
       'Съдомиялната (45 или 60 см) се поставя до мивката.'] },
-    'Допълнителни екстри': { q: 'q41', img: 'g40_extras.gif', tips: [
+    'Допълнителни екстри': { q: 'q41', img: 'v40_extras.mp4', tips: [
       'Отметнатите екстри се показват на скицата, където е възможно, и влизат в офертата.',
       'Витрини и повдигащи механизми могат да се зададат и за отделен шкаф с молива ✎.'] },
     'AI визуализация': { q: 'q43', img: 'q42_generate_button.jpg', tips: [
@@ -65,7 +65,7 @@
       '.vmh-head strong{font-size:15px}' +
       '.vmh-x{border:0 !important;background:transparent !important;font-size:22px !important;line-height:1 !important;cursor:pointer !important;color:#666 !important;padding:0 4px !important}' +
       '.vmh-panel ul{margin:0 0 12px !important;padding-left:18px !important;list-style:disc !important}.vmh-panel li{margin:0 0 6px !important;list-style:disc !important;display:list-item !important}' +
-      '.vmh-panel img{display:block;width:100%;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin:0 0 12px}' +
+      '.vmh-panel video{display:block;width:100%;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin:0 0 12px;background:#f3f4f1}.vmh-panel img{display:block;width:100%;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin:0 0 12px}' +
       '.vmh-panel a.vmh-more{display:inline-block !important;padding:9px 14px !important;border-radius:8px !important;background:#2f4a2a !important;color:#fff !important;-webkit-text-fill-color:#fff !important;font-weight:600 !important;text-decoration:none !important;font-size:13px !important}' +
       '@media (max-width:767px){.vmh-panel{left:12px;right:12px;width:auto;top:auto;bottom:12px;max-height:70vh}.vmh-btn span{display:none}.vmh-btn{padding:3px 6px !important;margin-left:6px !important}}';
     document.head.appendChild(s);
@@ -92,7 +92,8 @@
       h.tips.forEach(function (x) { html += '<li>' + x + '</li>'; });
       if (extra && t === 'Конфигурация') extra.tips.forEach(function (x) { html += '<li>' + x + '</li>'; });
       html += '</ul>';
-      if (h.img) html += '<img loading="lazy" src="' + IMG + h.img + '" alt="">';
+      if (h.img && /\.mp4$/.test(h.img)) html += '<video autoplay muted loop playsinline src="' + IMG + h.img + '"></video>';
+      else if (h.img) html += '<img loading="lazy" src="' + IMG + h.img + '" alt="">';
       html += '<a class="vmh-more" href="' + GUIDE + '#' + h.q + '" target="_blank" rel="noopener">Пълно ръководство →</a>';
       panel.innerHTML = html;
       panel.querySelector('.vmh-x').addEventListener('click', close);
