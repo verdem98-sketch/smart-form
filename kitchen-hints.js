@@ -52,52 +52,52 @@
   };
 
   function css() {
-    if (document.getElementById('kh-css')) return;
-    var s = document.createElement('style'); s.id = 'kh-css';
+    if (document.getElementById('vmh-css')) return;
+    var s = document.createElement('style'); s.id = 'vmh-css';
     s.textContent =
-      '.kh-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;margin-left:10px !important;padding:3px 10px !important;border:1px solid #9fb59f !important;border-radius:999px !important;background:#fff !important;color:#23442f !important;font:inherit !important;font-size:12px !important;font-weight:600 !important;line-height:1.4 !important;cursor:pointer !important;white-space:nowrap !important;vertical-align:middle !important;-webkit-text-fill-color:#23442f !important}' +
-      '.kh-btn b{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:18px !important;height:18px !important;border-radius:50% !important;background:#2f4a2a !important;color:#fff !important;-webkit-text-fill-color:#fff !important;font-size:12px !important}' +
-      '.kh-btn.kh-pulse b{animation:kh-pulse 1.2s ease-in-out 4}' +
-      '@keyframes kh-pulse{0%,100%{box-shadow:0 0 0 0 rgba(47,74,42,.55)}50%{box-shadow:0 0 0 7px rgba(47,74,42,0)}}' +
-      '.kh-panel{position:fixed;z-index:9999;right:16px;top:120px;width:min(360px,calc(100vw - 32px));max-height:min(75vh,620px);overflow:auto;padding:16px 18px 18px;border:1px solid #d9ddd5;border-radius:14px;background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.18);color:#2f332f;-webkit-text-fill-color:#2f332f;font-size:14px;line-height:1.5}' +
-      '.kh-panel[hidden]{display:none}' +
-      '.kh-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}' +
-      '.kh-head strong{font-size:15px}' +
-      '.kh-x{border:0 !important;background:transparent !important;font-size:22px !important;line-height:1 !important;cursor:pointer !important;color:#666 !important;padding:0 4px !important}' +
-      '.kh-panel ul{margin:0 0 12px !important;padding-left:18px !important;list-style:disc !important}.kh-panel li{margin:0 0 6px !important;list-style:disc !important;display:list-item !important}' +
-      '.kh-panel img{display:block;width:100%;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin:0 0 12px}' +
-      '.kh-panel a.kh-more{display:inline-block !important;padding:9px 14px !important;border-radius:8px !important;background:#2f4a2a !important;color:#fff !important;-webkit-text-fill-color:#fff !important;font-weight:600 !important;text-decoration:none !important;font-size:13px !important}' +
-      '@media (max-width:767px){.kh-panel{left:12px;right:12px;width:auto;top:auto;bottom:12px;max-height:70vh}.kh-btn span{display:none}.kh-btn{padding:3px 6px !important;margin-left:6px !important}}';
+      '.vmh-btn{display:inline-flex !important;align-items:center !important;gap:6px !important;margin-left:10px !important;padding:3px 10px !important;border:1px solid #9fb59f !important;border-radius:999px !important;background:#fff !important;color:#23442f !important;font:inherit !important;font-size:12px !important;font-weight:600 !important;line-height:1.4 !important;cursor:pointer !important;white-space:nowrap !important;vertical-align:middle !important;-webkit-text-fill-color:#23442f !important}' +
+      '.vmh-btn b{display:inline-flex !important;align-items:center !important;justify-content:center !important;width:18px !important;height:18px !important;border-radius:50% !important;background:#2f4a2a !important;color:#fff !important;-webkit-text-fill-color:#fff !important;font-size:12px !important}' +
+      '.vmh-btn.vmh-pulse b{animation:vmh-pulse 1.2s ease-in-out 4}' +
+      '@keyframes vmh-pulse{0%,100%{box-shadow:0 0 0 0 rgba(47,74,42,.55)}50%{box-shadow:0 0 0 7px rgba(47,74,42,0)}}' +
+      '.vmh-panel{position:fixed;z-index:9999;right:16px;top:120px;width:min(360px,calc(100vw - 32px));max-height:min(75vh,620px);overflow:auto;padding:16px 18px 18px;border:1px solid #d9ddd5;border-radius:14px;background:#fff;box-shadow:0 14px 40px rgba(0,0,0,.18);color:#2f332f;-webkit-text-fill-color:#2f332f;font-size:14px;line-height:1.5}' +
+      '.vmh-panel[hidden]{display:none}' +
+      '.vmh-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}' +
+      '.vmh-head strong{font-size:15px}' +
+      '.vmh-x{border:0 !important;background:transparent !important;font-size:22px !important;line-height:1 !important;cursor:pointer !important;color:#666 !important;padding:0 4px !important}' +
+      '.vmh-panel ul{margin:0 0 12px !important;padding-left:18px !important;list-style:disc !important}.vmh-panel li{margin:0 0 6px !important;list-style:disc !important;display:list-item !important}' +
+      '.vmh-panel img{display:block;width:100%;height:auto;border:1px solid #e3e6e0;border-radius:10px;margin:0 0 12px}' +
+      '.vmh-panel a.vmh-more{display:inline-block !important;padding:9px 14px !important;border-radius:8px !important;background:#2f4a2a !important;color:#fff !important;-webkit-text-fill-color:#fff !important;font-weight:600 !important;text-decoration:none !important;font-size:13px !important}' +
+      '@media (max-width:767px){.vmh-panel{left:12px;right:12px;width:auto;top:auto;bottom:12px;max-height:70vh}.vmh-btn span{display:none}.vmh-btn{padding:3px 6px !important;margin-left:6px !important}}';
     document.head.appendChild(s);
   }
 
   function init() {
     var head = document.querySelector('.prava-global-progress-head,.ag-global-progress-head,.p-global-progress-head');
     var title = head && head.querySelector('.prava-global-progress-title,.ag-global-progress-title,.p-global-progress-title');
-    if (!title || document.getElementById('kh-btn')) return;
+    if (!title || document.getElementById('vmh-btn')) return;
     css();
-    var btn = document.createElement('button'); btn.type = 'button'; btn.id = 'kh-btn'; btn.className = 'kh-btn';
-    btn.innerHTML = '<b>?</b><span>Помощ</span>'; btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', 'kh-panel');
+    var btn = document.createElement('button'); btn.type = 'button'; btn.id = 'vmh-btn'; btn.className = 'vmh-btn';
+    btn.innerHTML = '<b>?</b><span>Помощ</span>'; btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', 'vmh-panel');
     title.parentNode.insertBefore(btn, title.nextSibling);
-    var panel = document.createElement('div'); panel.id = 'kh-panel'; panel.className = 'kh-panel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Подсказки за тази стъпка');
+    var panel = document.createElement('div'); panel.id = 'vmh-panel'; panel.className = 'vmh-panel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Подсказки за тази стъпка');
     document.body.appendChild(panel);
-    try { if (!localStorage.getItem('kh-seen')) { btn.classList.add('kh-pulse'); localStorage.setItem('kh-seen', '1'); } } catch (e) { /* storage unavailable */ }
+    try { if (!localStorage.getItem('vmh-seen')) { btn.classList.add('vmh-pulse'); localStorage.setItem('vmh-seen', '1'); } } catch (e) { /* storage unavailable */ }
 
     function current() { var t = (title.textContent || '').trim(); return HINTS[t] ? t : null; }
     function render() {
       var t = current(); if (!t) { panel.hidden = true; btn.hidden = true; return; }
       btn.hidden = false;
       var h = HINTS[t], extra = (t === 'Конфигурация' || t === 'Размери') ? HINTS['Скица'] : null;
-      var html = '<div class="kh-head"><strong>' + t + ' – подсказки</strong><button type="button" class="kh-x" aria-label="Затвори">×</button></div><ul>';
+      var html = '<div class="vmh-head"><strong>' + t + ' – подсказки</strong><button type="button" class="vmh-x" aria-label="Затвори">×</button></div><ul>';
       h.tips.forEach(function (x) { html += '<li>' + x + '</li>'; });
       if (extra && t === 'Конфигурация') extra.tips.forEach(function (x) { html += '<li>' + x + '</li>'; });
       html += '</ul>';
       if (h.img) html += '<img loading="lazy" src="' + IMG + h.img + '" alt="">';
-      html += '<a class="kh-more" href="' + GUIDE + '#' + h.q + '" target="_blank" rel="noopener">Пълно ръководство →</a>';
+      html += '<a class="vmh-more" href="' + GUIDE + '#' + h.q + '" target="_blank" rel="noopener">Пълно ръководство →</a>';
       panel.innerHTML = html;
-      panel.querySelector('.kh-x').addEventListener('click', close);
+      panel.querySelector('.vmh-x').addEventListener('click', close);
     }
-    function open() { render(); if (btn.hidden) return; panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); btn.classList.remove('kh-pulse'); }
+    function open() { render(); if (btn.hidden) return; panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); btn.classList.remove('vmh-pulse'); }
     function close() { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
     btn.addEventListener('click', function () { panel.hidden ? open() : close(); });
     document.addEventListener('click', function (e) { if (!panel.hidden && !panel.contains(e.target) && !btn.contains(e.target)) close(); });
