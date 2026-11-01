@@ -20,14 +20,14 @@
   function once(name, data, custom) { if (sent[name]) return; sent[name] = true; fbq(custom ? 'trackCustom' : 'track', name, data || {}); }
 
   function init() {
-    var k = kitchen();
+    var k = kitchen(), pg = document.querySelector('.sf-page-prava, .flow-aglova, .sf-page-aglova, .sf-page-p') || document;
     if (k) {
       fbq('track', 'ViewContent', { content_name: 'kitchen-configurator', content_category: k });
       /* step 2 reached = the visitor really started configuring */
-      document.addEventListener('prava:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
-      document.addEventListener('ag:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
-      document.addEventListener('p:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
-      ['prava-ai-generated', 'ag-ai-generated', 'p-ai-generated'].forEach(function (n) { document.addEventListener(n, function () { once('AIVisualization', { kitchen: k }, true); }); });
+      pg.addEventListener('prava:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
+      pg.addEventListener('ag:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
+      pg.addEventListener('p:phase-changed', function (e) { if (e.detail && e.detail.step >= 2) once('StartConfigurator', { kitchen: k }, true); });
+      ['prava-ai-generated', 'ag-ai-generated', 'aglova-ai-generated', 'p-ai-generated'].forEach(function (n) { pg.addEventListener(n, function () { once('AIVisualization', { kitchen: k }, true); }); });
     }
     /* a form was sent: Webflow shows .w-form-done */
     function check() {
