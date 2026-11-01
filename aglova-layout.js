@@ -635,7 +635,7 @@
     // the top of the upper row (standard or the deep second row) is always flush with the top of the tall column (2.4 m, or the ceiling when lower)
     function applyHeights(inp) {
       var top = Math.min(TALLH, (inp.heightMm || 2600) / 1000);
-      if (inp.deep) { TOPROW.uh = .33; TOPROW.ub = top - TOPROW.uh; UPPER.uh = Math.max(.3, TOPROW.ub - UPPER.ub); }
+      if (inp.deep) { TOPROW.uh = deepH(); TOPROW.ub = top - TOPROW.uh; UPPER.uh = Math.max(.3, TOPROW.ub - UPPER.ub); }
       else UPPER.uh = Math.max(.3, top - UPPER.ub);
     }
     /* ---------------- island: dragged in the move mode (✥), sized / turned in the ✎ editor; it keeps a 50 cm passage from both cabinet runs */
@@ -1011,8 +1011,10 @@
     }
     /* ---------------- cabinet editor (✎): pick one cabinet in the sketch, change its width and its fronts.
        Edits are kept per cabinet id and re-applied on every rebuild; the sketch picture and its key carry them to the AI. */
-    var EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [] }, sel = null, editMode = false, edDown = null, edNote = '';
+    var EDIT = { low: {}, up: {}, slot: {}, mLow: [], mUp: [], deepH: 0 }, sel = null, editMode = false, edDown = null, edNote = '';
     var STEP_W = 50, MIN_W = 150, MAX_W = 1200;
+    function deepLim() { var top = Math.round(TALLH * 1000); return [200, Math.max(200, top - 1450 - 300)]; }   // deep top row 20 cm .. (the shallow row below keeps at least 30 cm)
+    function deepH() { var l = deepLim(), v = EDIT && EDIT.deepH ? EDIT.deepH : 330; return Math.max(l[0], Math.min(l[1], v)) / 1000; }   // height of the deep top row (m), 33 cm unless changed in the ✎ editor
     function wLim(t) { return t === 'sinkBase' ? [450, 1200] : t === 'fridge' ? FR_W : [MIN_W, MAX_W]; }   // ordinary cabinets 15-120 cm, sink base 45-120 cm
     function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase' || m.type === 'fridge'); }
     var FR_W = [500, 1000];   // fridge column 50-100 cm wide (the neighbouring cabinets take up the difference)
@@ -1182,6 +1184,9 @@
       } else if (!sel.upper) html += '<div class="ag-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
       if (sel.upper) {
         var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));   // both on = two glass flaps one above the other
+        if (sel.layer === 'd') { var dh2 = Math.round(deepH() * 1000), dl2 = deepLim();
+          html += '<div class="ag-3d-edit-row"><span>Височина</span><span class="ag-3d-edit-w"><button type="button" class="ag-3d-ed" data-ed="h-" aria-label="По-нисък с 5 см"' + (dh2 <= dl2[0] ? ' disabled' : '') + '>−</button><b>' + (dh2 / 10) + ' см</b><button type="button" class="ag-3d-ed" data-ed="h+" aria-label="По-висок с 5 см"' + (dh2 >= dl2[1] ? ' disabled' : '') + '>+</button></span></div>';
+          html += '<div class="ag-3d-edit-info">Височината важи за целия дълбок ред; плиткият ред под него поема разликата.</div>'; }
         if (sel.layer !== 'd') html += '<div class="ag-3d-edit-lbl">Отваряне:</div><div class="ag-3d-edit-seg"><button type="button" class="ag-3d-ed' + (!lift ? ' is-on' : '') + '" data-ed="lift" data-v="0">Обикновени врати</button><button type="button" class="ag-3d-ed' + (lift ? ' is-on' : '') + '" data-ed="lift" data-v="1">Повдигащ механизъм</button></div>';
         html += '<div class="ag-3d-edit-lbl">Витрина:</div><div class="ag-3d-edit-seg"><button type="button" class="ag-3d-ed' + (gl ? ' is-on' : '') + '" data-ed="glass">' + (gl ? (lift ? 'Две витрини една над друга ✓' : 'Витрина с осветление ✓') : 'Направи витрина') + '</button></div>';
         if (!edSlots) html += '<div class="ag-3d-edit-info">Ширината на горния шкаф следва долния шкаф под него.</div>';
@@ -1248,7 +1253,8 @@
         else if (a === 'ipos') ISL.pos = null;
         edRebuild(); return;
       }
-      if ((a === 'h-' || a === 'h+') && !sel.upper) {
+      if ((a === 'h-' || a === 'h+') && sel.upper && sel.layer === 'd') { var dl3 = deepLim(); EDIT.deepH = Math.max(dl3[0], Math.min(dl3[1], Math.round(deepH() * 1000) + (a === 'h+' ? 50 : -50))); uorder = null; dorder = null;
+      } else if ((a === 'h-' || a === 'h+') && !sel.upper) {
         var fm = edModule(sel.id); if (fm && fm.type === 'fridge') { var fl2 = frLim(fm); EDIT.low[fm.id] = EDIT.low[fm.id] || {}; EDIT.low[fm.id].h = Math.max(fl2[0], Math.min(fl2[1], frH(fm) + (a === 'h+' ? 50 : -50))); }
       } else if (a === 'w-' || a === 'w+') {
         var dw = a === 'w+' ? STEP_W : -STEP_W;
@@ -1285,6 +1291,7 @@
       });
       function chunk(head, list) { var line = head; list.forEach(function (s) { if ((line + s).length > 190) { out.push(line.replace(/ \+ $/, '')); line = head; } line += s + ' + '; }); if (line !== head) out.push(line.replace(/ \+ $/, '')); }
       items.forEach(function (m) { var e = EDIT.low[m.id]; if (m.type === 'fridge' && e && (e.w || e.h)) fronts.push(edWhere(m.id, false) + ': fridge ' + Math.round(m.w / 10) + ' cm wide, ' + Math.round(frH(m) / 10) + ' cm high'); });
+      if (curDeepRow() && EDIT.deepH) out.push('deep top row of upper cabinets is ' + Math.round(deepH() * 100) + ' cm high (the shallow upper row below it is correspondingly shorter)');
       chunk('lower cabinet fronts changed by the client: ', fronts);
       chunk('lift-up flap fronts on: ', liftOn); chunk('ordinary hinged doors, not lift-up, on: ', liftOff);
       if (glass.length) { chunk('glass display cabinet' + (glass.length > 1 ? 's' : '') + ' at: ', glass); out.push(glassText); }
