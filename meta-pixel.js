@@ -3,8 +3,19 @@
    Lead when a configurator request is sent (the Webflow success block appears); Contact for any other form. */
 (function () {
   'use strict';
-  var me = document.currentScript, ID = me && me.getAttribute('data-pixel');
-  if (!ID || window.__vmPixel) return; window.__vmPixel = true;
+  var me = document.currentScript, ID = (me && me.getAttribute('data-pixel')) || '1868462447521447';
+  if (window.__vmPixel) return; window.__vmPixel = true;
+  /* loads only after the visitor accepts cookies (same rule as GA / Clarity on this site) */
+  function consentOk() { try { return localStorage.getItem('cookieConsent') === 'accepted'; } catch (e) { return false; } }
+  if (!consentOk()) {
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-cookie-action="accepted"]')) setTimeout(start, 60);
+    }, true);
+    return;
+  }
+  start();
+  function start() {
+  if (window.fbq) return;
   /* standard Meta base code */
   !function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', ID);
@@ -43,4 +54,5 @@
     check();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
+  }
 })();
