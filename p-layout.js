@@ -244,14 +244,28 @@
     document.head.appendChild(st);
     /* a phone held sideways (short viewport): the sketch card scrolls with the page instead of staying pinned, never grows taller than the screen,
        and a vertical finger drag on the sketch scrolls the page (a horizontal drag still turns the view) */
+    /* a phone held sideways (short viewport): two columns - the sketch stays on screen (sticky, sized to the screen) on the left,
+       the questions / sizes scroll on the right; a vertical finger drag on the sketch scrolls the page (a horizontal drag still turns the view) */
     var stLand = document.createElement('style');
-    stLand.textContent = '@media (max-height:520px){' +
-      '.sf-page-p .sticky-cad-wrap{position:static!important;top:auto!important;left:auto!important;width:auto!important;z-index:auto!important}' +
-      '.sf-page-p .cad-stage{max-height:calc(100vh - 56px)!important}' +
-      '.sf-page-p [aria-hidden="true"]:has(+ .sticky-cad-wrap){display:none!important}' +   // the spacer the desktop pin script leaves behind
+    stLand.textContent = '@media (max-height:520px) and (orientation:landscape){' +
+      '.sf-page-p .p-sketch-wrap{position:sticky!important;top:8px!important;left:auto!important;width:auto!important;z-index:5!important;align-self:start!important;grid-column:1!important;grid-row:1!important;margin:0!important}' +
+      '.sf-page-p .cad-stage-p{height:calc(100vh - 66px)!important;max-height:calc(100vh - 66px)!important;min-height:0!important;width:100%!important;max-width:none!important;aspect-ratio:auto!important}' +
+      '.sf-page-p [aria-hidden="true"]:has(+ .p-sketch-wrap){display:none!important}' +
       '.sf-page-p .p-3d,.sf-page-p .p-3d canvas{touch-action:pan-y!important}' +
+      '.sf-page-p .prava-3d-edit,.sf-page-p .ag-3d-edit,.sf-page-p .p-3d-edit{max-height:calc(100vh - 90px);overflow:auto}' +
       '}';
     document.head.appendChild(stLand);
+    (function () {   // the two-column grid: the card's parent gets the sketch left and the question/size panel right (only while the viewport is short and wide)
+      var mq = root.matchMedia && root.matchMedia('(max-height:520px) and (orientation:landscape)');
+      if (!mq) return;
+      var par = card.parentElement, cls = 'sf-landscape-cols';
+      var stCols = document.createElement('style');
+      stCols.textContent = '@media (max-height:520px) and (orientation:landscape){.sf-page-p .' + cls + '{display:grid!important;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)!important;column-gap:12px!important;align-items:start!important;margin-left:12px!important;margin-right:12px!important;width:auto!important}' +
+        '.sf-page-p .' + cls + '>*:not(.p-sketch-wrap){grid-column:2!important;margin-left:0!important;margin-right:0!important;min-width:0}}';
+      document.head.appendChild(stCols);
+      function apply() { if (par) par.classList.toggle(cls, mq.matches); }
+      apply(); if (mq.addEventListener) mq.addEventListener('change', apply); else mq.addListener(apply);
+    })();
     var hint = document.createElement('div'); hint.className = 'p-3d-hint'; host.appendChild(hint);
     var msg = document.createElement('div'); msg.className = 'p-3d-msg'; msg.hidden = true; host.appendChild(msg);
     var btns = document.createElement('div'); btns.className = 'p-3d-btns'; host.appendChild(btns);
