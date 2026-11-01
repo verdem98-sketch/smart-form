@@ -499,8 +499,9 @@
         } else {
           H = frH(m) / 1000;   // built-in: the column may be lower than the other tall units
           box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
-          front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
-          handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6);
+          if (H < 1.25) { front(g, W, PL, H, mats.front, 0); handleH(g, 0, H - .08, W * .6); }   // a low (under-counter) built-in fridge: one door
+          else { front(g, W, PL, 0.95, mats.front, 0); front(g, W, .95, Math.min(2.1, H - .25), mats.front, 0); front(g, W, Math.min(2.1, H - .25), H, mats.front, 0);
+          handleH(g, 0, .95 + .05, W * .6); handleH(g, 0, .95 - .05, W * .6); }
         }
       } else {
         box(W - .002, PL, D - .06, mats.plinth, 0, PL / 2, (D - .06) / 2 + .03, g); box(W - .002, H - PL, D - .01, mats.carcass, 0, PL + (H - PL) / 2, (D - .01) / 2, g);
@@ -804,7 +805,7 @@
     function canResize(m) { return !!m && (m.type === 'genericBase' || m.type === 'sinkBase' || m.type === 'fridge'); }
     var FR_W = [500, 1000];   // fridge column 50-100 cm wide (the neighbouring cabinets take up the difference)
     function frLim(m) {   // fridge height limits (mm): free-standing appliance 140-210 cm, built-in column 180 cm - kitchen height
-      var top = Math.round(TALLH * 1000); return m && m.applianceType === 'free_standing' ? [1400, Math.min(2100, top)] : [1800, top];
+      var top = Math.round(TALLH * 1000); return m && m.applianceType === 'free_standing' ? [850, Math.min(2100, top)] : [850, top];   // from 85 cm (under-counter fridge) up
     }
     function frH(m) {   // the fridge height to draw (mm)
       var e = m && EDIT.low[m.id], lim = frLim(m), d = m && m.applianceType === 'free_standing' ? 1900 : lim[1];
@@ -964,7 +965,7 @@
       else if (!sel.upper && m.type === 'fridge') {
         var fh = frH(m), fl = frLim(m);
         html += '<div class="prava-3d-edit-row"><span>Височина</span><span class="prava-3d-edit-w"><button type="button" class="prava-3d-ed" data-ed="h-" aria-label="По-нисък с 5 см"' + (fh <= fl[0] ? ' disabled' : '') + '>−</button><b>' + (fh / 10) + ' см</b><button type="button" class="prava-3d-ed" data-ed="h+" aria-label="По-висок с 5 см"' + (fh >= fl[1] ? ' disabled' : '') + '>+</button></span></div>';
-        html += '<div class="prava-3d-edit-info">' + (m.applianceType === 'free_standing' ? 'Ширина 50–100 см, височина 140–210 см. Над хладилника се прави шкаф до височината на кухнята.' : 'Ширина 50–100 см, височина 180 см – до височината на кухнята. Съседните шкафове поемат разликата.') + '</div>';
+        html += '<div class="prava-3d-edit-info">' + (m.applianceType === 'free_standing' ? 'Ширина 50–100 см, височина 85–210 см. Над хладилника се прави шкаф до височината на кухнята.' : 'Ширина 50–100 см, височина 85 см – до височината на кухнята. Съседните шкафове поемат разликата.') + '</div>';
       } else if (!sel.upper) html += '<div class="prava-3d-edit-info">Този модул (уред, мивка, ъгъл или колона) е с фиксиран вид.</div>';
       if (sel.upper) {
         var lift = sel.layer !== 'd' && uLift(sel.id), gl = uGlass(edUpKey(sel));   // both on = two glass flaps one above the other
