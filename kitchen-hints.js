@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var GUIDE = '/kak-raboti-konfiguratora';
-  var IMG = 'https://cdn.jsdelivr.net/gh/verdem98-sketch/smart-form@04097c281f090a2d26405d506004c83bcc3438b4/guide/';
+  var IMG = 'https://cdn.jsdelivr.net/gh/verdem98-sketch/smart-form@d25af7946e29777e2857a0a3055b5e3c11d62cb6/guide/';
   var HINTS = {
     'Размери': { q: 'q07', img: 'v07_sizes.mp4', tips: [
       'Въведете дължината на стената с бутоните „–“ и „+“ за метри и сантиметри.',
