@@ -119,6 +119,16 @@
       '.sf-page-prava .cad-stage.prava-3d-on .cad-img,.sf-page-prava .cad-stage.prava-3d-on .cad-img-kitchen,.sf-page-prava .cad-stage.prava-3d-on .cad-img-deep_cabinets,.sf-page-prava .cad-stage.prava-3d-on .cad-img-island,.sf-page-prava .cad-stage.prava-3d-on .cad-img-base{visibility:hidden!important}' +
       '.sf-page-prava .cad-stage.prava-3d-on .cad-base,.sf-page-prava .cad-stage.prava-3d-on .cad-kitchen,.sf-page-prava .cad-stage.prava-3d-on .cad-deep_cabinets,.sf-page-prava .cad-stage.prava-3d-on .cad-island{pointer-events:none!important}';
     document.head.appendChild(st);
+    /* a phone held sideways (short viewport): the sketch card scrolls with the page instead of staying pinned, never grows taller than the screen,
+       and a vertical finger drag on the sketch scrolls the page (a horizontal drag still turns the view) */
+    var stLand = document.createElement('style');
+    stLand.textContent = '@media (max-height:520px){' +
+      '.sf-page-prava .sticky-cad-wrap{position:static!important;top:auto!important;left:auto!important;width:auto!important;z-index:auto!important}' +
+      '.sf-page-prava .cad-stage{max-height:calc(100vh - 56px)!important}' +
+      '.sf-page-prava [aria-hidden="true"]:has(+ .sticky-cad-wrap){display:none!important}' +   // the spacer the desktop pin script leaves behind
+      '.sf-page-prava .prava-3d,.sf-page-prava .prava-3d canvas{touch-action:pan-y!important}' +
+      '}';
+    document.head.appendChild(stLand);
     var hint = document.createElement('div'); hint.className = 'prava-3d-hint'; host.appendChild(hint);
     var msg = document.createElement('div'); msg.className = 'prava-3d-msg'; msg.hidden = true; host.appendChild(msg);
     var btns = document.createElement('div'); btns.className = 'prava-3d-btns'; host.appendChild(btns);

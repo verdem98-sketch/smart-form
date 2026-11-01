@@ -217,6 +217,16 @@
       '.flow-aglova .ag-3d-btns button:hover,.flow-aglova .ag-3d-btns button[aria-pressed="true"]{background:#e8f0e8;border-color:#477448}' +
       '.flow-aglova .cad-stage.ag-3d-on>.cad-base,.flow-aglova .cad-stage.ag-3d-on>.cad-kitchen,.flow-aglova .cad-stage.ag-3d-on>.cad-bar,.flow-aglova .cad-stage.ag-3d-on>.cad-island{visibility:hidden!important;pointer-events:none!important}';
     document.head.appendChild(st);
+    /* a phone held sideways (short viewport): the sketch card scrolls with the page instead of staying pinned, never grows taller than the screen,
+       and a vertical finger drag on the sketch scrolls the page (a horizontal drag still turns the view) */
+    var stLand = document.createElement('style');
+    stLand.textContent = '@media (max-height:520px){' +
+      '.flow-aglova .sticky-cad-wrap{position:static!important;top:auto!important;left:auto!important;width:auto!important;z-index:auto!important}' +
+      '.flow-aglova .cad-stage{max-height:calc(100vh - 56px)!important}' +
+      '.flow-aglova [aria-hidden="true"]:has(+ .sticky-cad-wrap){display:none!important}' +   // the spacer the desktop pin script leaves behind
+      '.flow-aglova .ag-3d,.flow-aglova .ag-3d canvas{touch-action:pan-y!important}' +
+      '}';
+    document.head.appendChild(stLand);
     var hint = document.createElement('div'); hint.className = 'ag-3d-hint'; host.appendChild(hint);
     var msg = document.createElement('div'); msg.className = 'ag-3d-msg'; msg.hidden = true; host.appendChild(msg);
     var btns = document.createElement('div'); btns.className = 'ag-3d-btns'; host.appendChild(btns);
