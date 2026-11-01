@@ -249,7 +249,7 @@
     var stLand = document.createElement('style');
     stLand.textContent = '@media (max-height:520px) and (orientation:landscape){' +
       '.sf-page-p .p-sketch-wrap{position:sticky!important;top:8px!important;left:auto!important;width:auto!important;z-index:5!important;align-self:start!important;grid-column:1!important;grid-row:1!important;margin:0!important}' +
-      '.sf-page-p .cad-stage-p{height:calc(100vh - 66px)!important;max-height:calc(100vh - 66px)!important;min-height:0!important;width:100%!important;max-width:none!important;aspect-ratio:auto!important}' +
+      '.sf-page-p .cad-stage-p{height:calc(100vh - 100px)!important;max-height:calc(100vh - 100px)!important;min-height:0!important;width:100%!important;max-width:none!important;aspect-ratio:auto!important}' +
       '.sf-page-p [aria-hidden="true"]:has(+ .p-sketch-wrap){display:none!important}' +
       '.sf-page-p .p-3d,.sf-page-p .p-3d canvas{touch-action:pan-y!important}' +
       '.sf-page-p .prava-3d-edit,.sf-page-p .ag-3d-edit,.sf-page-p .p-3d-edit{max-height:calc(100vh - 90px);overflow:auto}' +

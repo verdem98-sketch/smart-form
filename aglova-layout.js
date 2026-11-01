@@ -224,7 +224,7 @@
     var stLand = document.createElement('style');
     stLand.textContent = '@media (max-height:520px) and (orientation:landscape){' +
       '.flow-aglova .sticky-cad-wrap{position:sticky!important;top:8px!important;left:auto!important;width:auto!important;z-index:5!important;align-self:start!important;grid-column:1!important;grid-row:1!important;margin:0!important}' +
-      '.flow-aglova .cad-stage{height:calc(100vh - 66px)!important;max-height:calc(100vh - 66px)!important;min-height:0!important;width:100%!important;max-width:none!important;aspect-ratio:auto!important}' +
+      '.flow-aglova .cad-stage{height:calc(100vh - 100px)!important;max-height:calc(100vh - 100px)!important;min-height:0!important;width:100%!important;max-width:none!important;aspect-ratio:auto!important}' +
       '.flow-aglova [aria-hidden="true"]:has(+ .sticky-cad-wrap){display:none!important}' +
       '.flow-aglova .ag-3d,.flow-aglova .ag-3d canvas{touch-action:pan-y!important}' +
       '.flow-aglova .prava-3d-edit,.flow-aglova .ag-3d-edit,.flow-aglova .p-3d-edit{max-height:calc(100vh - 90px);overflow:auto}' +
