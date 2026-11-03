@@ -808,7 +808,7 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
       var cA = plan.pas ? (inp.chimneyAMm || 0) : 0, cB = plan.pas ? (inp.chimneyBMm || 0) : 0, dS = Math.round((UPPER.depth + FT) * 1000), dD = Math.round((TOPROW.depth + FT) * 1000);
       var s2s = cA >= dS ? cB : Math.max(cB, dS), s2d = inp.deep ? (cA >= dD ? cB : Math.max(cB, dD)) : s2s, st1 = plan.walls[1].startMm, st2 = plan.walls[2].startMm;
       deepCut = Math.max(0, s2d - s2s);
-      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? (plan.deadCorner ? 0 : Math.max(0, st1 - cA)) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
+      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       edMergeUp(uRuns); edApplySlots(uRuns);   // upper cabinets merged / resized in the ✎ editor
       // the standard upper row and the deep row above it are two independent layers, each with its own order (slots keep their widths, the unit moves into the slot)
       function layer(ord) {
@@ -866,6 +866,10 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
         box(bx, BH - PL - WT, bz, mats.carcass, bx / 2, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);
         box(.018, BH - PL - WT - G, bz, mats.front, bx + .009 - FT, PL + (BH - PL - WT) / 2, bz / 2, wg[2]);          // face towards wall 2's run (+x)
         box(bx, BH - PL - WT - G, .018, mats.front, bx / 2, PL + (BH - PL - WT) / 2, bz + .009 - FT, wg[2]);          // face towards wall 1's run (+z)
+        if (plan.deadCorner) {   // the upper row has the same dead corner: a closed 600 mm blind upper on wall 1, wall 2's uppers start after it
+          var dug = pasUpper(bz); dug.position.x = lc(1, bz * 500); dug.userData = { filler: true }; wg[1].add(dug);
+          if (inp.deep) { var ddg = pasUpper(bz, true); ddg.position.x = lc(1, bz * 500); ddg.userData = { filler: true }; wg[1].add(ddg); }
+        }
         CUT.tops.push({ len: Math.round((bx + .02) * 1000), d: Math.round((bz + .02) * 1000), corner: true }); CUT.cab.push({ row: 'cornerBlock', w: Math.round(bx * 1000), d: Math.round(bz * 1000), h: Math.round((BH - PL - WT) * 1000) }); var ct = new T.Group(); box(bx + .02, WT, bz + .02, mats.top, bx / 2 + .01, BH - WT / 2, bz / 2 + .01, ct); ct.userData = { top: true }; wg[2].add(ct);
       }
       // worktop slabs over each consecutive base run (the filler included); wall 2's first slab starts after wall 1's slab so the L is seamless
