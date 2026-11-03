@@ -134,6 +134,7 @@
       if (step === 1 && !dimsOk()) return 'Въведете всички приложими размери.';
       if (step === 2 && !questions.every(answered)) return 'Изберете вариант за всеки въпрос.';
       if (step === 2 && !extraRows().every(touched)) return 'Въведете всички приложими размери.';
+      if (step >= 2) { const pe = window.agLayout && typeof window.agLayout.planError === 'function' ? window.agLayout.planError() : ''; if (pe) return pe + ' Поправете размерите или избора, за да продължите.'; }
       if (step >= 3 && step <= 6) {
         const f = vision[step - 3].querySelector('input[type="hidden"][name]');
         const has = vision[step - 3].querySelector('.vm-selected,.vision-card.is-selected,.vision-card.active') || (f && f.value);

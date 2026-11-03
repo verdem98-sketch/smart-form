@@ -59,7 +59,7 @@
     var fixed = [].concat(tall, cooking, water, edge).reduce(function (s, m) { return s + m.w; }, 0);
     res.fixedMm = fixed;
     var rem = L - fixed;
-    if (rem < 0) { errors.push('Избраните модули изискват ' + fixed + ' мм, а дължината е само ' + L + ' мм (липсват ' + (-rem) + ' мм).'); return res; }
+    if (rem < 0) { errors.push('Кухнята е твърде къса: избраните уреди и шкафове изискват ' + Math.round(fixed / 10) + ' см, а дължината е ' + Math.round(L / 10) + ' см (липсват ' + Math.round(-rem / 10) + ' см). Увеличете дължината или махнете уред.'); return res; }
     var sol = chooseStorage(rem);
     if (!sol) { errors.push('Остатъкът от ' + rem + ' мм не може да се разпредели на шкафове; променете дължината.'); return res; }
     var run = arrange(place, tall, cooking, water, sol.widths, edge);
@@ -167,7 +167,7 @@
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { legend.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, labelGroup, dropMark;
-    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, dorder = null, upos = {}, dpos = {}, uRunIds = [], dRunIds = [], curDeep = false, order = [], items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, hl = { key: null, saved: [] }, dirty = false, uorder = null, dorder = null, upos = {}, dpos = {}, uRunIds = [], dRunIds = [], curDeep = false, order = [], items = [], plan = null, planShown = false, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, view = { dist: 0 };
 
     /* ---------------- inputs from the page */
@@ -626,7 +626,7 @@
       CUT = { on: true, cab: [], tops: [], fills: [] };
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
       while (labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
-      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0;
+      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; planShown = !!inp.showCabinets;
       if (!inp.showCabinets) return;
       plan = planKitchen({ lengthMm: inp.lengthMm, water: inp.water, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle) });
       if (plan.errors.length) { msg.textContent = plan.errors[0]; msg.hidden = false; return; }
@@ -1213,7 +1213,7 @@
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }
-      root.pravaLayout = { freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: null, capture: capture, sketchLegend: sketchLegend, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      root.pravaLayout = { planError: function () { return planShown && plan && plan.errors && plan.errors.length ? plan.errors[0] : ''; }, freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: null, capture: capture, sketchLegend: sketchLegend, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
     root.pravaLayout = root.pravaLayout || { refresh: function () {}, current: null };

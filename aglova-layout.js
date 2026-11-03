@@ -37,6 +37,7 @@
 
   /* cfg: wall1Mm, wall2Mm, heightMm, waterWall (1|2), ovenTower, fridge ('built_in'|'free_standing'|null), dishwasherMm, washer, microwave, coffee (built-in),
           basket, chimney, chimneyAMm, chimneyBMm, deep */
+function cmTxt(v) { return Math.round(v / 10) + ' см'; }
   function planCorner(cfg) {
     var errors = [], L1 = Math.round(cfg.wall1Mm || 0), L2 = Math.round(cfg.wall2Mm || 0);
     var res = { wall1Mm: L1, wall2Mm: L2, errors: errors, chimney: !!cfg.chimney, walls: { 1: { wall: 1, lengthMm: L1, startMm: 0, modules: [], fillerMm: 0 }, 2: { wall: 2, lengthMm: L2, startMm: 0, modules: [], fillerMm: 0 } } };
@@ -76,7 +77,7 @@
     move(other, ['fridge', 'ovenTower', 'basket']);
     move(waterWall, ['washingMachine', 'dishwasher']);
     [1, 2].forEach(function (w) {
-      if (need(w) > avail[w]) errors.push('Стена ' + w + ': избраните модули изискват ' + need(w) + ' мм, а наличната дължина е само ' + avail[w] + ' мм.');
+      if (need(w) > avail[w]) errors.push('Стена ' + w + ' е твърде къса: избраните уреди и шкафове изискват ' + cmTxt(need(w)) + ', а свободната дължина' + (w === 1 && cornerUnit ? ' след ъгловия шкаф (90 см)' : '') + ' е ' + cmTxt(avail[w]) + '. Увеличете стената, преместете водата или уредите на другата стена, или изберете права кухня.');
     });
     if (errors.length) return res;
     [1, 2].forEach(function (w) {
@@ -265,7 +266,7 @@
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { legend.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
-    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, dorder = null, dpos = {}, layerIds = { u: [], d: [] }, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, dorder = null, dpos = {}, layerIds = { u: [], d: [] }, upos = {}, uRuns = [], order = { 1: [], 2: [] }, items = [], plan = null, planShown = false, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, unitById = {};
 
     /* ---------------- inputs from the page */
@@ -771,7 +772,7 @@
     function buildCabinets(inp) {
       CUT = { on: true, cab: [], tops: [], fills: [] };
       while (cabGroup.children.length) cabGroup.remove(cabGroup.children[0]);
-      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = [];
+      hl.saved = []; hl.key = null; meshById = {}; msg.hidden = true; items = []; X = inp.x || {}; texN = 0; unitById = {}; upos = {}; dpos = {}; uRuns = []; planShown = !!inp.showCabinets;
       wg = {}; [1, 2].forEach(function (w) { wg[w] = new T.Group(); cabGroup.add(wg[w]); });
       WALL[1] = inp.wall1Mm; WALL[2] = inp.wall2Mm;
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000); wg[1].updateMatrixWorld(true);
@@ -1441,7 +1442,7 @@
         if (X.light) out.push('under-cabinet lighting');
         return out;
       }
-      root.agLayout = { freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: root.agLayout.current, capture: capture, sketchLegend: sketchLegend, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      root.agLayout = { planError: function () { return planShown && plan && plan.errors && plan.errors.length ? plan.errors[0] : ''; }, freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: root.agLayout.current, capture: capture, sketchLegend: sketchLegend, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
   }

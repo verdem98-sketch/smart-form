@@ -224,6 +224,7 @@
     const itemDone = n => isRow(n) ? rowMm(n) > 0 : answered(n);
     function check() {
       if (step === 1 || step === 2) { const miss = itemsOf(step).find(n => !itemDone(n)); if (miss) return miss; }
+      if (step >= 2) { const pe = window.pLayout && typeof window.pLayout.planError === 'function' ? window.pLayout.planError() : ''; if (pe) return pe + ' Поправете размерите или избора, за да продължите.'; }
       if (step >= 3 && step <= 6 && !deepShown) {
         const f = vision[step - 3].querySelector('input[type="hidden"][name$="_finish"]');
         if (!(f && f.value)) return 'Изберете материал, за да продължим.';

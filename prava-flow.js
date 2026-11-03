@@ -142,6 +142,7 @@
       if(step===1) {
         if(dimMissing(['len_prava_3','height_prava_3'])) return 'Въведете всички приложими размери.';
       }
+      if(step>=2){ const pe=window.pravaLayout&&typeof window.pravaLayout.planError==='function'?window.pravaLayout.planError():''; if(pe) return pe+' Поправете размерите или избора, за да продължите.'; }
       return '';
     }
     function render(scroll) {
@@ -168,7 +169,7 @@
       const control=event.target.closest('[data-prava-nav],.prava-back-control-v3'); if(!control)return;
       event.preventDefault();
       if(control.dataset.pravaNav==='next') {
-        const message=check(); if(message){if(step===2)showMissingQuestion(firstMissingQuestion());else{error.textContent=message;error.hidden=false;}return;} go(step+1);
+        const message=check(); if(message){const mq=step===2?firstMissingQuestion():null; if(mq)showMissingQuestion(mq);else{clearConfigValidation();error.textContent=message;error.hidden=false;}return;} go(step+1);
       } else if(step>1) go(step-1);
     });
     window.pravaGoToStep=function(n,scroll){go(legacyToStep(Number(n)),scroll===undefined?true:scroll);};

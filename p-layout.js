@@ -40,6 +40,7 @@
 
   /* cfg: wall1Mm, wall2Mm, wall3Mm (whole walls), heightMm, waterWall (1|2|3), ovenTower, fridge ('built_in'|'free_standing'|null), dishwasherMm,
           washer, microwave, coffee (built-in), basket, chimney ('left'|'right'|null), chimneyAMm (along the side wall), chimneyBMm (along the back wall), deep */
+function cmTxt(v) { return Math.round(v / 10) + ' см'; }
   function planU(cfg) {
     var errors = [], L = { 1: Math.round(cfg.wall1Mm || 0), 2: Math.round(cfg.wall2Mm || 0), 3: Math.round(cfg.wall3Mm || 0) };
     var res = { wallMm: L, errors: errors, chimney: cfg.chimney || null, walls: {} };
@@ -93,7 +94,7 @@
     WALLS.forEach(function (w) { moveOut(w, movable, false); });
     WALLS.forEach(function (w) { moveOut(w, movable, true); });
     WALLS.forEach(function (w) {
-      if (need(w) > avail[w]) errors.push('Стена ' + w + ': избраните модули изискват ' + need(w) + ' мм, а наличната дължина е само ' + avail[w] + ' мм.');
+      if (need(w) > avail[w]) errors.push('Стена ' + w + ' е твърде къса: избраните уреди и шкафове изискват ' + cmTxt(need(w)) + ', а свободната дължина (след ъглите) е ' + cmTxt(avail[w]) + '. Увеличете стената или преместете водата/уредите на друга стена.');
     });
     if (errors.length) return res;
     WALLS.forEach(function (w) {
@@ -290,7 +291,7 @@
     ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) { legend.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
 
     var T, renderer, scene, camera, controls, ray, mouse, roomGroup, cabGroup, dropMark, wg = {};
-    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, dorder = null, dpos = {}, layerIds = { u: [], d: [] }, upos = {}, uRuns = [], order = { 1: [], 2: [], 3: [] }, items = [], plan = null, inputsSig = '', fitSig = '';
+    var failed = false, moveMode = false, panMode = false, bounds = { x: 4, y: 2.6, z: 4 }, dirty = false, uorder = null, dorder = null, dpos = {}, layerIds = { u: [], d: [] }, upos = {}, uRuns = [], order = { 1: [], 2: [], 3: [] }, items = [], plan = null, planShown = false, inputsSig = '', fitSig = '';
     var mats = {}, drag = null, unitById = {};
 
     /* ---------------- inputs from the page */
@@ -820,6 +821,7 @@
       wg[1].rotation.y = Math.PI / 2; wg[1].position.set(0, 0, inp.wall1Mm / 1000);
       wg[3].rotation.y = -Math.PI / 2; wg[3].position.set(inp.wall2Mm / 1000, 0, 0);
       WALLS.forEach(function (w) { wg[w].updateMatrixWorld(true); });
+      planShown = !!inp.showCabinets;
       if (!inp.showCabinets) { plan = null; return; }
       var cfgPlan = { wall1Mm: inp.wall1Mm, wall2Mm: inp.wall2Mm, wall3Mm: inp.wall3Mm, heightMm: inp.heightMm, kitchenHMm: inp.kitchenHMm, waterWall: inp.waterWall, ovenTower: inp.ovenTower, fridge: inp.fridge, dishwasherMm: inp.dishwasherMm, washer: inp.washer, microwave: inp.microwave, coffee: inp.coffee, basket: !!(inp.x && inp.x.bottle), chimney: inp.chimney, chimneyAMm: inp.chimneyAMm, chimneyBMm: inp.chimneyBMm, deep: inp.deep };
       plan = planU(cfgPlan);
@@ -1540,7 +1542,7 @@
         var t0 = Date.now();
         return new Promise(function (ok) { (function poll() { readInputs(); if (!pendingLoads || Date.now() - t0 > 12000) { inputsSig = ''; try { sync(true); } catch (e) { /* keep */ } ok(); return; } setTimeout(poll, 120); })(); });
       }
-      root.pLayout = { freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: root.pLayout.current, capture: capture, sketchLegend: sketchLegend, whenReady: whenReady, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
+      root.pLayout = { planError: function () { return planShown && plan && plan.errors && plan.errors.length ? plan.errors[0] : ''; }, freeApps: function () { var r = renderer && renderer.domElement.getBoundingClientRect(), out = {}; Object.keys(FREE.pos).forEach(function (k) { var g = freeG[k], o = { wall: FREE.pos[k].wall, xMm: Math.round(FREE.pos[k].x) }; if (g && r && camera) { var v = new T.Vector3(); g.updateMatrixWorld(true); v.setFromMatrixPosition(g.matrixWorld); v.y += BH + .15; v.project(camera); o.screen = { x: Math.round(r.left + (v.x + 1) / 2 * r.width), y: Math.round(r.top + (1 - v.y) / 2 * r.height) }; } out[k] = o; }); return out; }, refresh: soon, current: root.pLayout.current, capture: capture, sketchLegend: sketchLegend, whenReady: whenReady, editor: { select: function (s) { setMode('edit', true); edSelect(s); }, close: function () { edClose(); }, state: function () { return { EDIT: EDIT, sel: sel, note: edNote, html: edBox.innerHTML }; }, act: function (a, v) { var b = document.createElement('button'); b.dataset.ed = a; if (v !== undefined) b.dataset.v = v; edBox.appendChild(b); b.click(); b.remove(); } }, debug: function () { return { scene: scene, camera: camera, plan: plan, items: items, order: order }; } };
       soon();
     }).catch(fail);
   }
