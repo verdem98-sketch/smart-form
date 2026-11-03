@@ -46,12 +46,15 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
     if (chim && (!A || !B)) { errors.push('Въведете размерите A и B на комина.'); return res; }
     // with a chimney each run starts after a 60 mm filler (пас). A run never starts closer than the depth of the opposite run (600) + the filler,
     // i.e. 66 cm from the opposite wall when the chimney is narrower than 60 cm; a wider chimney pushes it out to chimney + filler
-    var start1 = chim ? Math.max(A, BASE_DEPTH) + PAS : 0, cornerUnit = !chim, start2 = chim ? Math.max(B, BASE_DEPTH) + PAS : BASE_DEPTH;
-    res.pas = chim ? { wall1: { from: start1 - PAS, to: start1 }, wall2: { from: start2 - PAS, to: start2 }, block: { x1: start2 - PAS, z1: start1 - PAS } } : null;
-    var avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
-    res.walls[1].startMm = start1; res.walls[2].startMm = start2;
-    var waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
-    var place = { 1: [], 2: [] };
+    var start2 = chim ? Math.max(B, BASE_DEPTH) + PAS : BASE_DEPTH, waterWall = cfg.waterWall === 2 ? 2 : 1, other = waterWall === 1 ? 2 : 1;
+    // The corner is a 900 mm corner cabinet on wall 1 when it fits. When it does not (short wall 1), the corner is a
+    // closed "dead" block: wall 1's run then starts after the 600 mm depth of wall 2's run, like next to a chimney.
+    var start1, cornerUnit, avail, place;
+    function need(w) { return sumW(place[w].map(function (i) { return i.module; })); }
+    function distribute(withCorner) {
+      start1 = chim ? Math.max(A, BASE_DEPTH) + PAS : withCorner ? 0 : BASE_DEPTH; cornerUnit = withCorner;
+      avail = { 1: Math.max(0, L1 - start1 - (cornerUnit ? CORNER_UNIT : 0)), 2: Math.max(0, L2 - start2) };
+      place = { 1: [], 2: [] };
     function put(wall, key, m) { place[wall].push({ key: key, module: m }); }
     put(waterWall, 'sinkBase', fixedMod('sinkBase', 600, 'water'));
     if (cfg.dishwasherMm) put(waterWall, 'dishwasher', fixedMod('dishwasher', cfg.dishwasherMm, 'water'));
@@ -63,7 +66,6 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
     } else put(other, 'ovenHobBase', fixedMod('ovenHobBase', 600, 'cooking', ['oven']));
     if (cfg.basket) put(other, 'basket', fixedMod('basket', 150, 'cooking'));
     if (cfg.fridge) put(other, 'fridge', fixedMod('fridge', 600, 'tall', null, { applianceType: cfg.fridge }));
-    function need(w) { return sumW(place[w].map(function (i) { return i.module; })); }
     function move(from, keys) {
       keys.forEach(function (key) {
         if (need(from) <= avail[from]) return;
@@ -76,8 +78,15 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
     }
     move(other, ['fridge', 'ovenTower', 'basket']);
     move(waterWall, ['washingMachine', 'dishwasher']);
+      return need(1) <= avail[1] && need(2) <= avail[2];
+    }
+    if (!distribute(!chim) && !chim) distribute(false);   // the corner cabinet does not fit: dead corner instead
+    res.deadCorner = !chim && !cornerUnit;
+    res.pas = chim ? { wall1: { from: start1 - PAS, to: start1 }, wall2: { from: start2 - PAS, to: start2 }, block: { x1: start2 - PAS, z1: start1 - PAS }, pasMm: PAS }
+      : res.deadCorner ? { wall1: { from: start1, to: start1 }, wall2: { from: start2, to: start2 }, block: { x1: start2, z1: start1 }, pasMm: 0 } : null;
+    res.walls[1].startMm = start1; res.walls[2].startMm = start2;
     [1, 2].forEach(function (w) {
-      if (need(w) > avail[w]) errors.push('Стена ' + w + ' е твърде къса: избраните уреди и шкафове изискват ' + cmTxt(need(w)) + ', а свободната дължина' + (w === 1 && cornerUnit ? ' след ъгловия шкаф (90 см)' : '') + ' е ' + cmTxt(avail[w]) + '. Увеличете стената, преместете водата или уредите на другата стена, или изберете права кухня.');
+      if (need(w) > avail[w]) errors.push('Стена ' + w + ' е твърде къса: избраните уреди и шкафове изискват ' + cmTxt(need(w)) + ', а свободната дължина' + (w === 1 && cornerUnit ? ' след ъгловия шкаф (90 см)' : w === 1 && res.deadCorner ? ' след ъгъла' : '') + ' е ' + cmTxt(avail[w]) + '. Увеличете стената, преместете водата или уредите на другата стена, или изберете права кухня.');
     });
     if (errors.length) return res;
     [1, 2].forEach(function (w) {
@@ -799,7 +808,7 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
       var cA = plan.pas ? (inp.chimneyAMm || 0) : 0, cB = plan.pas ? (inp.chimneyBMm || 0) : 0, dS = Math.round((UPPER.depth + FT) * 1000), dD = Math.round((TOPROW.depth + FT) * 1000);
       var s2s = cA >= dS ? cB : Math.max(cB, dS), s2d = inp.deep ? (cA >= dD ? cB : Math.max(cB, dD)) : s2s, st1 = plan.walls[1].startMm, st2 = plan.walls[2].startMm;
       deepCut = Math.max(0, s2d - s2s);
-      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? Math.max(0, st1 - cA) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
+      [1, 2].forEach(function (w) { upperRuns(w, position(plan.walls[w].modules, plan.walls[w].startMm).items, w === 1 ? (plan.deadCorner ? 0 : Math.max(0, st1 - cA)) : Math.max(0, st2 - s2s)).forEach(function (r) { uRuns.push(r); r.units.forEach(function (u) { unitById[u.id] = u; }); }); });
       edMergeUp(uRuns); edApplySlots(uRuns);   // upper cabinets merged / resized in the ✎ editor
       // the standard upper row and the deep row above it are two independent layers, each with its own order (slots keep their widths, the unit moves into the slot)
       function layer(ord) {
@@ -847,7 +856,7 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
       if (plan.pas) {
         var pf = function (w, a, b, onlyUpper) {
           var x = lc(w, (a + b) / 2), parts = [];
-          if (!onlyUpper) parts.push(pasLower((b - a) / 1000));
+          if (!onlyUpper && b > a) parts.push(pasLower((b - a) / 1000));
           parts.forEach(function (g) { g.position.x = x; g.userData = { filler: true }; wg[w].add(g); });
         };
         pf(1, plan.pas.wall1.from, plan.pas.wall1.to); pf(2, plan.pas.wall2.from, plan.pas.wall2.to);
@@ -865,8 +874,8 @@ function cmTxt(v) { return Math.round(v / 10) + ' см'; }
         items.filter(function (m) { return m.wall === w; }).forEach(function (m) { if (TALL[m.type]) segs.push(null); else if (!segs.length || segs[segs.length - 1] === null) segs.push([m.x, m.x + m.w]); else segs[segs.length - 1][1] = m.x + m.w; });
         segs.filter(Boolean).forEach(function (s) {
           var a = s[0], b = s[1];
-          if (plan.pas && a === wl.startMm) a -= PAS;
-          if (w === 2 && !inp.chimney && a === wl.startMm) a += 20;
+          if (plan.pas && a === wl.startMm) a -= plan.pas.pasMm;
+          if (w === 2 && !plan.pas && a === wl.startMm) a += 20;
           CUT.tops.push({ x: Math.round(a), len: Math.round(b - a), d: Math.round((D + .02) * 1000), wall: typeof w === 'number' ? w : 1 }); var top = new T.Group(); box((b - a) / 1000, WT, D + .02, mats.top, lc(w, (a + b) / 2), BH - WT / 2, (D + .02) / 2, top); top.userData = { top: true }; wg[w].add(top);
         });
       });
