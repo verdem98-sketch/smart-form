@@ -230,6 +230,7 @@
       var rv = null; try { rv = p.review_json ? JSON.parse(p.review_json) : null; } catch (e) { rv = null; }
       return '<div class="sp-h" data-id="' + esc(p.id) + '"><p class="sp-meta"><span class="sp-st ' + p.status + '">' + (STATUS[p.status] || p.status) + '</span>' +
         esc(FIELD[p.field]) + ' · <a href="https://verde-m.com' + esc(p.path) + '" target="_blank" rel="noopener">' + esc(p.path) + '</a> · ' + bgTime(p.decided_at || p.created_at) + '</p>' +
+        (p.status === 'applied' || p.status === 'reverted' ? '<p class="sp-old" style="margin:0 0 2px">' + esc((p.old_value != null ? p.old_value : p.current_value) || '(празно)') + '</p>' : '') +
         '<div style="font-size:13px">' + esc(p.final_value || p.proposed_value) + '</div>' +
         (rv ? '<p class="sp-q">След 4 седмици: <b>' + esc(rv.verdict) + '</b> – кликове ' + rv.before.clicks + ' → ' + rv.after.clicks + ', показвания ' + rv.before.impressions + ' → ' + rv.after.impressions + '.</p>' : '') +
         (p.status === 'applied' ? '<div class="sp-acts" style="margin-top:6px"><button type="button" class="va-btn sm" data-act="revert">↶ Върни стария текст</button></div>' : '') +
