@@ -66,7 +66,7 @@
     function schedulePoll() {
       clearTimeout(state.timer);
       if (state.view !== 'project' || !state.p) return;
-      var open = state.p.scenes.some(function (s) { return s.renders.some(function (r) { return r.status === 'queued' || r.status === 'in_progress'; }); });
+      var open = state.p.scenes.some(function (s) { return s.renders.concat(s.videos || []).some(function (r) { return r.status === 'queued' || r.status === 'in_progress'; }); });
       if (open) state.timer = setTimeout(function () { call({ action: 'project_get', id: state.p.project.id }).then(function (d) { if (d.ok) { state.p = d; render(); } }); }, 6000);
     }
 
@@ -104,6 +104,13 @@
     }
     function render() {
       panel.innerHTML = '<div class="vs">' + (state.view === 'project' && state.p ? renderProject() : renderList()) + '</div>';
+      if (state.view === 'project' && state.p && window.__vsVideo) {
+        // the video editor keeps its own state (progress, results), so its box survives re-renders
+        if (state.videoFor !== state.p.project.id) { state.videoFor = state.p.project.id; state.videoBox = el('div'); state.videoUi = null; }
+        panel.querySelector('.vs').appendChild(state.videoBox);
+        var ctx = { project: function () { return state.p; }, refresh: function () { return call({ action: 'project_get', id: state.p.project.id }).then(function (d) { if (d.ok) { state.p = d; render(); } }); } };
+        if (!state.videoUi) state.videoUi = window.__vsVideo.mount(state.videoBox, ctx); else state.videoUi.refresh();
+      }
       schedulePoll();
     }
 
