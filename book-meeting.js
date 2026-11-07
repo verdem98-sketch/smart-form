@@ -10,6 +10,9 @@
   if (!card || card.dataset.ready) return;
   card.dataset.ready = '1';
   var box = null; // the modal's content, created on first open
+  var LS = 'verdeMeetingRequest';
+  function sent() { try { var v = JSON.parse(localStorage.getItem(LS) || 'null'); return v && v.date >= new Date().toISOString().slice(0, 10) ? v : null; } catch (e) { return null; } }
+  function remember(v) { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) { /* ignore */ } }
 
   var DAY = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -99,6 +102,7 @@
           if (!d.ok) { msg.className = 'vb-msg err'; msg.textContent = d.error || 'Нещо се обърка. Моля, опитайте отново или ни се обадете.'; btn.disabled = false; btn.textContent = 'Изпратете заявката за среща'; return; }
           try { if (window.fbq) window.fbq('track', 'Schedule'); } catch (x) { /* ignore */ }
           try { if (window.gtag) window.gtag('event', 'meeting_request', { method: 'contact_page' }); } catch (x) { /* ignore */ }
+          remember({ number: d.number || '', date: picked.date, slot: picked.slot });
           card.querySelector('.vb-open').textContent = 'Заявката е изпратена ✓';
           box.innerHTML = '<div class="vb"><div class="vb-ok"><b>Благодарим Ви!</b> Получихме заявката ' + esc(d.number || '') + (d.slot === 'conflict' ? '. Избраният час междувременно беше зает – ще се свържем с Вас за друг.' : '. Ще се свържем с Вас, за да потвърдим часа, обикновено до 1 работен ден. Изпратихме Ви и e-mail.') + '</div></div>';
         })
@@ -120,6 +124,12 @@
       box = modal.querySelector('.vb-body');
       modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('.vb-close')) closeModal(); });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+      var prev = sent();
+      if (prev) {
+        box.innerHTML = '<div class="vb"><div class="vb-ok"><b>Вече имате заявка за среща</b>' + (prev.number ? ' (' + esc(prev.number) + ')' : '') + ' – ' + esc(prev.date.split('-').reverse().join('.')) + ', ' + esc(prev.slot) + '. Ще се свържем с Вас, за да я потвърдим. За промяна отговорете на e-mail-а или ни се обадете на 0878 861 059.</div></div>';
+        modal.hidden = false; document.body.style.overflow = 'hidden';
+        return;
+      }
       box.innerHTML = '<div class="vb"><p class="vb-sub">Зареждам свободните часове…</p></div>';
       fetch(API + '?availability=1').then(function (r) { return r.json(); })
         .then(function (d) { render(d && (d.ok || d.startDate) ? d : { blocked: [], taken: [] }); })
@@ -128,6 +138,7 @@
     modal.hidden = false; document.body.style.overflow = 'hidden';
   }
   function closeModal() { if (modal) modal.hidden = true; document.body.style.overflow = ''; }
+  if (sent()) card.querySelector('.vb-open').textContent = 'Заявката е изпратена ✓';
   card.querySelector('.vb-open').addEventListener('click', openModal);
   // a link anywhere on the site can open the calendar: href="#zapazete-sreshta"
   if (location.hash === '#zapazete-sreshta') openModal();
