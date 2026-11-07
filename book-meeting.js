@@ -1,13 +1,15 @@
-/* "Запазете среща" – standalone booking widget (first used on /contact-us). Renders into the element with
-   id="verde-booking". Same rules as the kitchen configurator's calendar: from the day after tomorrow, weekdays only,
-   two hours a day, seven days with free hours, days closed in "Blocked Dates" and hours taken in "Booked Slots" are
-   greyed out. Data and the request go through /contract-automation/api/meeting. Clients are addressed with „Вие“. */
+/* "Запазете среща" – standalone booking (first used on /contact-us). Fills the card with id="verde-booking-card"
+   (1–2 sentences + a button) and opens a modal with the calendar. Rules: from the 3rd working day after today
+   (weekends and Bulgarian holidays skipped – the server decides), two hours a day, seven days with free hours; days
+   closed in "Blocked Dates" and hours taken in "Booked Slots" are greyed out. Requests go through
+   /contract-automation/api/meeting. Clients are addressed with „Вие“. */
 (function () {
   'use strict';
   var API = location.origin + '/contract-automation/api/meeting';
-  var box = document.getElementById('verde-booking');
-  if (!box || box.dataset.ready) return;
-  box.dataset.ready = '1';
+  var card = document.getElementById('verde-booking-card');
+  if (!card || card.dataset.ready) return;
+  card.dataset.ready = '1';
+  var box = null; // the modal's content, created on first open
 
   var DAY = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -17,7 +19,12 @@
   function css() {
     var s = document.createElement('style');
     s.textContent = [
-      '#verde-booking{padding:40px 5% 56px}.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f;max-width:760px;margin:0 auto}',
+      '.vb-card h3{font:700 22px/1.2 Montserrat,Arial,sans-serif;margin:0 0 10px}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
+      '.vb-open{display:inline-block;padding:11px 20px;border:0;border-radius:8px;background:#477448;color:#fff;font:700 14px Montserrat,Arial,sans-serif;cursor:pointer}',
+      '.vb-modal{position:fixed;inset:0;z-index:9999;background:rgba(47,51,47,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}',
+      '.vb-dialog{position:relative;width:100%;max-width:820px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}',
+      '.vb-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border:0;border-radius:18px;background:#f3f4f1;font:700 18px Arial,sans-serif;color:#2f332f;cursor:pointer}',
+      '.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f}',
       '.vb h3{font:700 22px/1.25 Montserrat,Arial,sans-serif;margin:0 0 6px}.vb .vb-sub{color:#6a716b;margin:0 0 18px}',
       '.vb-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 18px}',
       '.vb-day{border:1px solid #e1e4df;border-radius:12px;padding:10px}.vb-day.is-off{opacity:.55}',
@@ -39,7 +46,9 @@
     var slots = av.slots || ['10:00–12:00', '14:00–16:00'], blocked = av.blocked || [], taken = av.taken || [];
     var takenKey = {}; taken.forEach(function (t) { takenKey[t.date + '|' + t.time] = 1; });
     var isFree = function (d, s) { return blocked.indexOf(d) < 0 && !takenKey[d + '|' + s]; };
-    var days = '', cur = new Date(); cur.setHours(12, 0, 0, 0); cur.setDate(cur.getDate() + (av.startOffsetDays || 2));
+    var days = '', cur;
+    if (av.startDate && /^\d{4}-\d{2}-\d{2}$/.test(av.startDate)) { var sp = av.startDate.split('-'); cur = new Date(Number(sp[0]), Number(sp[1]) - 1, Number(sp[2]), 12); }
+    else { cur = new Date(); cur.setHours(12, 0, 0, 0); cur.setDate(cur.getDate() + 3); }
     var added = 0, guard = 0;
     while (added < (av.daysToShow || 7) && guard++ < 90) {
       var wd = cur.getDay();
@@ -52,7 +61,7 @@
       }
       cur.setDate(cur.getDate() + 1);
     }
-    box.innerHTML = '<div class="vb"><h3>Запазете час за среща в офиса</h3><p class="vb-sub">Изберете свободен час – ще се свържем с Вас, за да го потвърдим. В офиса ни на ул. Пиротска 86 получавате професионална консултация и безплатна 3D визуализация и проект.</p>' +
+    box.innerHTML = '<div class="vb"><h3>Запазете час за среща в офиса</h3><p class="vb-sub">Изберете свободен час – ще се свържем с Вас, за да го потвърдим. Срещите се запазват най-малко 3 работни дни предварително.</p>' +
       '<div class="vb-days">' + days + '</div>' +
       '<div class="vb-pick" data-pick hidden></div>' +
       '<form class="vb-form" novalidate>' +
@@ -89,6 +98,7 @@
           if (!d.ok) { msg.className = 'vb-msg err'; msg.textContent = d.error || 'Нещо се обърка. Моля, опитайте отново или ни се обадете.'; btn.disabled = false; btn.textContent = 'Изпратете заявката за среща'; return; }
           try { if (window.fbq) window.fbq('track', 'Schedule'); } catch (x) { /* ignore */ }
           try { if (window.gtag) window.gtag('event', 'meeting_request', { method: 'contact_page' }); } catch (x) { /* ignore */ }
+          card.querySelector('.vb-open').textContent = 'Заявката е изпратена ✓';
           box.innerHTML = '<div class="vb"><div class="vb-ok"><b>Благодарим Ви!</b> Получихме заявката ' + esc(d.number || '') + (d.slot === 'conflict' ? '. Избраният час междувременно беше зает – ще се свържем с Вас за друг.' : '. Ще се свържем с Вас, за да потвърдим часа, обикновено до 1 работен ден. Изпратихме Ви и e-mail.') + '</div></div>';
         })
         .catch(function () { msg.className = 'vb-msg err'; msg.textContent = 'Няма връзка със сървъра. Моля, опитайте отново или ни се обадете на 0878 861 059.'; btn.disabled = false; btn.textContent = 'Изпратете заявката за среща'; });
@@ -96,8 +106,27 @@
   }
 
   css();
-  box.innerHTML = '<div class="vb"><p class="vb-sub">Зареждам свободните часове…</p></div>';
-  fetch(API + '?availability=1').then(function (r) { return r.json(); })
-    .then(function (d) { render(d && d.ok ? d : { slots: d && d.slots, blocked: [], taken: [] }); })
-    .catch(function () { render({ blocked: [], taken: [] }); });
+  card.classList.add('vb-card');
+  card.innerHTML = '<h3>Запазете час за среща</h3><p>Изберете удобен ден и час онлайн – без обаждане. Ще потвърдим срещата по e-mail или телефон до 1 работен ден.</p><button type="button" class="vb-open">Запазете час онлайн</button>';
+  var modal = null;
+  function openModal() {
+    if (!modal) {
+      modal = document.createElement('div'); modal.className = 'vb-modal'; modal.hidden = true;
+      modal.innerHTML = '<div class="vb-dialog" role="dialog" aria-modal="true" aria-label="Запазете час за среща"><button type="button" class="vb-close" aria-label="Затвори">×</button><div class="vb-body"></div></div>';
+      document.body.appendChild(modal);
+      box = modal.querySelector('.vb-body');
+      modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('.vb-close')) closeModal(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+      box.innerHTML = '<div class="vb"><p class="vb-sub">Зареждам свободните часове…</p></div>';
+      fetch(API + '?availability=1').then(function (r) { return r.json(); })
+        .then(function (d) { render(d && (d.ok || d.startDate) ? d : { blocked: [], taken: [] }); })
+        .catch(function () { render({ blocked: [], taken: [] }); });
+    }
+    modal.hidden = false; document.body.style.overflow = 'hidden';
+  }
+  function closeModal() { if (modal) modal.hidden = true; document.body.style.overflow = ''; }
+  card.querySelector('.vb-open').addEventListener('click', openModal);
+  // a link anywhere on the site can open the calendar: href="#zapazete-sreshta"
+  if (location.hash === '#zapazete-sreshta') openModal();
+  document.addEventListener('click', function (e) { var a = e.target.closest('a[href="#zapazete-sreshta"]'); if (a) { e.preventDefault(); openModal(); } });
 })();
