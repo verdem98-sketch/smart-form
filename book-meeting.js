@@ -17,7 +17,7 @@
   function css() {
     var s = document.createElement('style');
     s.textContent = [
-      '.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f;max-width:760px}',
+      '#verde-booking{padding:40px 5% 56px}.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f;max-width:760px;margin:0 auto}',
       '.vb h3{font:700 22px/1.25 Montserrat,Arial,sans-serif;margin:0 0 6px}.vb .vb-sub{color:#6a716b;margin:0 0 18px}',
       '.vb-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 18px}',
       '.vb-day{border:1px solid #e1e4df;border-radius:12px;padding:10px}.vb-day.is-off{opacity:.55}',
