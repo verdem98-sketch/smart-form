@@ -19,7 +19,7 @@
   function css() {
     var s = document.createElement('style');
     s.textContent = [
-      '.vb-card h3{font:700 22px/1.2 Montserrat,Arial,sans-serif;margin:0 0 10px}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
+      '#verde-booking-card-wrap{display:block!important}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
       '.vb-open{display:inline-block;padding:11px 20px;border:0;border-radius:8px;background:#477448;color:#fff;font:700 14px Montserrat,Arial,sans-serif;cursor:pointer}',
       '.vb-modal{position:fixed;inset:0;z-index:9999;background:rgba(47,51,47,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}',
       '.vb-dialog{position:relative;width:100%;max-width:820px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}',
@@ -107,7 +107,7 @@
 
   css();
   card.classList.add('vb-card');
-  card.innerHTML = '<h3>Запазете час за среща</h3><p>Изберете удобен ден и час онлайн – без обаждане. Ще потвърдим срещата по e-mail или телефон до 1 работен ден.</p><button type="button" class="vb-open">Запазете час онлайн</button>';
+  card.innerHTML = '<p>Изберете удобен ден и час онлайн – без обаждане. Ще потвърдим срещата по e-mail или телефон до 1 работен ден.</p><button type="button" class="vb-open">Запазете час онлайн</button>';
   var modal = null;
   function openModal() {
     if (!modal) {
