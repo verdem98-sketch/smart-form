@@ -19,9 +19,9 @@
   function css() {
     var s = document.createElement('style');
     s.textContent = [
-      '#verde-booking-card-wrap{display:block!important}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
+      '#verde-booking-card-wrap{display:block!important}@media(min-width:992px){.worktm-wrap>.worktime,.worktm-wrap>.div-block-83{flex:1 1 0;min-width:0}}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
       '.vb-open{display:inline-block;padding:11px 20px;border:0;border-radius:8px;background:#477448;color:#fff;font:700 14px Montserrat,Arial,sans-serif;cursor:pointer}',
-      '.vb-modal{position:fixed;inset:0;z-index:9999;background:rgba(47,51,47,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}',
+      '.vb-modal[hidden]{display:none!important}.vb-modal{position:fixed;inset:0;z-index:9999;background:rgba(47,51,47,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}',
       '.vb-dialog{position:relative;width:100%;max-width:820px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}',
       '.vb-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border:0;border-radius:18px;background:#f3f4f1;font:700 18px Arial,sans-serif;color:#2f332f;cursor:pointer}',
       '.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f}',
@@ -67,7 +67,7 @@
       '<form class="vb-form" novalidate>' +
       '<div><label>Име и фамилия *</label><input name="name" required maxlength="120" autocomplete="name"></div>' +
       '<div><label>E-mail *</label><input name="email" type="email" required maxlength="160" autocomplete="email"></div>' +
-      '<div><label>Телефон</label><input name="phone" type="tel" maxlength="40" autocomplete="tel"></div>' +
+      '<div><label>Телефон *</label><input name="phone" type="tel" required maxlength="40" autocomplete="tel"></div>' +
       '<div><label>За какво е срещата</label><select name="topic"><option value="kitchen">Кухня</option><option value="bedroom">Спалня / гардероб</option><option value="other">Друго обзавеждане</option><option value="project">Имам проект от конфигуратора</option></select></div>' +
       '<div class="full"><label>Бележка (по желание)</label><textarea name="note" maxlength="600" placeholder="Размери, идеи, въпроси…"></textarea></div>' +
       '<div class="vb-hp"><label>Website</label><input name="website" tabindex="-1" autocomplete="off"></div>' +
@@ -91,6 +91,7 @@
       if (!picked) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, първо изберете ден и час от календара.'; return; }
       if (!f.name.value.trim()) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, напишете името си.'; f.name.focus(); return; }
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.value.trim())) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, напишете валиден e-mail.'; f.email.focus(); return; }
+      if (f.phone.value.replace(/\D/g, '').length < 6) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, напишете телефон за връзка.'; f.phone.focus(); return; }
       var btn = form.querySelector('.vb-btn'); btn.disabled = true; btn.textContent = 'Изпращам…';
       fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name.value, email: f.email.value, phone: f.phone.value, topic: f.topic.value, note: f.note.value, website: f.website.value, date: picked.date, slot: picked.slot }) })
         .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Сървърът не отговори (' + r.status + ')' }; }); })
@@ -107,6 +108,8 @@
 
   css();
   card.classList.add('vb-card');
+  var wrap = document.getElementById('verde-booking-card-wrap');
+  if (wrap && !wrap.querySelector('.time')) { var t = document.createElement('div'); t.className = 'time'; t.textContent = 'Запазете час:'; wrap.insertBefore(t, wrap.firstChild); }
   card.innerHTML = '<p>Изберете удобен ден и час онлайн – без обаждане. Ще потвърдим срещата по e-mail или телефон до 1 работен ден.</p><button type="button" class="vb-open">Запазете час онлайн</button>';
   var modal = null;
   function openModal() {
