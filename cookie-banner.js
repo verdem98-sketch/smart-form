@@ -15,7 +15,7 @@
     '@keyframes vcb-in{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}',
     '#vcb .vcb-head{display:flex;align-items:center;gap:12px;margin:0 0 10px}',
     '#vcb .vcb-ico{flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:#eef4ee;display:grid;place-items:center}',
-    '#vcb h4{font:700 16px/1.25 Montserrat,Arial,sans-serif;margin:0;color:#141414}',
+    '#vcb h4{font:700 16px/1.25 Montserrat,Arial,sans-serif;margin:0;color:#141414;text-transform:none;letter-spacing:0}',
     '#vcb p{margin:0 0 16px;font-size:13.5px;color:#555c56}',
     '#vcb .vcb-acts{display:flex;gap:10px;align-items:center}',
     '#vcb .vcb-btn{flex:1 1 0;display:inline-block;text-align:center;padding:12px 14px;border-radius:10px;font:700 13px/1 Montserrat,Arial,sans-serif;letter-spacing:.02em;text-transform:uppercase;text-decoration:none;cursor:pointer;transition:all .25s;border:1.5px solid #141414;box-sizing:border-box}',
