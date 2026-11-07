@@ -59,20 +59,41 @@
         if (!d.ok) { flash(d.error || 'Грешка', true); return d; }
         if (d.project) { state.p = d; state.view = 'project'; }
         if (d.projects) state.projects = d.projects;
+        if (d.concepts) state.concepts = d.concepts;
         render(); if (after) after(d); return d;
       }).catch(function (e) { setBusy(false); flash('Няма връзка със сървъра: ' + e.message, true); });
     }
     function flash(msg, isErr) { var f = panel.querySelector('[data-flash]'); if (f) { f.className = isErr ? 'va-err' : 'va-muted'; f.textContent = msg; } }
     function schedulePoll() {
       clearTimeout(state.timer);
+      if (state.view === 'list') {
+        if ((state.concepts || []).some(function (c) { return c.status === 'queued' || c.status === 'in_progress'; })) state.timer = setTimeout(function () { call({ action: 'concepts' }).then(function (d) { if (d.ok && state.view === 'list') { state.concepts = d.concepts; render(); } }); }, 6000);
+        return;
+      }
       if (state.view !== 'project' || !state.p) return;
       var open = state.p.scenes.some(function (s) { return s.renders.concat(s.videos || []).some(function (r) { return r.status === 'queued' || r.status === 'in_progress'; }); });
       if (open) state.timer = setTimeout(function () { call({ action: 'project_get', id: state.p.project.id }).then(function (d) { if (d.ok) { state.p = d; render(); } }); }, 6000);
     }
 
+    var PRESETS = [
+      { t: 'Майстор Верди', d: 'A friendly, slightly round carpenter mascot: green work shirt, leather apron with a pocket, pencil behind the ear, bushy moustache, warm smile, holding a yellow tape measure. Kind, trustworthy, a bit funny.' },
+      { t: 'Дъско', d: 'A living wooden furniture board mascot: a rectangular laminated board with visible wood grain, a green edge band around it, big expressive cartoon eyes, a wide smile, thin arms and legs with white gloves and black shoes, a green hard hat. Energetic and cheerful.' },
+      { t: 'Метро', d: 'A living yellow tape measure mascot: round body with a face on the dial, a green belt clip, the tape pulled out showing numbers like an arm, thin legs with green shoes, confident clever expression. Technical but friendly.' }
+    ];
+    function renderConcepts() {
+      var cs = state.concepts || [], styles = { flat: 'Плоска анимация (чисти линии)', pixar: '3D като в анимационен филм', painted: 'Рисуван с четка', sticker: 'Стикер (с бял кант)' };
+      return '<div class="va-card"><h3>Персонаж / илюстрация</h3><p class="va-sub">Опиши героя с няколко изречения (може и на български), избери стил и получи 3 варианта (~0,15 € общо). Можеш да тръгнеш от една от трите ми скици или да качиш своя. Харесан вариант → „Още като този“ дава нови пози и изражения в същия стил.</p>' +
+        '<div class="vs-row" style="margin:0 0 8px">' + PRESETS.map(function (p, i) { return '<button type="button" class="va-btn" data-act="preset" data-i="' + i + '">' + esc(p.t) + '</button>'; }).join('') + '<label class="va-btn" style="display:inline-flex;align-items:center;cursor:pointer">📎 Моя скица<input type="file" accept="image/*" hidden data-ref-file></label><span class="va-muted" data-ref-name></span></div>' +
+        '<div class="vs-tags"><div style="grid-column:1/-1"><label>Описание</label><textarea data-cdesc placeholder="Напр. дружелюбен дърводелец със зелена риза и престилка, молив зад ухото…"></textarea></div><div><label>Име (за списъка)</label><input type="text" data-ctitle placeholder="Майстор Верди"></div><div><label>Стил</label><select data-cstyle>' + Object.keys(styles).map(function (k) { return '<option value="' + k + '">' + esc(styles[k]) + '</option>'; }).join('') + '</select></div></div>' +
+        '<div class="vs-row"><button type="button" class="va-btn pri" data-act="concept">🎨 Нарисувай 3 варианта</button><span data-cflash class="va-muted"></span></div>' +
+        (cs.length ? '<div class="vs-renders" style="margin-top:14px">' + cs.map(function (c) {
+          return '<div class="vs-r">' + (c.status === 'done' ? '<img src="' + esc(c.image_url) + '" data-big="' + esc(c.image_url) + '" style="cursor:zoom-in">' : '<div style="padding:50px 10px;text-align:center;color:' + (c.status === 'failed' ? '#9b1c10' : '#c98a2b') + '">' + (c.status === 'failed' ? esc(c.error || 'грешка') : 'рисува…') + '</div>') +
+            '<div class="st"><b>' + esc(c.title) + '</b> · ' + bgTime(c.created_at) + '</div><div class="vs-row">' + (c.status === 'done' ? '<a class="va-btn" href="' + esc(c.image_url) + '" download target="_blank" rel="noopener" style="text-decoration:none">⬇</a><button type="button" class="va-btn" data-act="more-like" data-url="' + esc(c.image_url) + '" data-title="' + esc(c.title) + '">Още като този</button>' : '') + '<button type="button" class="va-btn danger" data-act="del-concept" data-id="' + esc(c.id) + '">✕</button></div></div>';
+        }).join('') + '</div>' : '') + '</div>';
+    }
     function renderList() {
       var ps = state.projects || [];
-      return '<div class="va-card"><h3>Визуализации</h3><p class="va-sub">Качваш картинките на сцените от SketchUp (File → Export → Animation → картинки), отбелязваш материали и осветление, и художникът рисува реалистична снимка за всяка сцена. Картинките се пазят по проекти.</p>' +
+      return renderConcepts() + '<div class="va-card"><h3>Визуализации</h3><p class="va-sub">Качваш картинките на сцените от SketchUp (File → Export → Animation → картинки), отбелязваш материали и осветление, и художникът рисува реалистична снимка за всяка сцена. Картинките се пазят по проекти.</p>' +
         '<div class="vs-row"><input type="text" data-new-name placeholder="Име на проекта (напр. Кухня Иванови)" style="max-width:320px"><button type="button" class="va-btn pri" data-act="new">+ Нов проект</button><span data-flash class="va-muted"></span></div></div>' +
         '<div class="vs-projects">' + (ps.length ? ps.map(function (p) { return '<div class="vs-proj" data-open="' + esc(p.id) + '"><b>' + esc(p.name) + '</b><span class="va-muted">' + esc(p.client || '') + (p.client ? ' · ' : '') + p.scenes + ' сцени · ' + p.renders + ' снимки · ' + bgTime(p.created_at) + '</span></div>'; }).join('') : '<p class="va-muted">Още няма проекти.</p>') + '</div>';
     }
@@ -141,6 +162,22 @@
       var open = e.target.closest('[data-open]'); if (open) return act({ action: 'project_get', id: open.dataset.open });
       var b = e.target.closest('button[data-act]'); if (!b) return;
       var a = b.dataset.act, id = b.dataset.id;
+      if (a === 'preset') { var pr = PRESETS[Number(b.dataset.i)]; panel.querySelector('[data-cdesc]').value = pr.d; panel.querySelector('[data-ctitle]').value = pr.t; return; }
+      if (a === 'concept' || a === 'more-like') {
+        var desc = panel.querySelector('[data-cdesc]').value.trim(), title = panel.querySelector('[data-ctitle]').value.trim(), style = panel.querySelector('[data-cstyle]').value;
+        var body = { action: 'concept', description: desc, title: title, style: style };
+        if (a === 'more-like') { body.reference_url = b.dataset.url; body.title = b.dataset.title; if (!desc) body.description = 'The same character as in the attached picture, same design and colours, in a new natural pose with a different expression.'; }
+        else if (state.refDataUrl) body.reference_data_url = state.refDataUrl;
+        if (!body.description) { var f0 = panel.querySelector('[data-cflash]'); if (f0) { f0.className = 'va-err'; f0.textContent = 'Опиши героя първо.'; } return; }
+        var fl = panel.querySelector('[data-cflash]'); if (fl) { fl.className = 'va-muted'; fl.textContent = 'Поръчвам 3 варианта…'; }
+        setBusy(true);
+        return Promise.all([0, 1, 2].map(function () { return call(body); })).then(function (rs) {
+          setBusy(false); var last = rs[rs.length - 1]; if (last.ok) state.concepts = last.concepts; render();
+          var f2 = panel.querySelector('[data-cflash]'); if (f2) { f2.className = last.ok ? 'va-muted' : 'va-err'; f2.textContent = last.ok ? 'Художникът рисува – появяват се сами след 1–2 минути.' : (last.error || 'Грешка'); }
+          if (last.ok) { panel.querySelector('[data-cdesc]').value = desc; panel.querySelector('[data-ctitle]').value = title; }
+        }).catch(function (e) { setBusy(false); flash(e.message, true); });
+      }
+      if (a === 'del-concept') return act({ action: 'concept_delete', id: id });
       if (a === 'new') { var n = panel.querySelector('[data-new-name]').value.trim(); if (!n) { flash('Напиши име на проекта.', true); return; } return act({ action: 'project_create', name: n }); }
       if (a === 'back') { state.view = 'list'; return act({ action: 'projects' }); }
       if (a === 'save-project') return act({ action: 'project_update', id: state.p.project.id, name: panel.querySelector('[data-pname]').value, client: panel.querySelector('[data-pclient]').value }, function () { flash('Запазено.'); });
@@ -158,6 +195,8 @@
       if (a === 'prompt') return call({ action: 'render_prompt', id: id }).then(function (d) { alert(d.prompt || d.error || ''); });
     });
     panel.addEventListener('change', function (e) {
+      var rf = e.target.closest('[data-ref-file]');
+      if (rf) { var file = rf.files[0]; if (!file) return; shrink(file).then(function (d) { state.refDataUrl = d; var n = panel.querySelector('[data-ref-name]'); if (n) n.textContent = 'основа: ' + file.name; }); return; }
       var f = e.target.closest('[data-file]'); if (f) { upload(f.files); f.value = ''; return; }
       var t = e.target.closest('select[data-tag], input[data-extra]'); if (t && state.p) { var st = sceneTags(t.dataset.scene); call({ action: 'scene_update', id: t.dataset.scene, name: st.name, tags: st.tags }); }
     });
@@ -166,7 +205,7 @@
     panel.addEventListener('drop', function (e) { var z = e.target.closest('[data-drop]'); if (z) { e.preventDefault(); z.classList.remove('on'); upload(e.dataTransfer.files); } });
 
     panel.innerHTML = '<div class="vs"><div class="va-card"><p class="va-muted" style="margin:0">Зареждам…</p></div></div>';
-    act({ action: 'projects' });
+    act({ action: 'projects' }).then(function () { return call({ action: 'concepts' }); }).then(function (d) { if (d && d.ok) { state.concepts = d.concepts; render(); } });
   }
 
   function mount(bar) {
