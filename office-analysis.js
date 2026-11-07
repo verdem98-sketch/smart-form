@@ -49,7 +49,11 @@
       '.sp-why{font-size:13px;margin:0 0 4px}.sp-exp{font-size:12px;color:#477448;margin:0 0 10px}.sp-acts{display:flex;gap:8px;flex-wrap:wrap}',
       '.va-btn.ok{background:#477448;border-color:#477448;color:#fff}.va-btn.sm{min-height:30px;padding:4px 10px;font-size:12px}',
       '.sp-st{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:9px;margin-right:6px}.sp-st.applied{background:#e3efe3;color:#2f5a30}.sp-st.rejected,.sp-st.stale{background:#eef0ec;color:#6a716b}.sp-st.reverted{background:#f6ead6;color:#8a5a12}.sp-st.failed{background:#f7e1de;color:#9b1c10}',
-      '.sp-h{border-top:1px solid #eef0ec;padding:10px 0}.sp-h:first-child{border-top:0}.sp-q{font-size:12px;color:#6a716b;margin:0 0 8px}'
+      '.sp-h{border-top:1px solid #eef0ec;padding:10px 0}.sp-h:first-child{border-top:0}.sp-q{font-size:12px;color:#6a716b;margin:0 0 8px}',
+      '.cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.cp-card h4{font:700 14px/1.3 Montserrat,Arial,sans-serif;margin:0 0 2px}',
+      '.cp-card .cp-dom{font-size:12px;color:#6a716b;margin:0 0 8px}.cp-card .cp-dom a{color:#477448}.cp-card dl{margin:0;font-size:13px}.cp-card dt{color:#6a716b;font-size:11px;text-transform:uppercase;letter-spacing:.03em;margin:8px 0 2px}.cp-card dd{margin:0}',
+      '.cp-pos td.me{font-weight:700;background:#f3f7f2}.cp-pos td.c{text-align:center}.cp-pos th.c{text-align:center}.cp-pos .best{color:#477448;font-weight:700}',
+      '.cp-adv li{margin:0 0 8px}.cp-adv b{display:block}.cp-chg li{margin:0 0 6px}.cp-chg span{color:#6a716b}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -297,20 +301,92 @@
     }).catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); });
   }
 
+  /* ---------------- Конкуренти ---------------- */
+
+  function startCompetitors(box) {
+    var state = null, busy = false;
+    function li(arr) { return (arr && arr.length) ? '<ul style="margin:0;padding-left:18px">' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<span class="va-muted">не пише</span>'; }
+    function profileCard(p) {
+      var f = p.profile || {};
+      return '<div class="va-card cp-card"><h4>' + esc(p.name) + '</h4><p class="cp-dom"><a href="https://' + esc(p.domain) + '" target="_blank" rel="noopener">' + esc(p.domain) + '</a> · прочетено ' + bgTime(p.fetched_at) + '</p>' +
+        (f.positioning ? '<p style="margin:0 0 6px;font-size:13px"><i>' + esc(f.positioning) + '</i></p>' : '') +
+        '<dl><dt>Обещават</dt><dd>' + li(f.promises) + '</dd>' +
+        '<dt>Гаранция</dt><dd>' + (f.warranty ? esc(f.warranty) : '<span class="va-muted">не пише</span>') + '</dd>' +
+        '<dt>Отстъпки и плащане</dt><dd>' + li(f.discounts) + '</dd>' +
+        '<dt>Доказателства</dt><dd>' + li(f.proof) + '</dd>' +
+        '<dt>Онлайн инструменти</dt><dd>' + li(f.online_tools) + '</dd>' +
+        '<dt>Как карат клиента да действа</dt><dd>' + li(f.cta) + '</dd>' +
+        '<dt>Публикувани цени</dt><dd>' + (f.prices_published ? 'да' : 'не') + '</dd></dl>' +
+        (f.notes ? '<p class="va-muted" style="margin:8px 0 0">' + esc(f.notes) + '</p>' : '') + '</div>';
+    }
+    function positionsTable(pos, profiles) {
+      if (!pos || !pos.length) return '';
+      var doms = profiles.map(function (p) { return p.domain; });
+      var cell = function (n, best) { return '<td class="c' + (best ? ' best' : '') + '">' + (n == null ? '–' : n) + '</td>'; };
+      var rows = pos.map(function (r) {
+        var all = [r.verde].concat(doms.map(function (d) { return r.competitors[d]; })).filter(function (x) { return x != null; });
+        var best = all.length ? Math.min.apply(null, all) : null;
+        return '<tr><td>' + esc(r.keyword) + '</td>' + cell(r.verde, r.verde != null && r.verde === best).replace('<td class="c', '<td class="c me') +
+          doms.map(function (d) { return cell(r.competitors[d], r.competitors[d] != null && r.competitors[d] === best); }).join('') + '</tr>';
+      }).join('');
+      return '<div class="va-card cp-pos"><h3>Място в Google</h3><p class="va-sub">1 = най-отгоре; „–“ = не е в първите 20 резултата. Търсенията са от България.</p>' +
+        '<div style="overflow:auto"><table><thead><tr><th>Търсене</th><th class="c">Верде-М</th>' + profiles.map(function (p) { return '<th class="c">' + esc(p.name.split(' ')[0]) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    }
+    function render(msg, isErr) {
+      var d = state || { report: null, profiles: [] }, r = d.report;
+      var html = '<div class="va-card"><h3>Конкуренти</h3><p class="va-sub">Веднъж месечно агентът чете сайтовете на основните конкуренти за кухни и мебели по поръчка в София, вижда какво обещават и какво е ново при тях' +
+        (d.serp ? ', проверява кой на кое място излиза в Google' : '') + ', и ти казва какво да направиш. Конкретните промени по заглавия и описания отиват в „SEO предложения“, отбелязани „Конкуренти:“.</p>' +
+        '<div class="sp-acts"><button type="button" class="va-btn" data-act="run">↻ Провери сега</button><span class="va-muted" style="align-self:center">' + (r ? 'Последна проверка: ' + bgTime(r.created_at) : 'Още не е проверявал.') + '</span></div>' +
+        (msg ? '<p class="' + (isErr ? 'va-err' : 'va-muted') + '" style="margin:10px 0 0">' + esc(msg) + '</p>' : '') +
+        (!d.serp ? '<p class="va-muted" style="margin:10px 0 0">Местата в Google не се проверяват – за това трябва ключ <code>SERPER_API_KEY</code> (serper.dev) в Webflow Cloud → Environment variables.</p>' : '') + '</div>';
+      if (r) {
+        var changes = [], advice = [], pos = null;
+        try { changes = JSON.parse(r.changes_json || '[]'); advice = JSON.parse(r.advice_json || '[]'); pos = r.positions_json ? JSON.parse(r.positions_json) : null; } catch (e) { /* ignore */ }
+        var nameOf = function (dom) { var p = d.profiles.filter(function (x) { return x.domain === dom; })[0]; return p ? p.name : dom; };
+        html += '<div class="va-card"><h3>Какво казва агентът</h3>' + (r.analysis ? '<p class="va-ai" style="margin:0">' + esc(r.analysis) + '</p>' : '<p class="va-muted" style="margin:0">Няма анализ.</p>') +
+          (r.error ? '<p class="va-err">Анализът не се получи докрай: ' + esc(r.error) + '</p>' : '') + '</div>';
+        if (changes.length) html += '<div class="va-card"><h3>Какво е ново при тях</h3><ul class="cp-chg" style="margin:0;padding-left:18px">' + changes.map(function (c) { return '<li><b>' + esc(nameOf(c.domain)) + '</b>: ' + esc(c.what) + ' <span>– ' + esc(c.matters) + '</span></li>'; }).join('') + '</ul></div>';
+        html += positionsTable(pos, d.profiles);
+        if (advice.length) html += '<div class="va-card"><h3>Какво да направиш</h3><ol class="cp-adv" style="margin:0;padding-left:20px">' + advice.map(function (a) { return '<li><b>' + esc(a.title) + (a.priority === 1 ? ' <span style="color:#c98a2b;font-size:12px">важно</span>' : '') + '</b>' + esc(a.text) + '</li>'; }).join('') + '</ol></div>';
+      }
+      if (d.profiles.length) html += '<h3 style="margin:4px 0 10px">Какво обещават на сайтовете си</h3><div class="cp-grid">' + d.profiles.map(profileCard).join('') + '</div>';
+      box.innerHTML = html;
+    }
+    function act(action, waitText) {
+      if (busy) return; busy = true;
+      [].forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+      if (waitText) { var info = box.querySelector('.va-card .va-sub'); if (info) info.insertAdjacentHTML('afterend', '<p class="va-muted" style="margin:10px 0 0">' + esc(waitText) + '</p>'); }
+      return seoCall(action).then(function (d) {
+        if (d.profiles) state = d;
+        var msg = '';
+        if (d.ok && action === 'competitors_run') msg = d.run && d.run.created ? 'Готово. Агентът добави ' + d.run.created + ' предложения в „SEO предложения“.' : 'Готово – докладът е обновен.';
+        render(d.ok ? msg : (d.error || 'Грешка'), !d.ok);
+      }).catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); }).then(function () { busy = false; });
+    }
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-act]'); if (!b) return;
+      if (b.dataset.act === 'run') act('competitors_run', 'Агентът чете сайтовете на конкурентите и пише доклада… обикновено 1–3 минути.');
+    });
+    box.innerHTML = '<p class="va-muted">Зареждам…</p>';
+    seoCall('competitors').then(function (d) { if (!d.ok) return render(d.error || 'Грешка', true); state = d; render(); })
+      .catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); });
+  }
+
   function start(panel) {
     panel.innerHTML = '<div class="va-views"><button type="button" class="va-view" data-view="report">Отчет</button>' +
-      '<button type="button" class="va-view" data-view="seo">SEO предложения<span class="va-badge" hidden></span></button></div>' +
-      '<div data-box="report"></div><div data-box="seo" hidden></div>';
-    var views = panel.querySelector('.va-views'), report = panel.querySelector('[data-box="report"]'), seo = panel.querySelector('[data-box="seo"]');
+      '<button type="button" class="va-view" data-view="seo">SEO предложения<span class="va-badge" hidden></span></button>' +
+      '<button type="button" class="va-view" data-view="comp">Конкуренти</button></div>' +
+      '<div data-box="report"></div><div data-box="seo" hidden></div><div data-box="comp" hidden></div>';
+    var views = panel.querySelector('.va-views'), report = panel.querySelector('[data-box="report"]'), seo = panel.querySelector('[data-box="seo"]'), comp = panel.querySelector('[data-box="comp"]');
     var badge = views.querySelector('.va-badge'), started = {};
     function setCount(n) { badge.hidden = !n; badge.textContent = n; }
     function show(v) {
       [].forEach.call(views.children, function (b) { b.classList.toggle('is-on', b.dataset.view === v); });
-      report.hidden = v !== 'report'; seo.hidden = v !== 'seo'; ls(LS_VIEW, v);
-      if (!started[v]) { started[v] = 1; if (v === 'report') startReport(report); else startSeo(seo, setCount); }
+      report.hidden = v !== 'report'; seo.hidden = v !== 'seo'; comp.hidden = v !== 'comp'; ls(LS_VIEW, v);
+      if (!started[v]) { started[v] = 1; if (v === 'report') startReport(report); else if (v === 'comp') startCompetitors(comp); else startSeo(seo, setCount); }
     }
     views.addEventListener('click', function (e) { var b = e.target.closest('.va-view'); if (b) show(b.dataset.view); });
-    show(ls(LS_VIEW) === 'seo' ? 'seo' : 'report');
+    var saved = ls(LS_VIEW); show(saved === 'seo' || saved === 'comp' ? saved : 'report');
     // show the number of waiting proposals on the tab even before it is opened
     if (!started.seo) seoCall('list').then(function (d) { if (d.ok && !started.seo) setCount(d.pending.length); }).catch(function () {});
   }
