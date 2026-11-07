@@ -1,0 +1,103 @@
+/* "Запазете среща" – standalone booking widget (first used on /contact-us). Renders into the element with
+   id="verde-booking". Same rules as the kitchen configurator's calendar: from the day after tomorrow, weekdays only,
+   two hours a day, seven days with free hours, days closed in "Blocked Dates" and hours taken in "Booked Slots" are
+   greyed out. Data and the request go through /contract-automation/api/meeting. Clients are addressed with „Вие“. */
+(function () {
+  'use strict';
+  var API = location.origin + '/contract-automation/api/meeting';
+  var box = document.getElementById('verde-booking');
+  if (!box || box.dataset.ready) return;
+  box.dataset.ready = '1';
+
+  var DAY = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function bg(d) { return DAY[d.getDay()] + ', ' + String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0'); }
+
+  function css() {
+    var s = document.createElement('style');
+    s.textContent = [
+      '.vb{font:15px/1.55 Montserrat,Arial,sans-serif;color:#2f332f;max-width:760px}',
+      '.vb h3{font:700 22px/1.25 Montserrat,Arial,sans-serif;margin:0 0 6px}.vb .vb-sub{color:#6a716b;margin:0 0 18px}',
+      '.vb-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 18px}',
+      '.vb-day{border:1px solid #e1e4df;border-radius:12px;padding:10px}.vb-day.is-off{opacity:.55}',
+      '.vb-date{font-size:12px;font-weight:700;text-transform:capitalize;margin:0 0 8px}',
+      '.vb-slot{display:block;width:100%;box-sizing:border-box;margin:0 0 6px;padding:8px 6px;border:1px solid #cfd4cb;border-radius:8px;background:#fff;color:#2f332f;font:600 13px Montserrat,Arial,sans-serif;cursor:pointer;text-align:center}',
+      '.vb-slot.is-taken{background:#eef0ec;color:#9aa09a;cursor:not-allowed;text-decoration:line-through}.vb-slot.is-on{background:#477448;border-color:#477448;color:#fff}',
+      '.vb-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.vb-form .full{grid-column:1/-1}',
+      '.vb label{display:block;font-size:12px;font-weight:700;margin:0 0 4px}.vb input,.vb select,.vb textarea{width:100%;box-sizing:border-box;border:1px solid #cfd4cb;border-radius:8px;padding:10px 12px;font:14px Montserrat,Arial,sans-serif;color:#2f332f;background:#fff}',
+      '.vb textarea{min-height:70px;resize:vertical}.vb-btn{min-height:46px;padding:10px 22px;border:0;border-radius:8px;background:#477448;color:#fff;font:700 15px Montserrat,Arial,sans-serif;cursor:pointer}.vb-btn[disabled]{opacity:.6;cursor:wait}',
+      '.vb-pick{font-size:14px;margin:0 0 14px;padding:10px 12px;border-radius:8px;background:#f3f7f2}.vb-msg{margin:12px 0 0;font-size:14px}.vb-msg.err{color:#9b1c10}.vb-ok{padding:18px;border-radius:12px;background:#e3efe3;color:#2f5a30;font-size:15px}',
+      '.vb-hp{position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden}',
+      '@media(max-width:560px){.vb-form{grid-template-columns:1fr}}'
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  var picked = null;
+  function render(av) {
+    var slots = av.slots || ['10:00–12:00', '14:00–16:00'], blocked = av.blocked || [], taken = av.taken || [];
+    var takenKey = {}; taken.forEach(function (t) { takenKey[t.date + '|' + t.time] = 1; });
+    var isFree = function (d, s) { return blocked.indexOf(d) < 0 && !takenKey[d + '|' + s]; };
+    var days = '', cur = new Date(); cur.setHours(12, 0, 0, 0); cur.setDate(cur.getDate() + (av.startOffsetDays || 2));
+    var added = 0, guard = 0;
+    while (added < (av.daysToShow || 7) && guard++ < 90) {
+      var wd = cur.getDay();
+      if (wd !== 0 && wd !== 6) {
+        var d = iso(cur), anyFree = slots.some(function (s) { return isFree(d, s); });
+        days += '<div class="vb-day' + (anyFree ? '' : ' is-off') + '"><div class="vb-date">' + esc(bg(cur)) + '</div>' +
+          (blocked.indexOf(d) >= 0 ? '<div style="font-size:12px;color:#6a716b">Няма свободни часове</div>' :
+            slots.map(function (s) { var free = isFree(d, s); return '<button type="button" class="vb-slot' + (free ? '' : ' is-taken') + '" data-date="' + d + '" data-slot="' + esc(s) + '"' + (free ? '' : ' disabled') + '>' + esc(s) + '</button>'; }).join('')) + '</div>';
+        if (anyFree) added++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    box.innerHTML = '<div class="vb"><h3>Запазете час за среща в офиса</h3><p class="vb-sub">Изберете свободен час – ще се свържем с Вас, за да го потвърдим. В офиса ни на ул. Пиротска 86 получавате професионална консултация и безплатна 3D визуализация и проект.</p>' +
+      '<div class="vb-days">' + days + '</div>' +
+      '<div class="vb-pick" data-pick hidden></div>' +
+      '<form class="vb-form" novalidate>' +
+      '<div><label>Име и фамилия *</label><input name="name" required maxlength="120" autocomplete="name"></div>' +
+      '<div><label>E-mail *</label><input name="email" type="email" required maxlength="160" autocomplete="email"></div>' +
+      '<div><label>Телефон</label><input name="phone" type="tel" maxlength="40" autocomplete="tel"></div>' +
+      '<div><label>За какво е срещата</label><select name="topic"><option value="kitchen">Кухня</option><option value="bedroom">Спалня / гардероб</option><option value="other">Друго обзавеждане</option><option value="project">Имам проект от конфигуратора</option></select></div>' +
+      '<div class="full"><label>Бележка (по желание)</label><textarea name="note" maxlength="600" placeholder="Размери, идеи, въпроси…"></textarea></div>' +
+      '<div class="vb-hp"><label>Website</label><input name="website" tabindex="-1" autocomplete="off"></div>' +
+      '<div class="full"><button type="submit" class="vb-btn">Изпратете заявката за среща</button><div class="vb-msg" data-msg></div></div>' +
+      '</form></div>';
+
+    var pick = box.querySelector('[data-pick]'), msg = box.querySelector('[data-msg]'), form = box.querySelector('form');
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('.vb-slot'); if (!b || b.disabled) return;
+      [].forEach.call(box.querySelectorAll('.vb-slot.is-on'), function (x) { x.classList.remove('is-on'); });
+      b.classList.add('is-on');
+      picked = { date: b.dataset.date, slot: b.dataset.slot };
+      var p = picked.date.split('-'); var dt = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      pick.hidden = false; pick.textContent = 'Избран час: ' + bg(dt) + ', ' + picked.slot;
+      form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      msg.className = 'vb-msg'; msg.textContent = '';
+      var f = form.elements;
+      if (!picked) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, първо изберете ден и час от календара.'; return; }
+      if (!f.name.value.trim()) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, напишете името си.'; f.name.focus(); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.value.trim())) { msg.className = 'vb-msg err'; msg.textContent = 'Моля, напишете валиден e-mail.'; f.email.focus(); return; }
+      var btn = form.querySelector('.vb-btn'); btn.disabled = true; btn.textContent = 'Изпращам…';
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name.value, email: f.email.value, phone: f.phone.value, topic: f.topic.value, note: f.note.value, website: f.website.value, date: picked.date, slot: picked.slot }) })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Сървърът не отговори (' + r.status + ')' }; }); })
+        .then(function (d) {
+          if (!d.ok) { msg.className = 'vb-msg err'; msg.textContent = d.error || 'Нещо се обърка. Моля, опитайте отново или ни се обадете.'; btn.disabled = false; btn.textContent = 'Изпратете заявката за среща'; return; }
+          try { if (window.fbq) window.fbq('track', 'Schedule'); } catch (x) { /* ignore */ }
+          try { if (window.gtag) window.gtag('event', 'meeting_request', { method: 'contact_page' }); } catch (x) { /* ignore */ }
+          box.innerHTML = '<div class="vb"><div class="vb-ok"><b>Благодарим Ви!</b> Получихме заявката ' + esc(d.number || '') + (d.slot === 'conflict' ? '. Избраният час междувременно беше зает – ще се свържем с Вас за друг.' : '. Ще се свържем с Вас, за да потвърдим часа, обикновено до 1 работен ден. Изпратихме Ви и e-mail.') + '</div></div>';
+        })
+        .catch(function () { msg.className = 'vb-msg err'; msg.textContent = 'Няма връзка със сървъра. Моля, опитайте отново или ни се обадете на 0878 861 059.'; btn.disabled = false; btn.textContent = 'Изпратете заявката за среща'; });
+    });
+  }
+
+  css();
+  box.innerHTML = '<div class="vb"><p class="vb-sub">Зареждам свободните часове…</p></div>';
+  fetch(API + '?availability=1').then(function (r) { return r.json(); })
+    .then(function (d) { render(d && d.ok ? d : { slots: d && d.slots, blocked: [], taken: [] }); })
+    .catch(function () { render({ blocked: [], taken: [] }); });
+})();
