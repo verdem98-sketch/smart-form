@@ -60,10 +60,10 @@
           var iso = toIso(cur);
           var past = iso < todayIso, early = !past && iso < d.startDate, closed = blockedKey[iso], hol = holiday[iso];
           var cls = 'vc-day' + (past ? ' is-past' : '') + (closed || hol ? ' is-closed' : '') + (early ? ' is-early' : '');
-          var head = '<div class="vc-date"><span>' + esc(label(iso)) + '</span>' + (past ? '' : closed ? '<button type="button" data-act="unblock_day" data-id="' + esc(closed.id) + '" title="Отвори деня">отвори</button>' : hol ? '' : '<button type="button" data-act="block_day" data-date="' + iso + '" title="Затвори целия ден">затвори</button>') + '</div>';
+          var head = '<div class="vc-date"><span>' + esc(label(iso)) + '</span>' + (past ? '' : closed ? '<button type="button" data-act="unblock_day" data-id="' + esc(closed.id) + '" title="Отблокирай деня">отблокирай</button>' : hol ? '' : '<button type="button" data-act="block_day" data-date="' + iso + '" title="Блокирай целия ден">блокирай деня</button>') + '</div>';
           var body;
           if (hol) body = '<div class="vc-closed">Официален празник</div>';
-          else if (closed) body = '<div class="vc-closed">Затворено' + (closed.name && !/^Затворено/.test(closed.name) ? ': ' + esc(closed.name) : '') + '</div>';
+          else if (closed) body = '<div class="vc-closed">Блокиран' + (closed.name && !/^Затворено/.test(closed.name) ? ': ' + esc(closed.name) : '') + '</div>';
           else body = d.slots.map(function (s) {
             var t = takenKey[iso + '|' + s], m = meetingKey[iso + '|' + s];
             if (!t) return past ? '<div class="vc-slot free" style="cursor:default">' + esc(s) + '<small>свободен</small></div>' : '<button type="button" class="vc-slot free" data-act="block" data-date="' + iso + '" data-slot="' + esc(s) + '">' + esc(s) + '<small>свободен – блокирай</small></button>';
@@ -80,8 +80,8 @@
       }
       var pendingMeetings = d.meetings.filter(function (m) { return m.status === 'pending'; });
       panel.innerHTML = '<div class="vc"><div class="va-card"><h3>Календар на срещите</h3><p class="va-sub">Същият календар, който виждат клиентите в конфигуратора и в „Контакти“. Клиентите могат да запазват от <b>' + esc(label(d.startDate)) + '</b> нататък (3 работни дни напред). ' +
-        'Цъкни свободен час, за да го блокираш за среща, уговорена по телефона; цъкни зает час, за да го освободиш. „затвори“ спира целия ден (отпуск, ремонт). Промените са веднага на сайта.</p>' +
-        '<div class="vc-legend"><span><i style="background:#fff;border:1px dashed #cfd4cb"></i>свободен</span><span><i style="background:#fff4d6"></i>чака потвърждение</span><span><i style="background:#e3efe3"></i>потвърден</span><span><i style="background:#e4e9f5"></i>по телефона</span><span><i style="background:#f3f4f1"></i>затворен ден / празник</span></div>' +
+        'Цъкни свободен час, за да го блокираш за среща, уговорена по телефона; цъкни зает час, за да го освободиш. „блокирай деня“ спира целия ден (отпуск, ремонт). Промените са веднага на сайта.</p>' +
+        '<div class="vc-legend"><span><i style="background:#fff;border:1px dashed #cfd4cb"></i>свободен</span><span><i style="background:#fff4d6"></i>чака потвърждение</span><span><i style="background:#e3efe3"></i>потвърден</span><span><i style="background:#e4e9f5"></i>по телефона</span><span><i style="background:#f3f4f1"></i>блокиран ден / празник</span></div>' +
         '<div class="sp-acts" style="display:flex;gap:8px;align-items:center"><button type="button" class="va-btn" data-act="reload">↻ Обнови</button>' + (msg ? '<span class="' + (isErr ? 'va-err' : 'va-muted') + '">' + esc(msg) + '</span>' : '') + '</div></div>' +
         '<div class="va-card">' + weeks + '</div>' +
         (pendingMeetings.length ? '<div class="va-card"><h3>Заявки от „Контакти“, които чакат потвърждение</h3><p class="va-sub">Потвърждаваш ги от бутона в мейла – там клиентът получава и e-mail. Тук само ги виждаш.</p><table><tr><th>Кога</th><th>Кой</th><th>Тема</th></tr>' +
@@ -108,9 +108,9 @@
       }
       if (a === 'unblock') { if (!confirm('Да освободя ли този час?\n' + (b.dataset.who || ''))) return; return act({ action: 'unblock', id: b.dataset.id }, 'Часът е свободен.'); }
       if (a === 'block_day') {
-        var why = prompt('Затвори целия ден ' + label(b.dataset.date) + '. Причина (по желание):', '');
+        var why = prompt('Блокирай целия ден ' + label(b.dataset.date) + '. Причина (по желание):', '');
         if (why === null) return;
-        return act({ action: 'block_day', date: b.dataset.date, name: why }, 'Денят е затворен.');
+        return act({ action: 'block_day', date: b.dataset.date, name: why }, 'Денят е блокиран.');
       }
       if (a === 'unblock_day') { if (!confirm('Да отворя ли този ден отново?')) return; return act({ action: 'unblock_day', id: b.dataset.id }, 'Денят е отворен.'); }
     });

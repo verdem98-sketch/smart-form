@@ -19,7 +19,7 @@
   function css() {
     var s = document.createElement('style');
     s.textContent = [
-      '#verde-booking-card-wrap{display:block!important}@media(min-width:992px){.worktm-wrap>.worktime,.worktm-wrap>.div-block-83{flex:1 1 0;min-width:0}}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
+      '#verde-booking-card-wrap{display:block!important}@media(min-width:992px){.worktm-wrap{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px;padding:20px 30px!important;box-sizing:border-box}.worktm-wrap>.worktime,.worktm-wrap>.div-block-83{margin:0!important;width:auto!important;max-width:none!important;min-width:0}.worktm-wrap>.divblock83-mobile{display:none!important}}.vb-card p{font:14px/1.5 Montserrat,Arial,sans-serif;color:#2f332f;margin:0 0 14px}',
       '.vb-open{display:inline-block;padding:11px 20px;border:0;border-radius:8px;background:#477448;color:#fff;font:700 14px Montserrat,Arial,sans-serif;cursor:pointer}',
       '.vb-modal[hidden]{display:none!important}.vb-modal{position:fixed;inset:0;z-index:9999;background:rgba(47,51,47,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}',
       '.vb-dialog{position:relative;width:100%;max-width:820px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}',
