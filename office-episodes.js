@@ -541,7 +541,20 @@
       else if (act === 'clip-prompt') copyPrompt(b.dataset.line);
       else if (act === 'upload') uploadFinal();
       else if (act === 'copylink') { navigator.clipboard.writeText(cur.final_url).then(function () { render('Линкът е копиран.'); }); }
-      else if (act === 'revoice') { busy = true; render('Преозвучавам…'); call({ action: 'voice', id: cur.id, line_id: b.dataset.line }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); }); }
+      else if (act === 'revoice') {
+        // unsaved edits in the text boxes are saved first, so the new wording is what gets voiced
+        readDraft();
+        var lineId = b.dataset.line, idx = draft.lines.map(function (l) { return l.id; }).indexOf(lineId);
+        var edited = JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; }));
+        busy = true; render(edited ? 'Запазвам и преозвучавам…' : 'Преозвучавам…');
+        var saved = edited ? call({ action: 'episode_update', id: cur.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: draft.lines.filter(function (l) { return l.text.trim() && l.character_id; }) }) : Promise.resolve({ ok: true, lines: cur.lines });
+        saved.then(function (r) {
+          if (!r.ok) throw new Error(r.error);
+          var id = (r.lines && r.lines[idx] && r.lines[idx].id) || lineId;
+          return call({ action: 'voice', id: cur.id, line_id: id });
+        }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); })
+          .catch(function (e) { busy = false; render(e.message, true); });
+      }
       else if (act === 'render') { if (!confirm('Да пусна ли HeyGen да направи видеото? Ще струва около ' + money(draft.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0) * 0.05) + ' от API портфейла.')) return; run(call({ action: 'render', id: cur.id }), 'Пуснато. Рендирането отнема няколко минути.'); }
       else if (act === 'delete') { if (!confirm('Да изтрия ли епизода „' + draft.title + '“ с озвучените реплики?')) return; var id = cur.id; cur = null; draft = null; stopPoll(); run(call({ action: 'episode_delete', id: id }), 'Изтрит.'); }
       else if (act === 'char-add') run(call({ action: 'character_save', name: 'Нов герой' }));
