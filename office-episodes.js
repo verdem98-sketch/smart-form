@@ -330,7 +330,12 @@
             if (!r.ok) { busy = false; render(r.error, true); return; }
             fromServer(r);
             var pending = r.lines.filter(function (l) { return l.audio_url && l.clip_status !== 'done' && l.clip_status !== 'queued' && l.clip_status !== 'in_progress' && l.clip_status !== 'failed'; }).length;
-            if (!lineId && pending > 0 && r.remaining > 0) { render('Пускам сцените… остават ' + pending); step(false); }
+            var running = r.lines.filter(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; }).length;
+            if (!lineId && pending > 0) {
+              // Vidu takes up to 3 at a time: when all slots are busy, check again in 20 s instead of hammering the server
+              render('Сцените се правят по 3 наведнъж (' + running + ' в момента, чакат ' + pending + '). Vidu отнема 3–6 минути на сцена.');
+              stopPoll(); setTimeout(function () { step(false); }, running >= 3 ? 20000 : 1500);
+            }
             else { busy = false; render('Сцените се правят – Vidu обикновено отнема 3–6 минути на сцена. Страницата се обновява сама.'); }
           }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
         })(true);
