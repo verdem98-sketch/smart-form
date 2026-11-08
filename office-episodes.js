@@ -77,7 +77,9 @@
     g.save(); g.globalAlpha = alpha; g.fillStyle = '#2f6b2a'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
     var base = Math.round(Math.min(W, H) * 0.06);
-    lines.forEach(function (l, i) { g.font = (i === 0 ? '800 ' : '500 ') + Math.round(base * (i === 0 ? 1.3 : 0.7)) + 'px Montserrat, Arial, sans-serif'; g.fillStyle = i === 0 ? '#fff' : '#e3efe3'; g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * base * 1.7); });
+    var rows = [];
+    lines.forEach(function (l, i) { g.font = (i === 0 ? '800 ' : '500 ') + Math.round(base * (i === 0 ? 1.3 : 0.7)) + 'px Montserrat, Arial, sans-serif'; wrapLines(g, l, W * 0.84).forEach(function (t) { rows.push({ t: t, i: i, font: g.font }); }); });
+    rows.forEach(function (r, k) { g.font = r.font; g.fillStyle = r.i === 0 ? '#fff' : '#e3efe3'; g.fillText(r.t, W / 2, H / 2 + (k - (rows.length - 1) / 2) * base * 1.5); });
     g.restore();
   }
   function drawTag(g, W, H) {
@@ -94,7 +96,7 @@
       return Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })).then(function (buffers) {
         var muxer = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 1 }, fastStart: 'in-memory' });
         var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { console.error(e); } });
-        venc.configure({ codec: W * H > 2073600 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: 8000000, framerate: FPS });
+        venc.configure({ codec: W * H > 2073600 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: W * H > 1500000 ? 4500000 : 3500000, framerate: FPS });
         var aenc = new AudioEncoder({ output: function (ch, meta) { muxer.addAudioChunk(ch, meta); }, error: function (e) { console.error(e); } });
         aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 1, bitrate: 128000 });
         // one mono track: every part's speech at its scene start, silence elsewhere
@@ -223,8 +225,10 @@
       else h += '<span class="va-muted">зареждам…</span>';
       if (d.scene_image_url) h += '<img src="' + esc(d.scene_image_url) + '" alt="" style="height:54px;border-radius:8px">';
       h += '</div>';
-      if (result) h += '<video controls playsinline src="' + esc(result.url) + '"></video><div class="ve-row" style="margin-top:8px"><a class="va-btn primary" href="' + esc(result.url) + '" download="' + esc(d.title || 'episode') + '-' + (d.aspect === '16:9' ? '16x9' : '9x16') + '.mp4">⬇ Свали MP4</a><span class="va-muted">' + result.note + '</span></div>';
-      if (busy && progress > 0) h += '<div class="ve-tip">Сглобявам… ' + Math.round(progress * 100) + '%</div>';
+      if (result) h += '<video controls playsinline src="' + esc(result.url) + '"></video><div class="ve-row" style="margin-top:8px"><a class="va-btn primary" href="' + esc(result.url) + '" download="' + esc(d.title || 'episode') + '-' + (d.aspect === '16:9' ? '16x9' : '9x16') + '.mp4">⬇ Свали MP4</a><button class="va-btn" data-act="upload"' + (busy ? ' disabled' : '') + '>Качи на сървъра (линк за телефон / Content Studio)</button><span class="va-muted">' + result.note + '</span></div>';
+      if (cur && cur.final_url && !result) h += '<div class="ve-row"><video controls playsinline preload="metadata" src="' + esc(cur.final_url) + '" style="max-width:360px"></video></div>';
+      if (cur && cur.final_url) h += '<div class="ve-tip">Линк към качения епизод: <a href="' + esc(cur.final_url) + '" target="_blank" rel="noopener">' + esc(cur.final_url) + '</a></div>';
+      if (busy && progress > 0) h += '<div class="ve-tip">' + Math.round(progress * 100) + '%</div>';
       if (cur && cur.status === 'failed' && cur.error) h += '<p class="va-err">' + esc(cur.error) + '</p>';
       if (cur && cur.status === 'done' && cur.video_url) {
         h += '<video controls playsinline src="' + esc(cur.video_url) + '"' + (cur.thumb_url ? ' poster="' + esc(cur.thumb_url) + '"' : '') + '></video>';
@@ -355,12 +359,29 @@
           return { clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
         });
       })).then(function (parts) {
-        return stitch({ W: W, H: H, parts: parts, captions: draft.captions, outro: ['ВЕРДЕ-М · мебели по поръчка', 'Безплатно замерване в София · verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
+        return stitch({ W: W, H: H, parts: parts, captions: draft.captions, outro: ['ВЕРДЕ-М', 'мебели по поръчка', 'Безплатно замерване в София', 'verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
       }).then(function (blob) {
         busy = false; progress = 0;
-        result = { url: URL.createObjectURL(blob), note: Math.round(blob.size / 1048576 * 10) / 10 + ' MB · ' + W + '×' + H };
+        result = { url: URL.createObjectURL(blob), blob: blob, note: Math.round(blob.size / 1048576 * 10) / 10 + ' MB · ' + W + '×' + H };
         render('Епизодът е готов – пусни го и го свали.');
       }).catch(function (e) { busy = false; progress = 0; render('Не се получи: ' + e.message, true); });
+    }
+    function uploadFinal() {
+      if (!cur || !result || !result.blob || busy) return;
+      var blob = result.blob, CHUNK = 600000, total = Math.ceil(blob.size / CHUNK), seq = 0;
+      busy = true; progress = 0; render('Качвам… 0%');
+      function b64(ab) { var u = new Uint8Array(ab), s = ''; for (var i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+      (function next() {
+        if (seq >= total) return;
+        blob.slice(seq * CHUNK, Math.min(blob.size, (seq + 1) * CHUNK)).arrayBuffer().then(function (ab) {
+          return call({ action: 'final_upload', id: cur.id, seq: seq, total: total, size: blob.size, b64: b64(ab) });
+        }).then(function (r) {
+          if (!r.ok) { busy = false; render(r.error, true); return; }
+          seq++; progress = seq / total;
+          if (r.done) { busy = false; progress = 0; cur.final_url = r.final_url; render('Качено. Линкът е под видеото – отваря се и от телефона.'); }
+          else { render('Качвам… ' + Math.round(progress * 100) + '%'); next(); }
+        }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
+      })();
     }
     function lighten(hex) {
       var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return '#fff';
@@ -400,6 +421,7 @@
       else if (act === 'reclip') scenesLoop(true, b.dataset.line);
       else if (act === 'clip-view') { var w = window.open('', '_blank'); clipBlob(b.dataset.line).then(function (blob) { w.location = URL.createObjectURL(blob); }).catch(function (e) { w.close(); render(e.message, true); }); }
       else if (act === 'stitch') stitchEpisode();
+      else if (act === 'upload') uploadFinal();
       else if (act === 'revoice') { busy = true; render('Преозвучавам…'); call({ action: 'voice', id: cur.id, line_id: b.dataset.line }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); }); }
       else if (act === 'render') { if (!confirm('Да пусна ли HeyGen да направи видеото? Ще струва около ' + money(draft.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0) * 0.05) + ' от API портфейла.')) return; run(call({ action: 'render', id: cur.id }), 'Пуснато. Рендирането отнема няколко минути.'); }
       else if (act === 'delete') { if (!confirm('Да изтрия ли епизода „' + draft.title + '“ с озвучените реплики?')) return; var id = cur.id; cur = null; draft = null; stopPoll(); run(call({ action: 'episode_delete', id: id }), 'Изтрит.'); }
