@@ -252,9 +252,12 @@
           h += '<div class="ve-audio">' + (sl.audio_url ? '<audio controls preload="metadata" data-line-audio="' + esc(sl.id) + '" src="' + esc(sl.audio_url) + '"></audio>' : '') + (sl.error ? '<span class="va-err" style="font-size:12px">' + esc(sl.error) + '</span>' : '');
           h += '<button class="va-btn small" data-act="revoice" data-line="' + esc(sl.id) + '">преозвучи</button>';
           var cs = sl.clip_status || 'none';
-          if (cs === 'done') h += '<span class="ve-status done">сцена готова</span><button class="va-btn small" data-act="clip-view" data-line="' + esc(sl.id) + '">виж</button><button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">нова сцена</button>';
+          if (cs === 'done') h += '<span class="ve-status done">' + (sl.clip_uploaded ? 'сцена качена' : 'сцена готова') + '</span><button class="va-btn small" data-act="clip-view" data-line="' + esc(sl.id) + '">виж</button>' + (ov.keys.vidu ? '<button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">нова през API</button>' : '');
           else if (cs === 'queued' || cs === 'in_progress') h += '<span class="ve-status rendering">сцената се прави…</span>';
-          else if (cs === 'failed') h += '<span class="ve-status failed">сцена: грешка</span><span class="va-err" style="font-size:12px">' + esc(sl.clip_error || '') + '</span><button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">опитай пак</button>';
+          else if (cs === 'uploading') h += '<span class="ve-status rendering">качва се…</span>';
+          else if (cs === 'failed') h += '<span class="ve-status failed">сцена: грешка</span><span class="va-err" style="font-size:12px">' + esc(sl.clip_error || '') + '</span>' + (ov.keys.vidu ? '<button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">опитай пак</button>' : '');
+          h += '<button class="va-btn small" data-act="clip-prompt" data-line="' + esc(sl.id) + '" title="копира готовия текст за vidu.com">копирай промпт</button>';
+          h += '<label class="va-btn small" style="display:inline-flex;align-items:center;cursor:pointer">качи сцена<input type="file" accept="video/mp4,video/*" data-upload-line="' + esc(sl.id) + '" hidden></label>';
           h += '</div>';
         } else if (sl && cur) h += '<div class="ve-audio"><span class="va-muted">още не е озвучена</span></div>';
         h += '</div>';
@@ -265,12 +268,13 @@
       var changed = !cur || JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; })) || draft.title !== cur.title || draft.aspect !== cur.aspect || draft.captions !== !!cur.captions || (draft.scene_image_url || '') !== (cur.scene_image_url || '');
       var clipsDone = serverLines.filter(function (x) { return x.clip_status === 'done'; }).length;
       var clipsBusy = serverLines.filter(function (x) { return x.clip_status === 'queued' || x.clip_status === 'in_progress'; }).length;
+      h += '<div class="ve-tip">Сцени на ръка (абонамент vidu.com): до всяка озвучена реплика – „копирай промпт“, направи клипа на сайта, после „качи сцена“.</div>';
       h += '<div class="ve-tip">≈ ' + Math.round(secs) + ' сек говор · гласове ~' + money(secs * 0.004) + ' · сцени (Vidu) ~' + Math.round((secs + d.lines.length) * 28) + ' кредита (~' + money((secs + d.lines.length) * 0.1) + ')</div>';
       h += '<div class="ve-row">';
       h += '<button class="va-btn' + (changed ? ' primary' : '') + '" data-act="save">' + (cur ? 'Запази промените' : 'Запази епизода') + '</button>';
       if (cur) {
         h += '<button class="va-btn' + (!changed && voiced < d.lines.length ? ' primary' : '') + '" data-act="voice"' + (changed ? ' disabled title="първо запази"' : '') + '>Озвучи' + (voiced && voiced < d.lines.length ? ' останалите (' + (d.lines.length - voiced) + ')' : voiced ? ' наново' : '') + '</button>';
-        h += '<button class="va-btn' + (!changed && voiced === d.lines.length && clipsDone < d.lines.length && !clipsBusy ? ' primary' : '') + '" data-act="scenes"' + (changed || voiced < d.lines.length || clipsBusy || !d.scene_image_url ? ' disabled' : '') + '>' + (clipsBusy ? 'Сцените се правят… (' + clipsBusy + ')' : clipsDone && clipsDone < d.lines.length ? 'Направи останалите сцени (' + (d.lines.length - clipsDone) + ')' : clipsDone ? 'Сцени наново' : 'Направи сцените (Vidu)') + '</button>';
+        if (ov.keys.vidu) h += '<button class="va-btn' + (!changed && voiced === d.lines.length && clipsDone < d.lines.length && !clipsBusy ? ' primary' : '') + '" data-act="scenes"' + (changed || voiced < d.lines.length || clipsBusy || !d.scene_image_url ? ' disabled' : '') + '>' + (clipsBusy ? 'Сцените се правят… (' + clipsBusy + ')' : clipsDone && clipsDone < d.lines.length ? 'Направи останалите сцени (' + (d.lines.length - clipsDone) + ')' : clipsDone ? 'Сцени наново' : 'Направи сцените (Vidu)') + '</button>';
         h += '<button class="va-btn' + (!changed && clipsDone === d.lines.length && !busy ? ' primary' : '') + '" data-act="stitch"' + (changed || clipsDone < d.lines.length || busy ? ' disabled' : '') + '>Сглоби епизода</button>';
         h += '<button class="va-btn small" data-act="render"' + (changed || voiced < d.lines.length || cur.status === 'rendering' ? ' disabled' : '') + ' title="резервен вариант: говорещи глави">HeyGen вариант</button>';
         h += '<span style="flex:1"></span><button class="va-btn small" data-act="delete">Изтрий епизода</button>';
@@ -371,6 +375,34 @@
         render('Епизодът е готов – пусни го и го свали.');
       }).catch(function (e) { busy = false; progress = 0; render('Не се получи: ' + e.message, true); });
     }
+
+    function copyPrompt(lineId) {
+      audioDurations().then(function (dur) {
+        return call({ action: 'clip_prompt', line_id: lineId, seconds: dur[lineId] || 4 });
+      }).then(function (r) {
+        if (!r.ok) return render(r.error, true);
+        var txt = r.prompt;
+        var note = 'Промптът е копиран. На vidu.com: Reference to Video → качи картинката с героите → постави текста → ' + r.aspect + ', ' + r.seconds + ' сек → Create. После „Свали“ и тук „качи сцена“.';
+        (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { render(note); }, function () { window.prompt('Копирай текста:', txt); render(note); });
+      }).catch(function (e) { render('Няма връзка: ' + e.message, true); });
+    }
+    function uploadClip(lineId, file) {
+      if (busy) return;
+      if (file.size > 60 * 1048576) { render('Файлът е твърде голям (над 60 MB).', true); return; }
+      var CHUNK = 600000, total = Math.ceil(file.size / CHUNK), seq = 0;
+      busy = true; progress = 0.01; render('Качвам сцената… 0%');
+      function b64(ab) { var u = new Uint8Array(ab), s = ''; for (var i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+      (function next() {
+        file.slice(seq * CHUNK, Math.min(file.size, (seq + 1) * CHUNK)).arrayBuffer().then(function (ab) {
+          return call({ action: 'clip_upload', line_id: lineId, seq: seq, total: total, b64: b64(ab) });
+        }).then(function (r) {
+          if (!r.ok) { busy = false; progress = 0; render(r.error, true); return; }
+          seq++; progress = seq / total;
+          if (r.done) { busy = false; progress = 0; fromServer(r); refreshList().then(function () { render('Сцената е качена.'); }); }
+          else { render('Качвам сцената… ' + Math.round(progress * 100) + '%'); next(); }
+        }).catch(function (e) { busy = false; progress = 0; render('Няма връзка: ' + e.message, true); });
+      })();
+    }
     function uploadFinal() {
       if (!cur || !result || !result.blob || busy) return;
       var blob = result.blob, CHUNK = 600000, total = Math.ceil(blob.size / CHUNK), seq = 0;
@@ -395,7 +427,11 @@
       return '#' + [f(r), f(g), f(b)].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
     }
 
-    panel.addEventListener('change', function () { readDraft(); });
+    panel.addEventListener('change', function (e) {
+      var inp = e.target && e.target.getAttribute && e.target.getAttribute('data-upload-line');
+      if (inp) { var f = e.target.files && e.target.files[0]; if (f) uploadClip(inp, f); return; }
+      readDraft();
+    });
     panel.addEventListener('click', function (e) {
       var who = e.target.closest('[data-who]');
       if (who) { readDraft(); var row = who.closest('.ve-line'); draft.lines[Number(row.dataset.i)].character_id = who.dataset.who; render(); return; }
@@ -426,6 +462,7 @@
       else if (act === 'reclip') scenesLoop(true, b.dataset.line);
       else if (act === 'clip-view') { var w = window.open('', '_blank'); clipBlob(b.dataset.line).then(function (blob) { w.location = URL.createObjectURL(blob); }).catch(function (e) { w.close(); render(e.message, true); }); }
       else if (act === 'stitch') stitchEpisode();
+      else if (act === 'clip-prompt') copyPrompt(b.dataset.line);
       else if (act === 'upload') uploadFinal();
       else if (act === 'copylink') { navigator.clipboard.writeText(cur.final_url).then(function () { render('Линкът е копиран.'); }); }
       else if (act === 'revoice') { busy = true; render('Преозвучавам…'); call({ action: 'voice', id: cur.id, line_id: b.dataset.line }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); }); }
