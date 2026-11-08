@@ -1,10 +1,15 @@
 /* /verde-office: "Епизоди" tab — short scripted clips with the mascots (Фикс и Микси).
    The owner writes the dialogue line by line, each line gets its voice from ElevenLabs (per-character voice,
-   pronunciation dictionary applied), then HeyGen renders the whole episode as one video: the photo avatars speak
-   the lines in turn, lip-synced to our audio, with captions when wanted. Data: /contract-automation/api/episodes. */
+   pronunciation dictionary applied). Then one muted Vidu scene per line (who speaks, who reacts) from the reference
+   picture of the duo, and this script stitches everything in the browser: scene + our audio + big captions + logo
+   card → one MP4 (WebCodecs + mp4-muxer, Chrome/Edge). HeyGen talking-heads render stays as a fallback.
+   Data: /contract-automation/api/episodes. */
 (function () {
   'use strict';
   var API = location.origin + '/contract-automation/api/episodes';
+  var VS_API = location.origin + '/contract-automation/api/visual-studio';
+  var MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/+esm';
+  var FPS = 30, TAIL = 0.35, OUTRO_SEC = 2.5;
   var SAMPLE = {
     title: 'Горе-долу',
     lines: [
@@ -49,23 +54,116 @@
       .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'Сървърът не отговори (' + r.status + ')' }; }); });
   }
 
+  /* ---------- stitcher: scenes + our audio + captions + outro → MP4 ---------- */
+  function wrapLines(g, text, maxW) {
+    var words = text.split(' '), lines = [], cur = '';
+    words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function drawCaption(g, W, H, text, color) {
+    var base = Math.round(Math.min(W, H) * 0.058);
+    g.save(); g.font = '800 ' + base + 'px Montserrat, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    var lines = wrapLines(g, text, W * 0.86), lh = base * 1.22, y0 = H * (W > H ? 0.86 : 0.8) - (lines.length - 1) * lh;
+    lines.forEach(function (l, i) {
+      var y = y0 + i * lh, tw = g.measureText(l).width + base * 0.8;
+      g.fillStyle = 'rgba(20,20,20,.72)'; roundRect(g, W / 2 - tw / 2, y - base * 0.95, tw, base * 1.28, base * 0.3); g.fill();
+      g.fillStyle = color || '#fff'; g.fillText(l, W / 2, y);
+    });
+    g.restore();
+  }
+  function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function drawOutro(g, W, H, lines, alpha) {
+    g.save(); g.globalAlpha = alpha; g.fillStyle = '#2f6b2a'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    var base = Math.round(Math.min(W, H) * 0.06);
+    lines.forEach(function (l, i) { g.font = (i === 0 ? '800 ' : '500 ') + Math.round(base * (i === 0 ? 1.3 : 0.7)) + 'px Montserrat, Arial, sans-serif'; g.fillStyle = i === 0 ? '#fff' : '#e3efe3'; g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * base * 1.7); });
+    g.restore();
+  }
+  function drawTag(g, W, H) {
+    g.save(); g.globalAlpha = 0.85; g.font = '700 ' + Math.round(Math.min(W, H) * 0.026) + 'px Montserrat, Arial, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'top';
+    g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8; g.fillStyle = '#fff'; g.fillText('ВЕРДЕ-М', Math.round(W * 0.04), Math.round(H * 0.035)); g.restore();
+  }
+
+  function stitch(opts) {
+    // opts: { W, H, parts:[{clip:Blob, audio:ArrayBuffer, text, color}], outro:[..], captions:bool, onProgress }
+    if (!window.VideoEncoder || !window.AudioEncoder || !window.VideoFrame || !window.AudioData) return Promise.reject(new Error('Този браузър не поддържа видео кодиране (WebCodecs). Използвай Chrome или Edge.'));
+    var W = opts.W, H = opts.H, c = document.createElement('canvas'); c.width = W; c.height = H; var g = c.getContext('2d');
+    var SR = 48000, actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
+    return import(MUXER_URL).then(function (M) {
+      return Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })).then(function (buffers) {
+        var muxer = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 1 }, fastStart: 'in-memory' });
+        var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { console.error(e); } });
+        venc.configure({ codec: W * H > 2073600 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: 8000000, framerate: FPS });
+        var aenc = new AudioEncoder({ output: function (ch, meta) { muxer.addAudioChunk(ch, meta); }, error: function (e) { console.error(e); } });
+        aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 1, bitrate: 128000 });
+        // one mono track: every part's speech at its scene start, silence elsewhere
+        var starts = [], total = 0;
+        opts.parts.forEach(function (p, i) { starts.push(total); p.sec = Math.max(1, buffers[i].duration + TAIL); total += p.sec; });
+        var outroStart = total; total += OUTRO_SEC;
+        var samples = Math.ceil(total * SR), pcm = new Float32Array(samples);
+        buffers.forEach(function (b, i) { var d = b.getChannelData(0), o = Math.round(starts[i] * SR); for (var k = 0; k < d.length && o + k < samples; k++) pcm[o + k] = d[k]; });
+        var CH = 1024;
+        for (var off = 0; off < samples; off += CH) {
+          var len = Math.min(CH, samples - off);
+          var ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: len, numberOfChannels: 1, timestamp: Math.round(off * 1e6 / SR), data: pcm.subarray(off, off + len) });
+          aenc.encode(ad); ad.close();
+        }
+        var n = 0, est = Math.round(total * FPS);
+        function addFrame() {
+          var f = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+          venc.encode(f, { keyFrame: n % (FPS * 2) === 0 }); f.close(); n++;
+          if (opts.onProgress) opts.onProgress(Math.min(0.99, n / est));
+          return venc.encodeQueueSize > 12 ? new Promise(function (r) { setTimeout(r, 25); }) : Promise.resolve();
+        }
+        var seq = Promise.resolve();
+        opts.parts.forEach(function (p) {
+          seq = seq.then(function () {
+            return new Promise(function (resolve, reject) {
+              var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(p.clip);
+              v.addEventListener('loadedmetadata', function () {
+                var frameCount = Math.round(p.sec * FPS), i = 0, maxT = Math.max(0.05, v.duration - 0.05);
+                function step() {
+                  if (i >= frameCount) { URL.revokeObjectURL(v.src); return resolve(); }
+                  v.currentTime = Math.min(maxT, i / FPS);
+                }
+                v.addEventListener('seeked', function () {
+                  var k = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * k, dh = v.videoHeight * k;
+                  g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
+                  drawTag(g, W, H);
+                  if (opts.captions && p.text) drawCaption(g, W, H, p.text, p.color);
+                  i++; addFrame().then(step);
+                });
+                step();
+              });
+              v.addEventListener('error', function () { reject(new Error('Сцената не може да се прочете')); });
+            });
+          });
+        });
+        for (var i = 0; i < Math.round(OUTRO_SEC * FPS); i++) (function (i) { seq = seq.then(function () { drawOutro(g, W, H, opts.outro, Math.min(1, i / (FPS * 0.3))); return addFrame(); }); })(i);
+        return seq.then(function () { return Promise.all([venc.flush(), aenc.flush()]); }).then(function () { muxer.finalize(); actx.close(); return new Blob([muxer.target.buffer], { type: 'video/mp4' }); });
+      });
+    });
+  }
+
   function start(panel) {
-    var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false;
+    var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0;
 
     function charById(id) { return (ov.characters || []).filter(function (c) { return c.id === id; })[0]; }
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
 
     function fromServer(d) {
       cur = d.episode; cur.lines = d.lines;
-      draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text }; }) };
-      if (cur.status === 'rendering') schedulePoll(); else stopPoll();
+      draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text }; }) };
+      var clipsBusy = d.lines.some(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; });
+      if (cur.status === 'rendering' || clipsBusy) schedulePoll(); else stopPoll();
     }
     function schedulePoll() { stopPoll(); pollTimer = setTimeout(function () { if (!cur) return; call({ action: 'episode_get', id: cur.id }).then(function (r) { if (r.ok && cur && r.episode.id === cur.id) { fromServer(r); render(); } }); }, 8000); }
     function stopPoll() { if (pollTimer) clearTimeout(pollTimer); pollTimer = null; }
 
     function newDraft(sample) {
       cur = null; stopPoll();
-      draft = { id: '', title: sample ? SAMPLE.title : '', aspect: '9:16', captions: true, lines: [] };
+      draft = { id: '', title: sample ? SAMPLE.title : '', aspect: '9:16', captions: true, scene_image_url: (vsScenes && vsScenes[0] && vsScenes[0].url) || '', lines: [] };
       if (sample) SAMPLE.lines.forEach(function (p) { var c = charByName(p[0]) || ov.characters[0]; draft.lines.push({ id: '', character_id: c ? c.id : '', text: p[1] }); });
       else draft.lines.push({ id: '', character_id: ov.characters[0] ? ov.characters[0].id : '', text: '' });
     }
@@ -73,7 +171,7 @@
     function render(msg, isErr) {
       if (!ov) { panel.innerHTML = '<div class="ve"><div class="va-card"><p class="va-err">' + esc(msg || 'Няма данни') + '</p></div></div>'; return; }
       var h = '<div class="ve">';
-      if (!ov.keys.elevenlabs || !ov.keys.heygen) h += '<div class="va-card"><p class="va-err">Липсва ключ в Webflow Cloud: ' + (!ov.keys.elevenlabs ? 'ELEVENLABS_API_KEY ' : '') + (!ov.keys.heygen ? 'HEYGEN_API_KEY' : '') + '. Без него ' + (!ov.keys.elevenlabs ? 'озвучаването' : 'видеото') + ' няма да тръгне.</p></div>';
+      if (!ov.keys.elevenlabs || !ov.keys.vidu) h += '<div class="va-card"><p class="va-err">Липсва ключ в Webflow Cloud: ' + (!ov.keys.elevenlabs ? 'ELEVENLABS_API_KEY ' : '') + (!ov.keys.vidu ? 'VIDU_API_KEY' : '') + '. Без него ' + (!ov.keys.elevenlabs ? 'озвучаването' : 'сцените') + ' няма да тръгнат.</p></div>';
       h += '<div class="ve-grid"><div>';
       h += '<div class="va-card"><h3>Епизоди</h3><p class="va-sub">Кратки клипове с Фикс и Микси</p>';
       h += '<div class="ve-row"><button class="va-btn primary" data-act="new">+ Нов епизод</button><button class="va-btn" data-act="sample">Примерен „Горе-долу“</button></div><div class="ve-list">';
@@ -101,7 +199,9 @@
         if (looks) {
           h += '<select data-f="avatar_id"><option value="">— избери —</option>' + looks.map(function (l) { return '<option value="' + esc(l.id) + '"' + (l.id === c.avatar_id ? ' selected' : '') + '>' + esc(l.name) + (l.status && l.status !== 'completed' ? ' (' + esc(l.status) + ')' : '') + '</option>'; }).join('') + '</select>';
         } else h += '<input type="text" data-f="avatar_id" value="' + esc(c.avatar_id) + '" placeholder="look id"> <button class="va-btn small" data-act="looks">Зареди аватарите от HeyGen</button>';
-        h += '<label>Поведение в кадър (motion prompt, на английски)</label><textarea data-f="motion">' + esc(c.motion) + '</textarea>';
+        h += '<label>Как изглежда (за промпта, на английски)</label><textarea data-f="look">' + esc(c.look || '') + '</textarea>';
+        h += '<label>Как реагира, когато другият говори (на английски)</label><textarea data-f="react">' + esc(c.react || '') + '</textarea>';
+        h += '<label>Поведение в кадър при HeyGen (motion prompt, на английски)</label><textarea data-f="motion">' + esc(c.motion) + '</textarea>';
         h += '<label>Изразителност</label><select data-f="expressiveness">' + ['low', 'medium', 'high'].map(function (v) { return '<option value="' + v + '"' + (v === (c.expressiveness || 'medium') ? ' selected' : '') + '>' + { low: 'ниска', medium: 'средна', high: 'висока' }[v] + '</option>'; }).join('') + '</select>';
         h += '<div class="ve-row" style="margin-top:10px"><button class="va-btn small" data-act="char-save" data-id="' + esc(c.id) + '">Запази</button><button class="va-btn small" data-act="char-del" data-id="' + esc(c.id) + '">Изтрий</button></div></div>';
       });
@@ -118,6 +218,13 @@
       h += '</div>';
       h += '<div class="ve-row"><label>Формат</label><select data-f="aspect" style="width:auto"><option value="9:16"' + (d.aspect === '9:16' ? ' selected' : '') + '>9:16 (Reels / TikTok)</option><option value="16:9"' + (d.aspect === '16:9' ? ' selected' : '') + '>16:9 (YouTube / сайт)</option></select>';
       h += '<label><input type="checkbox" data-f="captions"' + (d.captions ? ' checked' : '') + '> субтитри</label></div>';
+      h += '<div class="ve-row"><label>Картинка с героите (от „Визуализации“)</label>';
+      if (vsScenes) h += '<select data-f="scene_image_url" style="width:auto;max-width:360px"><option value="">— избери —</option>' + vsScenes.map(function (sc) { return '<option value="' + esc(sc.url) + '"' + (sc.url === d.scene_image_url ? ' selected' : '') + '>' + esc(sc.project + ' · ' + sc.name) + '</option>'; }).join('') + '</select>';
+      else h += '<span class="va-muted">зареждам…</span>';
+      if (d.scene_image_url) h += '<img src="' + esc(d.scene_image_url) + '" alt="" style="height:54px;border-radius:8px">';
+      h += '</div>';
+      if (result) h += '<video controls playsinline src="' + esc(result.url) + '"></video><div class="ve-row" style="margin-top:8px"><a class="va-btn primary" href="' + esc(result.url) + '" download="' + esc(d.title || 'episode') + '-' + (d.aspect === '16:9' ? '16x9' : '9x16') + '.mp4">⬇ Свали MP4</a><span class="va-muted">' + result.note + '</span></div>';
+      if (busy && progress > 0) h += '<div class="ve-tip">Сглобявам… ' + Math.round(progress * 100) + '%</div>';
       if (cur && cur.status === 'failed' && cur.error) h += '<p class="va-err">' + esc(cur.error) + '</p>';
       if (cur && cur.status === 'done' && cur.video_url) {
         h += '<video controls playsinline src="' + esc(cur.video_url) + '"' + (cur.thumb_url ? ' poster="' + esc(cur.thumb_url) + '"' : '') + '></video>';
@@ -133,21 +240,30 @@
         h += '</div><textarea data-f="text" placeholder="Какво казва…">' + esc(l.text) + '</textarea>';
         h += '<div class="ve-tools"><button class="va-btn small" data-act="up" title="нагоре">↑</button><button class="va-btn small" data-act="down" title="надолу">↓</button><button class="va-btn small" data-act="del" title="махни">✕</button></div>';
         if (sl && (sl.audio_url || sl.error)) {
-          h += '<div class="ve-audio">' + (sl.audio_url ? '<audio controls preload="none" src="' + esc(sl.audio_url) + '"></audio>' : '') + (sl.error ? '<span class="va-err" style="font-size:12px">' + esc(sl.error) + '</span>' : '');
-          h += '<button class="va-btn small" data-act="revoice" data-line="' + esc(sl.id) + '">преозвучи</button></div>';
+          h += '<div class="ve-audio">' + (sl.audio_url ? '<audio controls preload="metadata" data-line-audio="' + esc(sl.id) + '" src="' + esc(sl.audio_url) + '"></audio>' : '') + (sl.error ? '<span class="va-err" style="font-size:12px">' + esc(sl.error) + '</span>' : '');
+          h += '<button class="va-btn small" data-act="revoice" data-line="' + esc(sl.id) + '">преозвучи</button>';
+          var cs = sl.clip_status || 'none';
+          if (cs === 'done') h += '<span class="ve-status done">сцена готова</span><button class="va-btn small" data-act="clip-view" data-line="' + esc(sl.id) + '">виж</button><button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">нова сцена</button>';
+          else if (cs === 'queued' || cs === 'in_progress') h += '<span class="ve-status rendering">сцената се прави…</span>';
+          else if (cs === 'failed') h += '<span class="ve-status failed">сцена: грешка</span><span class="va-err" style="font-size:12px">' + esc(sl.clip_error || '') + '</span><button class="va-btn small" data-act="reclip" data-line="' + esc(sl.id) + '">опитай пак</button>';
+          h += '</div>';
         } else if (sl && cur) h += '<div class="ve-audio"><span class="va-muted">още не е озвучена</span></div>';
         h += '</div>';
       });
       h += '<div class="ve-row"><button class="va-btn small" data-act="add">+ реплика</button></div>';
       var secs = d.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0);
       var voiced = serverLines.filter(function (x) { return x.audio_url; }).length;
-      var changed = !cur || JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; })) || draft.title !== cur.title || draft.aspect !== cur.aspect || draft.captions !== !!cur.captions;
-      h += '<div class="ve-tip">≈ ' + Math.round(secs) + ' сек говор · гласове ~' + money(secs * 0.004) + ' · видео (HeyGen) ~' + money(secs * 0.05) + '</div>';
+      var changed = !cur || JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; })) || draft.title !== cur.title || draft.aspect !== cur.aspect || draft.captions !== !!cur.captions || (draft.scene_image_url || '') !== (cur.scene_image_url || '');
+      var clipsDone = serverLines.filter(function (x) { return x.clip_status === 'done'; }).length;
+      var clipsBusy = serverLines.filter(function (x) { return x.clip_status === 'queued' || x.clip_status === 'in_progress'; }).length;
+      h += '<div class="ve-tip">≈ ' + Math.round(secs) + ' сек говор · гласове ~' + money(secs * 0.004) + ' · сцени (Vidu) ~' + Math.round((secs + d.lines.length) * 28) + ' кредита (~' + money((secs + d.lines.length) * 0.1) + ')</div>';
       h += '<div class="ve-row">';
       h += '<button class="va-btn' + (changed ? ' primary' : '') + '" data-act="save">' + (cur ? 'Запази промените' : 'Запази епизода') + '</button>';
       if (cur) {
         h += '<button class="va-btn' + (!changed && voiced < d.lines.length ? ' primary' : '') + '" data-act="voice"' + (changed ? ' disabled title="първо запази"' : '') + '>Озвучи' + (voiced && voiced < d.lines.length ? ' останалите (' + (d.lines.length - voiced) + ')' : voiced ? ' наново' : '') + '</button>';
-        h += '<button class="va-btn' + (!changed && voiced === d.lines.length && cur.status !== 'rendering' ? ' primary' : '') + '" data-act="render"' + (changed || voiced < d.lines.length || cur.status === 'rendering' ? ' disabled' : '') + '>' + (cur.status === 'done' ? 'Направи видеото наново' : 'Направи видео') + '</button>';
+        h += '<button class="va-btn' + (!changed && voiced === d.lines.length && clipsDone < d.lines.length && !clipsBusy ? ' primary' : '') + '" data-act="scenes"' + (changed || voiced < d.lines.length || clipsBusy || !d.scene_image_url ? ' disabled' : '') + '>' + (clipsBusy ? 'Сцените се правят… (' + clipsBusy + ')' : clipsDone && clipsDone < d.lines.length ? 'Направи останалите сцени (' + (d.lines.length - clipsDone) + ')' : clipsDone ? 'Сцени наново' : 'Направи сцените (Vidu)') + '</button>';
+        h += '<button class="va-btn' + (!changed && clipsDone === d.lines.length && !busy ? ' primary' : '') + '" data-act="stitch"' + (changed || clipsDone < d.lines.length || busy ? ' disabled' : '') + '>Сглоби епизода</button>';
+        h += '<button class="va-btn small" data-act="render"' + (changed || voiced < d.lines.length || cur.status === 'rendering' ? ' disabled' : '') + ' title="резервен вариант: говорещи глави">HeyGen вариант</button>';
         h += '<span style="flex:1"></span><button class="va-btn small" data-act="delete">Изтрий епизода</button>';
       }
       h += '</div></div>';
@@ -159,6 +275,7 @@
       var t = panel.querySelector('[data-f="title"]'); if (t) draft.title = t.value;
       var a = panel.querySelector('[data-f="aspect"]'); if (a) draft.aspect = a.value;
       var c = panel.querySelector('[data-f="captions"]'); if (c) draft.captions = c.checked;
+      var si = panel.querySelector('[data-f="scene_image_url"]'); if (si) draft.scene_image_url = si.value;
       [].forEach.call(panel.querySelectorAll('.ve-line'), function (row) { var i = Number(row.dataset.i); var ta = row.querySelector('[data-f="text"]'); if (draft.lines[i] && ta) draft.lines[i].text = ta.value; });
     }
 
@@ -190,6 +307,63 @@
       })(true);
     }
 
+    function audioDurations() {
+      // measured from the <audio> elements already on the page (metadata preloaded); falls back to a text estimate
+      var out = {};
+      return Promise.all((cur ? cur.lines : []).map(function (l) {
+        var a = panel.querySelector('audio[data-line-audio="' + l.id + '"]');
+        return new Promise(function (res) {
+          if (!a) return res();
+          if (a.readyState >= 1 && isFinite(a.duration)) { out[l.id] = a.duration; return res(); }
+          var t = setTimeout(res, 4000);
+          a.addEventListener('loadedmetadata', function () { clearTimeout(t); if (isFinite(a.duration)) out[l.id] = a.duration; res(); }, { once: true });
+          a.load();
+        });
+      })).then(function () { (cur ? cur.lines : []).forEach(function (l) { if (!out[l.id]) out[l.id] = speechSeconds(l.text); }); return out; });
+    }
+    function scenesLoop(force, lineId) {
+      if (!cur) return;
+      busy = true; render('Пускам сцените във Vidu…');
+      audioDurations().then(function (durations) {
+        (function step(first) {
+          call({ action: 'scenes', id: cur.id, force: !!(force && first), line_id: lineId || '', durations: durations }).then(function (r) {
+            if (!r.ok) { busy = false; render(r.error, true); return; }
+            fromServer(r);
+            var pending = r.lines.filter(function (l) { return l.audio_url && l.clip_status !== 'done' && l.clip_status !== 'queued' && l.clip_status !== 'in_progress' && l.clip_status !== 'failed'; }).length;
+            if (!lineId && pending > 0 && r.remaining > 0) { render('Пускам сцените… остават ' + pending); step(false); }
+            else { busy = false; render('Сцените се правят – Vidu обикновено отнема 3–6 минути на сцена. Страницата се обновява сама.'); }
+          }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
+        })(true);
+      });
+    }
+    function clipBlob(lineId) {
+      return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' }, body: JSON.stringify({ action: 'clip_content', line_id: lineId }) })
+        .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'Сцената не се изтегли'); }); return r.blob(); });
+    }
+    function stitchEpisode() {
+      if (!cur || busy) return;
+      busy = true; progress = 0; result = null; render('Свалям сцените и гласовете…');
+      var W = draft.aspect === '16:9' ? 1920 : 1080, H = draft.aspect === '16:9' ? 1080 : 1920;
+      var chars = {}; ov.characters.forEach(function (c) { chars[c.id] = c; });
+      Promise.all(cur.lines.map(function (l) {
+        return Promise.all([clipBlob(l.id), fetch(l.audio_url).then(function (r) { return r.arrayBuffer(); })]).then(function (x) {
+          return { clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
+        });
+      })).then(function (parts) {
+        return stitch({ W: W, H: H, parts: parts, captions: draft.captions, outro: ['ВЕРДЕ-М · мебели по поръчка', 'Безплатно замерване в София · verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
+      }).then(function (blob) {
+        busy = false; progress = 0;
+        result = { url: URL.createObjectURL(blob), note: Math.round(blob.size / 1048576 * 10) / 10 + ' MB · ' + W + '×' + H };
+        render('Епизодът е готов – пусни го и го свали.');
+      }).catch(function (e) { busy = false; progress = 0; render('Не се получи: ' + e.message, true); });
+    }
+    function lighten(hex) {
+      var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return '#fff';
+      var n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+      var f = function (v) { return Math.round(v + (255 - v) * 0.55); };
+      return '#' + [f(r), f(g), f(b)].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+    }
+
     panel.addEventListener('change', function () { readDraft(); });
     panel.addEventListener('click', function (e) {
       var who = e.target.closest('[data-who]');
@@ -213,9 +387,14 @@
       else if (act === 'save') {
         var lines = draft.lines.filter(function (l) { return l.text.trim() && l.character_id; });
         if (!lines.length) { render('Напиши поне една реплика.', true); return; }
-        run(call({ action: draft.id ? 'episode_update' : 'episode_create', id: draft.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, lines: lines }), 'Запазено.');
+        result = null;
+        run(call({ action: draft.id ? 'episode_update' : 'episode_create', id: draft.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: lines }), 'Запазено.');
       }
       else if (act === 'voice') voiceLoop(cur && cur.lines.every(function (l) { return l.audio_url; }));
+      else if (act === 'scenes') scenesLoop(cur && cur.lines.every(function (l) { return l.clip_status === 'done'; }), '');
+      else if (act === 'reclip') scenesLoop(true, b.dataset.line);
+      else if (act === 'clip-view') { var w = window.open('', '_blank'); clipBlob(b.dataset.line).then(function (blob) { w.location = URL.createObjectURL(blob); }).catch(function (e) { w.close(); render(e.message, true); }); }
+      else if (act === 'stitch') stitchEpisode();
       else if (act === 'revoice') { busy = true; render('Преозвучавам…'); call({ action: 'voice', id: cur.id, line_id: b.dataset.line }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); }); }
       else if (act === 'render') { if (!confirm('Да пусна ли HeyGen да направи видеото? Ще струва около ' + money(draft.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0) * 0.05) + ' от API портфейла.')) return; run(call({ action: 'render', id: cur.id }), 'Пуснато. Рендирането отнема няколко минути.'); }
       else if (act === 'delete') { if (!confirm('Да изтрия ли епизода „' + draft.title + '“ с озвучените реплики?')) return; var id = cur.id; cur = null; draft = null; stopPoll(); run(call({ action: 'episode_delete', id: id }), 'Изтрит.'); }
@@ -223,7 +402,7 @@
       else if (act === 'char-save' || act === 'char-del') {
         var card = b.closest('.ve-char'); var f = function (k) { var n = card.querySelector('[data-f="' + k + '"]'); return n ? n.value : ''; };
         if (act === 'char-del') { if (!confirm('Да изтрия ли героя?')) return; run(call({ action: 'character_delete', id: b.dataset.id })); }
-        else run(call({ action: 'character_save', id: b.dataset.id, name: f('name'), color: f('color'), voice_id: f('voice_id'), avatar_id: f('avatar_id'), motion: f('motion'), expressiveness: f('expressiveness') }), 'Героят е запазен.');
+        else run(call({ action: 'character_save', id: b.dataset.id, name: f('name'), color: f('color'), voice_id: f('voice_id'), avatar_id: f('avatar_id'), motion: f('motion'), expressiveness: f('expressiveness'), look: f('look'), react: f('react') }), 'Героят е запазен.');
       }
       else if (act === 'pron-save') {
         var map = {};
@@ -235,6 +414,14 @@
     call({ action: 'overview' }).then(function (r) {
       if (!r.ok) { render(r.error || 'Грешка', true); return; }
       ov = r; render();
+      // scene pictures come from the "Визуализации" projects (any uploaded scene can be the reference picture)
+      return fetch(VS_API, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' }, body: JSON.stringify({ action: 'projects' }) }).then(function (x) { return x.json(); }).then(function (pr) {
+        if (!pr.ok) return;
+        return Promise.all((pr.projects || []).slice(0, 20).map(function (p) {
+          return fetch(VS_API, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' }, body: JSON.stringify({ action: 'project_get', id: p.id }) }).then(function (x) { return x.json(); })
+            .then(function (v) { return (v.scenes || []).map(function (sc) { return { project: p.name, name: sc.name, url: sc.sketch_url }; }); }).catch(function () { return []; });
+        })).then(function (all) { vsScenes = [].concat.apply([], all); render(); });
+      });
     }).catch(function (e) { render('Няма връзка със сървъра: ' + e.message, true); });
   }
 
