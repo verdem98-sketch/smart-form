@@ -87,24 +87,49 @@
     g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8; g.fillStyle = '#fff'; g.fillText('ВЕРДЕ-М', Math.round(W * 0.04), Math.round(H * 0.035)); g.restore();
   }
 
+  function clipSeconds(blob) {
+    return new Promise(function (resolve) {
+      var v = document.createElement('video'); v.preload = 'metadata'; v.muted = true; v.src = URL.createObjectURL(blob);
+      v.addEventListener('loadedmetadata', function () { var d = v.duration; URL.revokeObjectURL(v.src); resolve(isFinite(d) ? d : 4); });
+      v.addEventListener('error', function () { resolve(4); });
+    });
+  }
   function stitch(opts) {
     // opts: { W, H, parts:[{clip:Blob, audio:ArrayBuffer, text, color}], outro:[..], captions:bool, onProgress }
     if (!window.VideoEncoder || !window.AudioEncoder || !window.VideoFrame || !window.AudioData) return Promise.reject(new Error('Този браузър не поддържа видео кодиране (WebCodecs). Използвай Chrome или Edge.'));
     var W = opts.W, H = opts.H, c = document.createElement('canvas'); c.width = W; c.height = H; var g = c.getContext('2d');
     var SR = 48000, actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SR });
     return import(MUXER_URL).then(function (M) {
-      return Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })).then(function (buffers) {
+      function dec(ab) { return ab ? actx.decodeAudioData(ab.slice(0)).catch(function () { return null; }) : Promise.resolve(null); }
+      function decBumper(b) {
+        if (!b) return Promise.resolve(null);
+        return Promise.all([clipSeconds(b.clip), dec(b.music)].concat(b.voices.map(function (v) { return dec(v.audio); }))).then(function (x) {
+          return { clip: b.clip, sec: Math.min(8, Math.max(1, x[0] - 0.05)), music: x[1], voices: b.voices.map(function (v, i) { return { buf: x[2 + i], at: v.at }; }) };
+        });
+      }
+      return Promise.all([Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })), decBumper(opts.intro), decBumper(opts.end)]).then(function (all) {
+        var buffers = all[0], intro = all[1], end = all[2];
         var muxer = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 1 }, fastStart: 'in-memory' });
         var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { console.error(e); } });
         venc.configure({ codec: W * H > 2073600 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: W * H > 1500000 ? 4500000 : 3500000, framerate: FPS });
         var aenc = new AudioEncoder({ output: function (ch, meta) { muxer.addAudioChunk(ch, meta); }, error: function (e) { console.error(e); } });
         aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 1, bitrate: 128000 });
         // one mono track: every part's speech at its scene start, silence elsewhere
-        var starts = [], total = 0;
+        var starts = [], total = intro ? intro.sec : 0;
         opts.parts.forEach(function (p, i) { starts.push(total); p.sec = Math.max(1, buffers[i].duration + TAIL); total += p.sec; });
-        var outroStart = total; total += OUTRO_SEC;
+        var outroStart = total; total += end ? end.sec : OUTRO_SEC;
         var samples = Math.ceil(total * SR), pcm = new Float32Array(samples);
-        buffers.forEach(function (b, i) { var d = b.getChannelData(0), o = Math.round(starts[i] * SR); for (var k = 0; k < d.length && o + k < samples; k++) pcm[o + k] = d[k]; });
+        function mix(b, at, gain, len) {
+          if (!b) return; var d = b.getChannelData(0), o = Math.round(at * SR), n = Math.min(d.length, len ? Math.round(len * SR) : d.length), fade = Math.round(0.5 * SR);
+          for (var k = 0; k < n && o + k < samples; k++) { var gk = gain; if (len && k > n - fade) gk *= (n - k) / fade; pcm[o + k] += d[k] * gk; }
+        }
+        buffers.forEach(function (b, i) { mix(b, starts[i], 1); });
+        [[intro, 0], [end, outroStart]].forEach(function (x) {
+          var b = x[0]; if (!b) return;
+          mix(b.music, x[1], 0.35, b.sec);
+          b.voices.forEach(function (v) { mix(v.buf, x[1] + v.at, 1); });
+        });
+        for (var q = 0; q < samples; q++) { if (pcm[q] > 1) pcm[q] = 1; else if (pcm[q] < -1) pcm[q] = -1; }
         var CH = 1024;
         for (var off = 0; off < samples; off += CH) {
           var len = Math.min(CH, samples - off);
@@ -118,38 +143,54 @@
           if (opts.onProgress) opts.onProgress(Math.min(0.99, n / est));
           return venc.encodeQueueSize > 12 ? new Promise(function (r) { setTimeout(r, 25); }) : Promise.resolve();
         }
+        function renderClip(blob, sec, draw) {
+          return new Promise(function (resolve, reject) {
+            var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
+            v.addEventListener('loadedmetadata', function () {
+              var frameCount = Math.round(sec * FPS), i = 0, maxT = Math.max(0.05, v.duration - 0.05);
+              function step() {
+                if (i >= frameCount) { URL.revokeObjectURL(v.src); return resolve(); }
+                v.currentTime = Math.min(maxT, i / FPS);
+              }
+              v.addEventListener('seeked', function () { draw(v); i++; addFrame().then(step); });
+              step();
+            });
+            v.addEventListener('error', function () { reject(new Error('Клипът не може да се прочете')); });
+          });
+        }
+        function drawCover(v) { var k = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * k, dh = v.videoHeight * k; g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); }
+        function drawContain(v) {
+          // whole picture visible; the empty bands are filled with a blurred, darker copy of it
+          g.save(); g.filter = 'blur(40px) brightness(0.7)'; drawCover(v); g.restore();
+          var k = Math.min(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * k, dh = v.videoHeight * k;
+          g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        }
         var seq = Promise.resolve();
+        if (intro) seq = seq.then(function () { return renderClip(intro.clip, intro.sec, drawContain); });
         opts.parts.forEach(function (p) {
           seq = seq.then(function () {
-            return new Promise(function (resolve, reject) {
-              var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(p.clip);
-              v.addEventListener('loadedmetadata', function () {
-                var frameCount = Math.round(p.sec * FPS), i = 0, maxT = Math.max(0.05, v.duration - 0.05);
-                function step() {
-                  if (i >= frameCount) { URL.revokeObjectURL(v.src); return resolve(); }
-                  v.currentTime = Math.min(maxT, i / FPS);
-                }
-                v.addEventListener('seeked', function () {
-                  var k = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * k, dh = v.videoHeight * k;
-                  g.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
-                  drawTag(g, W, H);
-                  if (opts.captions && p.text) drawCaption(g, W, H, p.text, p.color);
-                  i++; addFrame().then(step);
-                });
-                step();
-              });
-              v.addEventListener('error', function () { reject(new Error('Сцената не може да се прочете')); });
+            return renderClip(p.clip, p.sec, function (v) {
+              drawCover(v); drawTag(g, W, H);
+              if (opts.captions && p.text) drawCaption(g, W, H, p.text, p.color);
             });
           });
         });
-        for (var i = 0; i < Math.round(OUTRO_SEC * FPS); i++) (function (i) { seq = seq.then(function () { drawOutro(g, W, H, opts.outro, Math.min(1, i / (FPS * 0.3))); return addFrame(); }); })(i);
+        if (end) seq = seq.then(function () { return renderClip(end.clip, end.sec, drawContain); });
+        else for (var i = 0; i < Math.round(OUTRO_SEC * FPS); i++) (function (i) { seq = seq.then(function () { drawOutro(g, W, H, opts.outro, Math.min(1, i / (FPS * 0.3))); return addFrame(); }); })(i);
         return seq.then(function () { return Promise.all([venc.flush(), aenc.flush()]); }).then(function () { muxer.finalize(); actx.close(); return new Blob([muxer.target.buffer], { type: 'video/mp4' }); });
       });
     });
   }
 
   function start(panel) {
-    var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0;
+    var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0, bumper = null;
+    var BUMPER_TITLE = 'Начало и край';
+    var BUMPER_SLOTS = [['Клип за начало (видео)', 'video/*'], ['Музика за начало (mp3, по желание)', 'audio/*'], ['Клип за край (видео)', 'video/*'], ['Музика за край (mp3, по желание)', 'audio/*']];
+    function bumperEpisode() { return (ov && ov.episodes || []).filter(function (e) { return (e.title || '').indexOf(BUMPER_TITLE) === 0; })[0]; }
+    function loadBumper() {
+      var e = bumperEpisode(); if (!e) { bumper = null; return Promise.resolve(); }
+      return call({ action: 'episode_get', id: e.id }).then(function (r) { if (r.ok) bumper = { id: e.id, lines: r.lines }; });
+    }
 
     function charById(id) { return (ov.characters || []).filter(function (c) { return c.id === id; })[0]; }
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
@@ -210,6 +251,18 @@
       h += '</div><div class="ve-row" style="margin-top:10px"><button class="va-btn small" data-act="char-add">+ Нов герой</button></div>';
       h += '<h3 style="margin-top:16px">Речник за произношение</h3><p class="va-sub">По един ред: <code>дума = как да се каже</code>. Прилага се преди озвучаване; текстът в субтитрите остава както е написан.</p>';
       h += '<textarea data-f="pron" style="min-height:90px">' + esc(Object.keys(ov.pronunciation).map(function (k) { return k + ' = ' + ov.pronunciation[k]; }).join('\n')) + '</textarea><div class="ve-row" style="margin-top:8px"><button class="va-btn small" data-act="pron-save">Запази речника</button></div>';
+      h += '<h3 style="margin-top:16px">Начало и край на всяка серия</h3>';
+      if (!bumper || !bumper.lines || bumper.lines.length < 4) h += '<p class="va-sub">Няма епизод „' + BUMPER_TITLE + '…“ с 4 реплики (Микси „Фикс!“, Фикс „…и Микси!“, Фикс и Микси за края). Създай го, озвучи го и после качи клиповете тук.</p>';
+      else {
+        h += '<p class="va-sub">Качват се веднъж. „Сглоби епизода“ ги слага сам: начало → сцените → край. Фразите се чуват в началото на 0,5 и 1,5 сек, в края на 0,5 и 2 сек; музиката е по-тихо отдолу.</p>';
+        BUMPER_SLOTS.forEach(function (sl, i) {
+          var l = bumper.lines[i], ok = l && (l.clip_ready || l.clip_uploaded);
+          h += '<div class="ve-row" style="margin-top:6px"><span style="min-width:240px">' + sl[0] + '</span>' + (ok ? '<span class="ve-status done">качено</span>' : '<span class="va-muted">няма</span>');
+          h += '<label class="va-btn small" style="display:inline-flex;align-items:center;cursor:pointer">' + (ok ? 'смени' : 'качи') + '<input type="file" accept="' + sl[1] + '" data-upload-line="' + esc(l.id) + '" data-bumper="1" hidden></label>';
+          if (l.audio_url && (i === 0 || i === 2)) h += '<span class="va-muted">фрази:</span><audio controls preload="none" src="' + esc(l.audio_url) + '" style="height:30px"></audio><audio controls preload="none" src="' + esc(bumper.lines[i + 1].audio_url || '') + '" style="height:30px"></audio>';
+          h += '</div>';
+        });
+      }
       return h;
     }
 
@@ -358,6 +411,21 @@
       return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Key': window.__verdeOfficeKey || '' }, body: JSON.stringify({ action: 'clip_content', line_id: lineId }) })
         .then(function (r) { if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'Сцената не се изтегли'); }); return r.blob(); });
     }
+    function bumperParts() {
+      // intro = slot 0 clip (+ slot 1 music) with phrases 0 and 1; end = slot 2 clip (+ slot 3 music) with phrases 2 and 3
+      if (!bumper || !bumper.lines || bumper.lines.length < 4 || (cur && cur.id === bumper.id)) return Promise.resolve({});
+      var L = bumper.lines;
+      function ready(l) { return l && (l.clip_ready || l.clip_uploaded); }
+      function audio(l) { return l.audio_url ? fetch(l.audio_url).then(function (r) { return r.arrayBuffer(); }) : Promise.resolve(null); }
+      function music(l) { return ready(l) ? clipBlob(l.id).then(function (b) { return b.arrayBuffer(); }).catch(function () { return null; }) : Promise.resolve(null); }
+      function one(ci, ats) {
+        if (!ready(L[ci])) return Promise.resolve(null);
+        return Promise.all([clipBlob(L[ci].id), music(L[ci + 1]), audio(L[ci]), audio(L[ci + 1])]).then(function (x) {
+          return { clip: x[0], music: x[1], voices: [{ audio: x[2], at: ats[0] }, { audio: x[3], at: ats[1] }] };
+        });
+      }
+      return Promise.all([one(0, [0.5, 1.5]), one(2, [0.5, 2.0])]).then(function (x) { return { intro: x[0], end: x[1] }; });
+    }
     function stitchEpisode() {
       if (!cur || busy) return;
       busy = true; progress = 0; result = null; render('Свалям сцените и гласовете…');
@@ -368,7 +436,10 @@
           return { clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
         });
       })).then(function (parts) {
-        return stitch({ W: W, H: H, parts: parts, captions: draft.captions, outro: ['ВЕРДЕ-М', 'мебели по поръчка', 'Безплатно замерване в София', 'verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
+        return loadBumper().then(function () { return bumperParts(); }).then(function (bp) { return { parts: parts, bp: bp }; });
+      }).then(function (x) {
+        var parts = x.parts;
+        return stitch({ W: W, H: H, parts: parts, intro: x.bp.intro, end: x.bp.end, captions: draft.captions, outro: ['ВЕРДЕ-М', 'мебели по поръчка', 'Безплатно замерване в София', 'verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
       }).then(function (blob) {
         busy = false; progress = 0;
         result = { url: URL.createObjectURL(blob), blob: blob, note: Math.round(blob.size / 1048576 * 10) / 10 + ' MB · ' + W + '×' + H };
@@ -386,7 +457,7 @@
         (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { render(note); }, function () { window.prompt('Копирай текста:', txt); render(note); });
       }).catch(function (e) { render('Няма връзка: ' + e.message, true); });
     }
-    function uploadClip(lineId, file) {
+    function uploadClip(lineId, file, after) {
       if (busy) return;
       if (file.size > 60 * 1048576) { render('Файлът е твърде голям (над 60 MB).', true); return; }
       var CHUNK = 600000, total = Math.ceil(file.size / CHUNK), seq = 0;
@@ -398,7 +469,8 @@
         }).then(function (r) {
           if (!r.ok) { busy = false; progress = 0; render(r.error, true); return; }
           seq++; progress = seq / total;
-          if (r.done) { busy = false; progress = 0; fromServer(r); refreshList().then(function () { render('Сцената е качена.'); }); }
+          if (r.done && after) { busy = false; progress = 0; after(r); }
+          else if (r.done) { busy = false; progress = 0; fromServer(r); refreshList().then(function () { render('Сцената е качена.'); }); }
           else { render('Качвам сцената… ' + Math.round(progress * 100) + '%'); next(); }
         }).catch(function (e) { busy = false; progress = 0; render('Няма връзка: ' + e.message, true); });
       })();
@@ -429,7 +501,11 @@
 
     panel.addEventListener('change', function (e) {
       var inp = e.target && e.target.getAttribute && e.target.getAttribute('data-upload-line');
-      if (inp) { var f = e.target.files && e.target.files[0]; if (f) uploadClip(inp, f); return; }
+      if (inp) {
+        var f = e.target.files && e.target.files[0], isB = e.target.getAttribute('data-bumper');
+        if (f) uploadClip(inp, f, isB ? function () { loadBumper().then(function () { render('Качено.'); }); } : null);
+        return;
+      }
       readDraft();
     });
     panel.addEventListener('click', function (e) {
@@ -442,7 +518,7 @@
       readDraft();
       if (act === 'new') { newDraft(false); render(); }
       else if (act === 'sample') { newDraft(true); render(); }
-      else if (act === 'settings') { settingsOpen = !settingsOpen; render(); if (settingsOpen && !looks && ov.keys.heygen) run(call({ action: 'heygen_looks' })); }
+      else if (act === 'settings') { settingsOpen = !settingsOpen; render(); if (settingsOpen) loadBumper().then(function () { render(); }); if (settingsOpen && !looks && ov.keys.heygen) run(call({ action: 'heygen_looks' })); }
       else if (act === 'looks') run(call({ action: 'heygen_looks' }));
       else if (act === 'add') { draft.lines.push({ id: '', character_id: (ov.characters[(draft.lines.length) % Math.max(1, ov.characters.length)] || {}).id || '', text: '' }); render(); }
       else if (act === 'del' || act === 'up' || act === 'down') {
