@@ -179,7 +179,7 @@
       h += '<div class="ve-row"><button class="va-btn primary" data-act="new">+ Нов епизод</button><button class="va-btn" data-act="sample">Примерен „Горе-долу“</button></div><div class="ve-list">';
       if (!ov.episodes.length) h += '<p class="va-muted">Още няма епизоди.</p>';
       ov.episodes.forEach(function (e) {
-        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '">' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · <span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span></small></button>';
+        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '">' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + '</small></button>';
       });
       h += '</div></div>';
       h += '<div class="va-card"><h3>Настройки <button class="va-btn small" data-act="settings">' + (settingsOpen ? 'скрий' : 'покажи') + '</button></h3>';
@@ -214,7 +214,13 @@
     }
 
     function editorHtml() {
-      var d = draft, h = '<div class="va-card">';
+      var d = draft, h = '';
+      if (cur && cur.final_url) {
+        h += '<div class="va-card"><h3>Готов епизод</h3><p class="va-sub">Качен на сървъра – линкът се отваря и от телефона.</p>';
+        h += '<video controls playsinline preload="metadata" src="' + esc(cur.final_url) + '"' + (d.aspect === '9:16' ? ' style="max-width:360px;display:block;margin:0 auto"' : '') + '></video>';
+        h += '<div class="ve-row" style="margin-top:8px"><a class="va-btn primary" href="' + esc(cur.final_url) + '" target="_blank" rel="noopener">Отвори линка</a><a class="va-btn" href="' + esc(cur.final_url) + '" download="' + esc(d.title || 'episode') + '.mp4">⬇ Свали</a><button class="va-btn small" data-act="copylink">копирай линка</button></div></div>';
+      }
+      h += '<div class="va-card">';
       h += '<div class="ve-row"><input type="text" data-f="title" value="' + esc(d.title) + '" placeholder="Заглавие на епизода" style="font-weight:700;font-size:16px">';
       if (cur) h += '<span class="ve-status ' + esc(cur.status) + '">' + statusLabel(cur.status) + '</span>';
       h += '</div>';
@@ -226,8 +232,7 @@
       if (d.scene_image_url) h += '<img src="' + esc(d.scene_image_url) + '" alt="" style="height:54px;border-radius:8px">';
       h += '</div>';
       if (result) h += '<video controls playsinline src="' + esc(result.url) + '"></video><div class="ve-row" style="margin-top:8px"><a class="va-btn primary" href="' + esc(result.url) + '" download="' + esc(d.title || 'episode') + '-' + (d.aspect === '16:9' ? '16x9' : '9x16') + '.mp4">⬇ Свали MP4</a><button class="va-btn" data-act="upload"' + (busy ? ' disabled' : '') + '>Качи на сървъра (линк за телефон / Content Studio)</button><span class="va-muted">' + result.note + '</span></div>';
-      if (cur && cur.final_url && !result) h += '<div class="ve-row"><video controls playsinline preload="metadata" src="' + esc(cur.final_url) + '" style="max-width:360px"></video></div>';
-      if (cur && cur.final_url) h += '<div class="ve-tip">Линк към качения епизод: <a href="' + esc(cur.final_url) + '" target="_blank" rel="noopener">' + esc(cur.final_url) + '</a></div>';
+
       if (busy && progress > 0) h += '<div class="ve-tip">' + Math.round(progress * 100) + '%</div>';
       if (cur && cur.status === 'failed' && cur.error) h += '<p class="va-err">' + esc(cur.error) + '</p>';
       if (cur && cur.status === 'done' && cur.video_url) {
@@ -422,6 +427,7 @@
       else if (act === 'clip-view') { var w = window.open('', '_blank'); clipBlob(b.dataset.line).then(function (blob) { w.location = URL.createObjectURL(blob); }).catch(function (e) { w.close(); render(e.message, true); }); }
       else if (act === 'stitch') stitchEpisode();
       else if (act === 'upload') uploadFinal();
+      else if (act === 'copylink') { navigator.clipboard.writeText(cur.final_url).then(function () { render('Линкът е копиран.'); }); }
       else if (act === 'revoice') { busy = true; render('Преозвучавам…'); call({ action: 'voice', id: cur.id, line_id: b.dataset.line }).then(function (r) { busy = false; if (!r.ok) return render(r.error, true); fromServer(r); render('Готово.'); }); }
       else if (act === 'render') { if (!confirm('Да пусна ли HeyGen да направи видеото? Ще струва около ' + money(draft.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0) * 0.05) + ' от API портфейла.')) return; run(call({ action: 'render', id: cur.id }), 'Пуснато. Рендирането отнема няколко минути.'); }
       else if (act === 'delete') { if (!confirm('Да изтрия ли епизода „' + draft.title + '“ с озвучените реплики?')) return; var id = cur.id; cur = null; draft = null; stopPoll(); run(call({ action: 'episode_delete', id: id }), 'Изтрит.'); }
