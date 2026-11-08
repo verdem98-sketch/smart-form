@@ -11,16 +11,16 @@
   var MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/+esm';
   var FPS = 30, TAIL = 0.35, OUTRO_SEC = 2.5;
   var SAMPLE = {
-    title: 'Горе-долу',
+    title: 'Контактите',
     lines: [
-      ['Фикс', '[quickly] [smug] Измерих кухнята на клиента. Два метра и четирийсет. Горе-долу.'],
-      ['Микси', '[quickly] [sarcastic] „Горе-долу“ не е мерна единица, Фикс.'],
-      ['Фикс', '[smug] При мен – е.'],
-      ['Микси', '[quickly] [dry] Два и четирийсет… а хладилникът влиза къде? В съседите ли?'],
-      ['Фикс', '[quickly] [hesitant] Малка корекция. Два и трийсет и две. И контактът е зад фурната.'],
-      ['Микси', '[quickly] [dry] Тоест – идваме да мерим ние.'],
-      ['Фикс', '[quickly] [grumbling] Добре де. Но аз щях да го оправя. После.'],
-      ['Микси', '[quickly] [warm] Затова при Верде-М замерваме безплатно на място. [playful] Преди „после“.']
+      ['Фикс', '[calm] Най-честата грешка в ремонта? Контактите са сложени, преди да има проект.'],
+      ['Микси', '[dry] И после се оказва, че контактът е точно зад хладилника.'],
+      ['Фикс', 'Или над мивката. Или в средата на гърба на шкафа.'],
+      ['Микси', '[confident] Затова първо проект, после електротехник.'],
+      ['Фикс', 'Ние даваме схема с точните височини – за плот, аспиратор, осветление.'],
+      ['Микси', '[warm] И ЛЕД лентата под горните шкафове се мисли сега, не после.'],
+      ['Фикс', '[dry] Защото после значи къртене.'],
+      ['Микси', '[playful] Проектът е безплатен. Къртенето – не.']
     ]
   };
 
@@ -176,7 +176,7 @@
       if (!ov.keys.elevenlabs || !ov.keys.vidu) h += '<div class="va-card"><p class="va-err">Липсва ключ в Webflow Cloud: ' + (!ov.keys.elevenlabs ? 'ELEVENLABS_API_KEY ' : '') + (!ov.keys.vidu ? 'VIDU_API_KEY' : '') + '. Без него ' + (!ov.keys.elevenlabs ? 'озвучаването' : 'сцените') + ' няма да тръгнат.</p></div>';
       h += '<div class="ve-grid"><div>';
       h += '<div class="va-card"><h3>Епизоди</h3><p class="va-sub">Кратки клипове с Фикс и Микси</p>';
-      h += '<div class="ve-row"><button class="va-btn primary" data-act="new">+ Нов епизод</button><button class="va-btn" data-act="sample">Примерен „Горе-долу“</button></div><div class="ve-list">';
+      h += '<div class="ve-row"><button class="va-btn primary" data-act="new">+ Нов епизод</button><button class="va-btn" data-act="sample">Примерен „Контактите“</button></div><div class="ve-list">';
       if (!ov.episodes.length) h += '<p class="va-muted">Още няма епизоди.</p>';
       ov.episodes.forEach(function (e) {
         h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '">' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + '</small></button>';
