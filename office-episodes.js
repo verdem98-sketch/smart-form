@@ -11,6 +11,9 @@
   var VS_API = location.origin + '/contract-automation/api/visual-studio';
   var MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/+esm';
   var FPS = 30, TAIL = 0.35, OUTRO_SEC = 2.5, XFADE = 0.35, CAPTION_SCALE = 0.046;
+  // sound under the voices: the room tone is levelled to AMB_REF (so a loud recording cannot cover the speech), then
+  // played at its own "сила" and pushed down further to DUCK while somebody speaks; places blend over AMB_XFADE seconds
+  var AMB_REF = 0.1, DUCK = 0.5, AMB_XFADE = 0.5, LOOP_XFADE = 0.25, SFX_PEAK = 0.9, SOUND_CREDITS_PER_SEC = 40;
   var SAMPLE = {
     title: 'Контактите',
     lines: [
@@ -45,6 +48,7 @@
       '.ve-tools{display:flex;flex-direction:column;gap:4px;align-items:flex-end}.ve-audio{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ve-audio audio{height:30px;max-width:320px}',
       '.ve-status{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;background:#eef0ec;color:#6a716b}.ve-status.done{background:#e3efe3;color:#2f6b2a}.ve-status.rendering{background:#fff4d6;color:#8a6300}.ve-status.failed{background:#fde3df;color:#9b1c10}',
       '.ve video{width:100%;max-height:520px;background:#000;border-radius:12px}.ve-chars{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.ve-char{border:1px solid #e1e4df;border-radius:12px;padding:12px}.ve-char label{display:block;font-size:12px;color:#6a716b;margin:8px 0 3px}',
+      '.ve-sound{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#6a716b}.ve-sound select{width:auto;max-width:210px;padding:4px 8px;font-size:13px}.ve-sound input{width:64px;border:1px solid #cfd4cb;border-radius:8px;padding:4px 8px;font:13px Montserrat,Arial,sans-serif}.ve-snd{border:1px solid #e1e4df;border-radius:12px;padding:10px;margin:0 0 8px}.ve-snd input[type=number]{width:70px;border:1px solid #cfd4cb;border-radius:8px;padding:6px 8px;font:13px Montserrat,Arial,sans-serif}.ve-snd audio{height:30px;max-width:240px}',
       '.ve-tip{background:#f6f7f4;border-radius:10px;padding:10px 12px;font-size:13px;color:#4a504a;margin:0 0 12px}'
     ].join('');
     document.head.appendChild(s);
@@ -108,8 +112,11 @@
           return { clip: b.clip, sec: Math.min(8, Math.max(1, x[0] - 0.05)), music: x[1], voices: b.voices.map(function (v, i) { return { buf: x[2 + i], at: v.at }; }) };
         });
       }
-      return Promise.all([Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })), decBumper(opts.intro), decBumper(opts.end)]).then(function (all) {
-        var buffers = all[0], intro = all[1], end = all[2];
+      // library sounds used by the parts, decoded once each: { id: AudioBuffer }
+      var soundIds = Object.keys(opts.sounds || {});
+      var decSounds = Promise.all(soundIds.map(function (id) { return dec(opts.sounds[id]); })).then(function (bufs) { var m = {}; soundIds.forEach(function (id, i) { m[id] = bufs[i]; }); return m; });
+      return Promise.all([Promise.all(opts.parts.map(function (p) { return actx.decodeAudioData(p.audio.slice(0)); })), decBumper(opts.intro), decBumper(opts.end), decSounds]).then(function (all) {
+        var buffers = all[0], intro = all[1], end = all[2], lib = all[3];
         var muxer = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, audio: { codec: 'aac', sampleRate: SR, numberOfChannels: 1 }, fastStart: 'in-memory' });
         var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { console.error(e); } });
         venc.configure({ codec: W * H > 2073600 ? 'avc1.640033' : 'avc1.640028', width: W, height: H, bitrate: W * H > 1500000 ? 4500000 : 3500000, framerate: FPS });
@@ -125,10 +132,43 @@
           for (var k = 0; k < n && o + k < samples; k++) { var gk = gain; if (len && k > n - fade) gk *= (n - k) / fade; pcm[o + k] += d[k] * gk; }
         }
         buffers.forEach(function (b, i) { mix(b, starts[i], 1); });
-        [[intro, 0], [end, outroStart]].forEach(function (x) {
-          var b = x[0]; if (!b) return;
-          mix(b.music, x[1], 0.35, b.sec);
-          b.voices.forEach(function (v) { mix(v.buf, x[1] + v.at, 1); });
+        [[intro, 0], [end, outroStart]].forEach(function (x) { if (x[0]) x[0].voices.forEach(function (v) { mix(v.buf, x[1] + v.at, 1); }); });
+        // so far the track holds only speech: where somebody talks the room tone goes down to DUCK (quick in, slow out)
+        var WIN = Math.round(0.02 * SR), duck = new Float32Array(Math.ceil(samples / WIN) + 1), dg = 1;
+        for (var w = 0; w < duck.length; w++) {
+          var e = 0, a0 = w * WIN, a1 = Math.min(samples, a0 + WIN);
+          for (var k2 = a0; k2 < a1; k2++) e += pcm[k2] * pcm[k2];
+          var target = a1 > a0 && Math.sqrt(e / (a1 - a0)) > 0.008 ? DUCK : 1;
+          dg += (target - dg) * (target < dg ? 0.3 : 0.06); duck[w] = dg;
+        }
+        [[intro, 0], [end, outroStart]].forEach(function (x) { if (x[0]) mix(x[0].music, x[1], 0.35, x[0].sec); });
+        // room tone: one stretch per run of parts in the same place, looped, faded in/out over AMB_XFADE so that
+        // neighbouring places blend into each other
+        function ambience(buf, from, to, gain) {
+          if (!buf || !(gain > 0)) return;
+          var d = buf.getChannelData(0), L = d.length, cf = Math.min(Math.round(LOOP_XFADE * SR), Math.floor(L / 4)), LL = L - cf;
+          if (LL < SR / 4) return;
+          var sq = 0; for (var q2 = 0; q2 < L; q2++) sq += d[q2] * d[q2];
+          var rms = Math.sqrt(sq / L); if (!(rms > 0.0001)) return;
+          var norm = Math.min(20, AMB_REF / rms) * gain, xf = Math.round(AMB_XFADE * SR);
+          var o0 = Math.max(0, Math.round(from * SR) - (from > 0 ? xf >> 1 : 0)), o1 = Math.min(samples, Math.round(to * SR) + (xf >> 1)), n = o1 - o0;
+          for (var k = 0; k < n; k++) {
+            var j = k % LL, v = j < cf ? d[j] * (j / cf) + d[LL + j] * (1 - j / cf) : d[j];
+            var env = Math.min(1, k / xf, (n - k) / xf);
+            pcm[o0 + k] += v * norm * env * duck[Math.floor((o0 + k) / WIN)];
+          }
+        }
+        for (var pi = 0; pi < opts.parts.length;) {
+          var amb = opts.parts[pi].amb, pj = pi + 1;
+          while (pj < opts.parts.length && (opts.parts[pj].amb || {}).id === (amb || {}).id) pj++;
+          if (amb && lib[amb.id]) ambience(lib[amb.id], starts[pi], starts[pj - 1] + opts.parts[pj - 1].sec, amb.gain);
+          pi = pj;
+        }
+        // spot effects: levelled by their peak, then at their own "сила", at the chosen second of the scene
+        opts.parts.forEach(function (p, i) {
+          var fx = p.sfx, b = fx && lib[fx.id]; if (!b) return;
+          var d = b.getChannelData(0), peak = 0; for (var k = 0; k < d.length; k++) { var av = d[k] < 0 ? -d[k] : d[k]; if (av > peak) peak = av; }
+          if (peak > 0.001) mix(b, starts[i] + Math.max(0, fx.at || 0), Math.min(20, SFX_PEAK / peak) * fx.gain);
         });
         for (var q = 0; q < samples; q++) { if (pcm[q] > 1) pcm[q] = 1; else if (pcm[q] < -1) pcm[q] = -1; }
         var CH = 1024;
@@ -202,12 +242,17 @@
       return call({ action: 'episode_get', id: e.id }).then(function (r) { if (r.ok) bumper = { id: e.id, lines: r.lines }; });
     }
 
+    function soundsOf(kind) { return (ov.sounds || []).filter(function (x) { return x.kind === kind; }); }
+    function soundById(id) { return (ov.sounds || []).filter(function (x) { return x.id === id; })[0]; }
+    // what makes a line "changed": who, text and its sound
+    function sig(lines) { return JSON.stringify(lines.map(function (l) { return [l.character_id, l.text, l.ambience_id || '', l.sfx_id || '', l.sfx_id ? Number(l.sfx_at) || 0 : 0]; })); }
+    function linesOut() { return draft.lines.filter(function (l) { return l.text.trim() && l.character_id; }).map(function (l) { var o = { id: l.id, character_id: l.character_id, text: l.text }; if (ov.sounds) { o.ambience_id = l.ambience_id || ''; o.sfx_id = l.sfx_id || ''; o.sfx_at = Number(l.sfx_at) || 0; } return o; }); }
     function charById(id) { return (ov.characters || []).filter(function (c) { return c.id === id; })[0]; }
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
 
     function fromServer(d) {
       cur = d.episode; cur.lines = d.lines;
-      draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text }; }) };
+      draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text, ambience_id: l.ambience_id || '', sfx_id: l.sfx_id || '', sfx_at: l.sfx_at || 0 }; }) };
       var clipsBusy = d.lines.some(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; });
       if (cur.status === 'rendering' || clipsBusy) schedulePoll(); else stopPoll();
     }
@@ -217,8 +262,8 @@
     function newDraft(sample) {
       cur = null; stopPoll();
       draft = { id: '', title: sample ? SAMPLE.title : '', aspect: '9:16', captions: true, scene_image_url: (vsScenes && vsScenes[0] && vsScenes[0].url) || '', lines: [] };
-      if (sample) SAMPLE.lines.forEach(function (p) { var c = charByName(p[0]) || ov.characters[0]; draft.lines.push({ id: '', character_id: c ? c.id : '', text: p[1] }); });
-      else draft.lines.push({ id: '', character_id: ov.characters[0] ? ov.characters[0].id : '', text: '' });
+      if (sample) SAMPLE.lines.forEach(function (p) { var c = charByName(p[0]) || ov.characters[0]; draft.lines.push({ id: '', character_id: c ? c.id : '', text: p[1], ambience_id: '', sfx_id: '', sfx_at: 0 }); });
+      else draft.lines.push({ id: '', character_id: ov.characters[0] ? ov.characters[0].id : '', text: '', ambience_id: '', sfx_id: '', sfx_at: 0 });
     }
 
     function render(msg, isErr) {
@@ -261,6 +306,18 @@
       h += '</div><div class="ve-row" style="margin-top:10px"><button class="va-btn small" data-act="char-add">+ Нов герой</button></div>';
       h += '<h3 style="margin-top:16px">Речник за произношение</h3><p class="va-sub">По един ред: <code>дума = как да се каже</code>. Прилага се преди озвучаване; текстът в субтитрите остава както е написан.</p>';
       h += '<textarea data-f="pron" style="min-height:90px">' + esc(Object.keys(ov.pronunciation).map(function (k) { return k + ' = ' + ov.pronunciation[k]; }).join('\n')) + '</textarea><div class="ve-row" style="margin-top:8px"><button class="va-btn small" data-act="pron-save">Запази речника</button></div>';
+      if (ov.sounds) {
+        h += '<h3 style="margin-top:16px">Звуци</h3><p class="va-sub">„Шум на мястото“ върви тихо под гласовете, докато сцената е в този декор. „Ефект“ е кратък звук в точен момент. Избират се към всяка реплика. Записът се прави веднъж (ElevenLabs, ' + SOUND_CREDITS_PER_SEC + ' кредита на секунда) или се качва готов файл и после се ползва във всички епизоди.</p>';
+        ov.sounds.forEach(function (x) {
+          h += '<div class="ve-snd" data-snd="' + esc(x.id) + '"><div class="ve-row"><input type="text" data-f="name" value="' + esc(x.name) + '" style="font-weight:700"><select data-f="kind" style="width:auto"><option value="ambience"' + (x.kind === 'ambience' ? ' selected' : '') + '>шум на мястото</option><option value="effect"' + (x.kind === 'effect' ? ' selected' : '') + '>ефект</option></select>';
+          h += (x.audio_url ? '<audio controls preload="none" src="' + esc(x.audio_url) + '"></audio>' : '<span class="va-muted">няма запис</span>') + '</div>';
+          h += '<textarea data-f="prompt" placeholder="Описание на звука на английски">' + esc(x.prompt || '') + '</textarea>';
+          h += '<div class="ve-row" style="margin:8px 0 0"><label>дължина, сек</label><input type="number" data-f="seconds" min="0.5" max="30" step="0.5" value="' + esc(x.seconds) + '"><label>сила, %</label><input type="number" data-f="gain" min="1" max="100" step="1" value="' + Math.round((x.gain || 0) * 100) + '">';
+          h += '<button class="va-btn small" data-act="snd-save" data-id="' + esc(x.id) + '">Запази</button><button class="va-btn small" data-act="snd-gen" data-id="' + esc(x.id) + '">' + (x.audio_url ? 'Направи наново' : 'Направи записа') + ' (~' + Math.round(x.seconds * SOUND_CREDITS_PER_SEC) + ' кр.)</button>';
+          h += '<label class="va-btn small" style="display:inline-flex;align-items:center;cursor:pointer">качи файл<input type="file" accept="audio/mpeg,audio/wav,audio/*" data-upload-sound="' + esc(x.id) + '" hidden></label><button class="va-btn small" data-act="snd-del" data-id="' + esc(x.id) + '">Изтрий</button></div></div>';
+        });
+        h += '<div class="ve-row"><button class="va-btn small" data-act="snd-add">+ Нов звук</button></div>';
+      }
       h += '<h3 style="margin-top:16px">Начало и край на всяка серия</h3>';
       if (!bumper || !bumper.lines || bumper.lines.length < 4) h += '<p class="va-sub">Няма епизод „' + BUMPER_TITLE + '…“ с 4 реплики (Микси „Фикс!“, Фикс „…и Микси!“, Фикс и Микси за края). Създай го, озвучи го и после качи клиповете тук.</p>';
       else {
@@ -323,12 +380,18 @@
           h += '<label class="va-btn small" style="display:inline-flex;align-items:center;cursor:pointer">качи сцена<input type="file" accept="video/mp4,video/*" data-upload-line="' + esc(sl.id) + '" hidden></label>';
           h += '</div>';
         } else if (sl && cur) h += '<div class="ve-audio"><span class="va-muted">още не е озвучена</span></div>';
+        if (ov.sounds) {
+          var opt = function (list, val) { return '<option value="">— няма —</option>' + list.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === val ? ' selected' : '') + '>' + esc(x.name) + (x.audio_url ? '' : ' (няма запис)') + '</option>'; }).join(''); };
+          h += '<div class="ve-sound"><span>Декор (шум на мястото)</span><select data-f="ambience_id">' + opt(soundsOf('ambience'), l.ambience_id) + '</select>';
+          h += '<span>Ефект</span><select data-f="sfx_id">' + opt(soundsOf('effect'), l.sfx_id) + '</select>';
+          h += '<span>в секунда</span><input type="number" data-f="sfx_at" min="0" max="20" step="0.1" value="' + esc(l.sfx_at || 0) + '"></div>';
+        }
         h += '</div>';
       });
       h += '<div class="ve-row"><button class="va-btn small" data-act="add">+ реплика</button></div>';
       var secs = d.lines.reduce(function (a, l) { return a + speechSeconds(l.text); }, 0);
       var voiced = serverLines.filter(function (x) { return x.audio_url; }).length;
-      var changed = !cur || JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; })) || draft.title !== cur.title || draft.aspect !== cur.aspect || draft.captions !== !!cur.captions || (draft.scene_image_url || '') !== (cur.scene_image_url || '');
+      var changed = !cur || sig(draft.lines) !== sig(cur.lines) || draft.title !== cur.title || draft.aspect !== cur.aspect || draft.captions !== !!cur.captions || (draft.scene_image_url || '') !== (cur.scene_image_url || '');
       var clipsDone = serverLines.filter(function (x) { return x.clip_status === 'done'; }).length;
       var clipsBusy = serverLines.filter(function (x) { return x.clip_status === 'queued' || x.clip_status === 'in_progress'; }).length;
       h += '<div class="ve-tip">Сцени на ръка (абонамент vidu.com): до всяка озвучена реплика – „копирай промпт“, направи клипа на сайта, после „качи сцена“.</div>';
@@ -352,7 +415,10 @@
       var a = panel.querySelector('[data-f="aspect"]'); if (a) draft.aspect = a.value;
       var c = panel.querySelector('[data-f="captions"]'); if (c) draft.captions = c.checked;
       var si = panel.querySelector('[data-f="scene_image_url"]'); if (si) draft.scene_image_url = si.value;
-      [].forEach.call(panel.querySelectorAll('.ve-line'), function (row) { var i = Number(row.dataset.i); var ta = row.querySelector('[data-f="text"]'); if (draft.lines[i] && ta) draft.lines[i].text = ta.value; });
+      [].forEach.call(panel.querySelectorAll('.ve-line'), function (row) { var i = Number(row.dataset.i); var ta = row.querySelector('[data-f="text"]'), L = draft.lines[i]; if (!L) return; if (ta) L.text = ta.value;
+        var am = row.querySelector('[data-f="ambience_id"]'), fx = row.querySelector('[data-f="sfx_id"]'), at = row.querySelector('[data-f="sfx_at"]');
+        if (am) L.ambience_id = am.value; if (fx) L.sfx_id = fx.value; if (at) L.sfx_at = Math.min(20, Math.max(0, Number(at.value) || 0));
+      });
     }
 
     function run(p, okMsg) {
@@ -363,6 +429,7 @@
         if (!r.ok) { render(r.error || 'Грешка', true); return; }
         if (r.characters) ov.characters = r.characters;
         if (r.pronunciation) ov.pronunciation = r.pronunciation;
+        if (r.sounds) ov.sounds = r.sounds;
         if (r.looks) looks = r.looks;
         if (r.episode) fromServer(r);
         return refreshList().then(function () { render(okMsg); return r; });
@@ -441,19 +508,25 @@
       busy = true; progress = 0; result = null; render('Свалям сцените и гласовете…');
       var W = draft.aspect === '16:9' ? 1920 : 1080, H = draft.aspect === '16:9' ? 1080 : 1920;
       var chars = {}; ov.characters.forEach(function (c) { chars[c.id] = c; });
+      // library sounds of the lines (only those that have a recording), each downloaded once
+      var need = {}, missing = [];
+      cur.lines.forEach(function (l) { [l.ambience_id, l.sfx_id].forEach(function (id) { var x = id && soundById(id); if (x && x.audio_url) need[id] = x; else if (x && missing.indexOf(x.name) < 0) missing.push(x.name); }); });
+      var soundData = {};
+      var getSounds = Promise.all(Object.keys(need).map(function (id) { return fetch(need[id].audio_url).then(function (r) { return r.arrayBuffer(); }).then(function (ab) { soundData[id] = ab; }).catch(function () { missing.push(need[id].name); }); }));
+      function pick(id, extra) { var x = id && need[id]; if (!x) return null; var o = { id: id, gain: x.gain }; if (extra != null) o.at = Number(extra) || 0; return o; }
       Promise.all(cur.lines.map(function (l) {
         return Promise.all([clipBlob(l.id), fetch(l.audio_url).then(function (r) { return r.arrayBuffer(); })]).then(function (x) {
-          return { clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
+          return { amb: pick(l.ambience_id), sfx: pick(l.sfx_id, l.sfx_at), clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
         });
       })).then(function (parts) {
-        return loadBumper().then(function () { return bumperParts(); }).then(function (bp) { return { parts: parts, bp: bp }; });
+        return Promise.all([loadBumper().then(function () { return bumperParts(); }), getSounds]).then(function (y) { return { parts: parts, bp: y[0] }; });
       }).then(function (x) {
         var parts = x.parts;
-        return stitch({ W: W, H: H, parts: parts, intro: x.bp.intro, end: x.bp.end, captions: draft.captions, outro: ['ВЕРДЕ-М', 'мебели по поръчка', 'Безплатно замерване в София', 'verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
+        return stitch({ W: W, H: H, parts: parts, sounds: soundData, intro: x.bp.intro, end: x.bp.end, captions: draft.captions, outro: ['ВЕРДЕ-М', 'мебели по поръчка', 'Безплатно замерване в София', 'verde-m.com'], onProgress: function (p) { if (p - progress > 0.02) { progress = p; render('Сглобявам…'); } } });
       }).then(function (blob) {
         busy = false; progress = 0;
         result = { url: URL.createObjectURL(blob), blob: blob, note: Math.round(blob.size / 1048576 * 10) / 10 + ' MB · ' + W + '×' + H };
-        render('Епизодът е готов – пусни го и го свали.');
+        render('Епизодът е готов – пусни го и го свали.' + (missing.length ? ' Без запис останаха: ' + missing.join(', ') + '.' : ''));
       }).catch(function (e) { busy = false; progress = 0; render('Не се получи: ' + e.message, true); });
     }
 
@@ -516,7 +589,19 @@
         if (f) uploadClip(inp, f, isB ? function () { loadBumper().then(function () { render('Качено.'); }); } : null);
         return;
       }
+      var snd = e.target && e.target.getAttribute && e.target.getAttribute('data-upload-sound');
+      if (snd) {
+        var sf = e.target.files && e.target.files[0]; if (!sf) return;
+        if (sf.size > 1000000) { render('Файлът е над 1 MB – избери по-кратък звук (до около минута MP3).', true); return; }
+        sf.arrayBuffer().then(function (ab) {
+          var u = new Uint8Array(ab), str = ''; for (var i = 0; i < u.length; i += 0x8000) str += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+          run(call({ action: 'sound_upload', id: snd, mime: sf.type || 'audio/mpeg', b64: btoa(str) }), 'Звукът е качен.');
+        });
+        return;
+      }
+      if (e.target && e.target.closest && e.target.closest('.ve-snd')) return; // library fields are read on „Запази“
       readDraft();
+      if (e.target && e.target.closest && e.target.closest('.ve-sound')) render();
     });
     panel.addEventListener('click', function (e) {
       var who = e.target.closest('[data-who]');
@@ -530,7 +615,7 @@
       else if (act === 'sample') { newDraft(true); render(); }
       else if (act === 'settings') { settingsOpen = !settingsOpen; render(); if (settingsOpen) loadBumper().then(function () { render(); }); if (settingsOpen && !looks && ov.keys.heygen) run(call({ action: 'heygen_looks' })); }
       else if (act === 'looks') run(call({ action: 'heygen_looks' }));
-      else if (act === 'add') { draft.lines.push({ id: '', character_id: (ov.characters[(draft.lines.length) % Math.max(1, ov.characters.length)] || {}).id || '', text: '' }); render(); }
+      else if (act === 'add') { draft.lines.push({ id: '', character_id: (ov.characters[(draft.lines.length) % Math.max(1, ov.characters.length)] || {}).id || '', text: '', ambience_id: (draft.lines[draft.lines.length - 1] || {}).ambience_id || '', sfx_id: '', sfx_at: 0 }); render(); }
       else if (act === 'del' || act === 'up' || act === 'down') {
         var i = Number(b.closest('.ve-line').dataset.i);
         if (act === 'del') draft.lines.splice(i, 1);
@@ -538,7 +623,7 @@
         render();
       }
       else if (act === 'save') {
-        var lines = draft.lines.filter(function (l) { return l.text.trim() && l.character_id; });
+        var lines = linesOut();
         if (!lines.length) { render('Напиши поне една реплика.', true); return; }
         result = null;
         run(call({ action: draft.id ? 'episode_update' : 'episode_create', id: draft.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: lines }), 'Запазено.');
@@ -555,9 +640,9 @@
         // unsaved edits in the text boxes are saved first, so the new wording is what gets voiced
         readDraft();
         var lineId = b.dataset.line, idx = draft.lines.map(function (l) { return l.id; }).indexOf(lineId);
-        var edited = JSON.stringify(draft.lines.map(function (l) { return [l.character_id, l.text]; })) !== JSON.stringify(cur.lines.map(function (l) { return [l.character_id, l.text]; }));
+        var edited = sig(draft.lines) !== sig(cur.lines);
         busy = true; render(edited ? 'Запазвам и преозвучавам…' : 'Преозвучавам…');
-        var saved = edited ? call({ action: 'episode_update', id: cur.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: draft.lines.filter(function (l) { return l.text.trim() && l.character_id; }) }) : Promise.resolve({ ok: true, lines: cur.lines });
+        var saved = edited ? call({ action: 'episode_update', id: cur.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: linesOut() }) : Promise.resolve({ ok: true, lines: cur.lines });
         saved.then(function (r) {
           if (!r.ok) throw new Error(r.error);
           var id = (r.lines && r.lines[idx] && r.lines[idx].id) || lineId;
@@ -572,6 +657,17 @@
         var card = b.closest('.ve-char'); var f = function (k) { var n = card.querySelector('[data-f="' + k + '"]'); return n ? n.value : ''; };
         if (act === 'char-del') { if (!confirm('Да изтрия ли героя?')) return; run(call({ action: 'character_delete', id: b.dataset.id })); }
         else run(call({ action: 'character_save', id: b.dataset.id, name: f('name'), color: f('color'), voice_id: f('voice_id'), avatar_id: f('avatar_id'), motion: f('motion'), expressiveness: f('expressiveness'), look: f('look'), react: f('react') }), 'Героят е запазен.');
+      }
+      else if (act === 'snd-add') run(call({ action: 'sound_save', name: 'Нов звук', kind: 'effect', seconds: 2, gain: 0.5 }));
+      else if (act === 'snd-save' || act === 'snd-gen' || act === 'snd-del') {
+        var sc = b.closest('.ve-snd'), sv = function (k) { var n = sc.querySelector('[data-f="' + k + '"]'); return n ? n.value : ''; }, sid = b.dataset.id;
+        if (act === 'snd-del') { if (!confirm('Да изтрия ли звука „' + sv('name') + '“? Ще се махне и от репликите, които го ползват.')) return; run(call({ action: 'sound_delete', id: sid }), 'Изтрит.'); return; }
+        var body = { action: 'sound_save', id: sid, name: sv('name'), kind: sv('kind'), prompt: sv('prompt'), seconds: Number(sv('seconds')) || 2, gain: (Number(sv('gain')) || 10) / 100 };
+        if (act === 'snd-save') { run(call(body), 'Звукът е запазен.'); return; }
+        if (!body.prompt.trim()) { render('Напиши описание на звука (на английски).', true); return; }
+        var secs = Math.min(body.kind === 'ambience' ? 30 : 10, Math.max(0.5, body.seconds));
+        if (!confirm('Да направя ли записа „' + body.name + '“ през ElevenLabs? ' + secs + ' сек ≈ ' + Math.round(secs * SOUND_CREDITS_PER_SEC) + ' кредита.')) return;
+        run(call(body).then(function (r) { return r.ok ? call({ action: 'sound_generate', id: sid }) : r; }), 'Записът е готов – пусни го да го чуеш.');
       }
       else if (act === 'pron-save') {
         var map = {};
