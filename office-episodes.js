@@ -1,15 +1,16 @@
 /* /verde-office: "Епизоди" tab — short scripted clips with the mascots (Фикс и Микси).
    The owner writes the dialogue line by line, each line gets its voice from ElevenLabs (per-character voice,
    pronunciation dictionary applied). Then one muted Vidu scene per line (who speaks, who reacts) from the reference
-   picture of the duo, and this script stitches everything in the browser: scene + our audio + big captions + logo
-   card → one MP4 (WebCodecs + mp4-muxer, Chrome/Edge). HeyGen talking-heads render stays as a fallback.
+   picture of the duo, and this script stitches everything in the browser: scene + our audio + captions + logo
+   card → one MP4 (WebCodecs + mp4-muxer, Chrome/Edge). Every cut is a short cross-fade from the previous picture.
+   HeyGen talking-heads render stays as a fallback.
    Data: /contract-automation/api/episodes. */
 (function () {
   'use strict';
   var API = location.origin + '/contract-automation/api/episodes';
   var VS_API = location.origin + '/contract-automation/api/visual-studio';
   var MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/+esm';
-  var FPS = 30, TAIL = 0.35, OUTRO_SEC = 2.5;
+  var FPS = 30, TAIL = 0.35, OUTRO_SEC = 2.5, XFADE = 0.35, CAPTION_SCALE = 0.046;
   var SAMPLE = {
     title: 'Контактите',
     lines: [
@@ -62,7 +63,7 @@
     return lines;
   }
   function drawCaption(g, W, H, text, color) {
-    var base = Math.round(Math.min(W, H) * 0.058);
+    var base = Math.round(Math.min(W, H) * CAPTION_SCALE);
     g.save(); g.font = '800 ' + base + 'px Montserrat, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
     var lines = wrapLines(g, text, W * 0.86), lh = base * 1.22, y0 = H * (W > H ? 0.86 : 0.8) - (lines.length - 1) * lh;
     lines.forEach(function (l, i) {
@@ -143,16 +144,25 @@
           if (opts.onProgress) opts.onProgress(Math.min(0.99, n / est));
           return venc.encodeQueueSize > 12 ? new Promise(function (r) { setTimeout(r, 25); }) : Promise.resolve();
         }
+        // soft cuts: the last picture of the previous part (captions included) is kept and faded out over the
+        // first XFADE seconds of the next one. Nothing overlaps in time, so the audio timeline is unchanged.
+        var snap = document.createElement('canvas'); snap.width = W; snap.height = H; var sg = snap.getContext('2d'), hasSnap = false;
+        function keepLast() { sg.drawImage(c, 0, 0); hasSnap = true; }
         function renderClip(blob, sec, draw) {
           return new Promise(function (resolve, reject) {
             var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
             v.addEventListener('loadedmetadata', function () {
               var frameCount = Math.round(sec * FPS), i = 0, maxT = Math.max(0.05, v.duration - 0.05);
+              var fade = hasSnap ? Math.min(Math.round(XFADE * FPS), Math.floor(frameCount / 2)) : 0;
               function step() {
-                if (i >= frameCount) { URL.revokeObjectURL(v.src); return resolve(); }
+                if (i >= frameCount) { keepLast(); URL.revokeObjectURL(v.src); return resolve(); }
                 v.currentTime = Math.min(maxT, i / FPS);
               }
-              v.addEventListener('seeked', function () { draw(v); i++; addFrame().then(step); });
+              v.addEventListener('seeked', function () {
+                draw(v);
+                if (i < fade) { g.save(); g.globalAlpha = 1 - (i + 1) / (fade + 1); g.drawImage(snap, 0, 0); g.restore(); }
+                i++; addFrame().then(step);
+              });
               step();
             });
             v.addEventListener('error', function () { reject(new Error('Клипът не може да се прочете')); });
