@@ -235,6 +235,16 @@
   function start(panel) {
     var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0, bumper = null;
     var BUMPER_TITLE = 'Начало и край';
+    // tidy list: a title that starts with HIDDEN is kept (lines, voices, scenes) but folded away; titles that start
+    // with a number ("03 – Мерките") are listed in that order, ahead of everything else
+    var HIDDEN = '[скрит]', showHidden = false;
+    function isHidden(e) { return (e.title || '').indexOf(HIDDEN) === 0; }
+    function epNumber(e) { var m = /^\s*(\d{1,3})\s*[–—\-·.:]/.exec(e.title || ''); return m ? Number(m[1]) : null; }
+    function isBumper(e) { return (e.title || '').indexOf(BUMPER_TITLE) === 0; }
+    function listed() {
+      var all = (ov.episodes || []).slice(), rank = function (e) { return isHidden(e) ? 3 : isBumper(e) ? 2 : epNumber(e) == null ? 1 : 0; };
+      return all.map(function (e, i) { return [e, i]; }).sort(function (a, b) { var ra = rank(a[0]), rb = rank(b[0]); if (ra !== rb) return ra - rb; if (ra === 0) return epNumber(a[0]) - epNumber(b[0]) || a[1] - b[1]; return a[1] - b[1]; }).map(function (x) { return x[0]; });
+    }
     var BUMPER_SLOTS = [['Клип за начало (видео)', 'video/*'], ['Музика за начало (mp3, по желание)', 'audio/*'], ['Клип за край (видео)', 'video/*'], ['Музика за край (mp3, по желание)', 'audio/*']];
     function bumperEpisode() { return (ov && ov.episodes || []).filter(function (e) { return (e.title || '').indexOf(BUMPER_TITLE) === 0; })[0]; }
     function loadBumper() {
@@ -274,10 +284,14 @@
       h += '<div class="va-card"><h3>Епизоди</h3><p class="va-sub">Кратки клипове с Фикс и Микси</p>';
       h += '<div class="ve-row"><button class="va-btn primary" data-act="new">+ Нов епизод</button><button class="va-btn" data-act="sample">Примерен „Контактите“</button></div><div class="ve-list">';
       if (!ov.episodes.length) h += '<p class="va-muted">Още няма епизоди.</p>';
-      ov.episodes.forEach(function (e) {
-        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '">' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + '</small></button>';
+      var hiddenCount = ov.episodes.filter(isHidden).length;
+      listed().forEach(function (e) {
+        if (isHidden(e) && !showHidden) return;
+        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '"' + (isHidden(e) ? ' style="opacity:.6"' : '') + '>' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + '</small></button>';
       });
-      h += '</div></div>';
+      h += '</div>';
+      if (hiddenCount) h += '<div class="ve-row" style="margin:8px 0 0"><button class="va-btn small" data-act="toggle-hidden">' + (showHidden ? 'Прибери скритите' : 'Скрити епизоди (' + hiddenCount + ')') + '</button></div>';
+      h += '</div>';
       h += '<div class="va-card"><h3>Настройки <button class="va-btn small" data-act="settings">' + (settingsOpen ? 'скрий' : 'покажи') + '</button></h3>';
       if (settingsOpen) h += settingsHtml();
       h += '</div></div><div>';
@@ -403,7 +417,7 @@
         if (ov.keys.vidu) h += '<button class="va-btn' + (!changed && voiced === d.lines.length && clipsDone < d.lines.length && !clipsBusy ? ' primary' : '') + '" data-act="scenes"' + (changed || voiced < d.lines.length || clipsBusy || !d.scene_image_url ? ' disabled' : '') + '>' + (clipsBusy ? 'Сцените се правят… (' + clipsBusy + ')' : clipsDone && clipsDone < d.lines.length ? 'Направи останалите сцени (' + (d.lines.length - clipsDone) + ')' : clipsDone ? 'Сцени наново' : 'Направи сцените (Vidu)') + '</button>';
         h += '<button class="va-btn' + (!changed && clipsDone === d.lines.length && !busy ? ' primary' : '') + '" data-act="stitch"' + (changed || clipsDone < d.lines.length || busy ? ' disabled' : '') + '>Сглоби епизода</button>';
         h += '<button class="va-btn small" data-act="render"' + (changed || voiced < d.lines.length || cur.status === 'rendering' ? ' disabled' : '') + ' title="резервен вариант: говорещи глави">HeyGen вариант</button>';
-        h += '<span style="flex:1"></span><button class="va-btn small" data-act="delete">Изтрий епизода</button>';
+        h += '<span style="flex:1"></span><button class="va-btn small" data-act="hide" title="епизодът се пази, само не се вижда в списъка">' + (isHidden(cur) ? 'Върни в списъка' : 'Скрий епизода') + '</button><button class="va-btn small" data-act="delete">Изтрий епизода</button>';
       }
       h += '</div></div>';
       return h;
@@ -613,6 +627,12 @@
       readDraft();
       if (act === 'new') { newDraft(false); render(); }
       else if (act === 'sample') { newDraft(true); render(); }
+      else if (act === 'toggle-hidden') { showHidden = !showHidden; render(); }
+      else if (act === 'hide') {
+        var was = isHidden(cur), nt = was ? cur.title.slice(HIDDEN.length).replace(/^\s+/, '') : HIDDEN + ' ' + cur.title;
+        if (was) showHidden = false;
+        run(call({ action: 'episode_update', id: cur.id, title: nt, aspect: cur.aspect, captions: !!cur.captions }), was ? 'Епизодът е върнат в списъка.' : 'Епизодът е скрит. Намира се под „Скрити епизоди“.');
+      }
       else if (act === 'settings') { settingsOpen = !settingsOpen; render(); if (settingsOpen) loadBumper().then(function () { render(); }); if (settingsOpen && !looks && ov.keys.heygen) run(call({ action: 'heygen_looks' })); }
       else if (act === 'looks') run(call({ action: 'heygen_looks' }));
       else if (act === 'add') { draft.lines.push({ id: '', character_id: (ov.characters[(draft.lines.length) % Math.max(1, ov.characters.length)] || {}).id || '', text: '', ambience_id: (draft.lines[draft.lines.length - 1] || {}).ambience_id || '', sfx_id: '', sfx_at: 0 }); render(); }
