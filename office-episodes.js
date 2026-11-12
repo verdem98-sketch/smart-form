@@ -30,6 +30,16 @@
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function el(tag, cls, html) { var n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
+  // What the captions show. Stress is sometimes forced for the voice with capitals inside a word ("помнИ", "ТЪмнозелЕно",
+  // "КоЯЯ"); the captions get the normal spelling back. Only Cyrillic words are touched, and words written entirely in
+  // capitals (ЛЕД, ВЕРДЕ-М) stay as they are.
+  function captionText(text) {
+    return String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim().replace(/[\u0400-\u04FF]+/g, function (w) {
+      if (w === w.toUpperCase()) return w;
+      var u = w.replace(/([\u0410-\u042F\u0401])\1+/g, '$1');
+      return u.charAt(0) + u.slice(1).toLowerCase();
+    });
+  }
   function speechSeconds(text) { return Math.max(1, String(text).replace(/\[[^\]]*\]/g, '').length * 0.075 + 0.4); }
   function money(usd) { return '$' + usd.toFixed(2) + ' (~' + (usd * 1.8).toFixed(2) + ' лв)'; }
 
@@ -530,7 +540,7 @@
       function pick(id, extra) { var x = id && need[id]; if (!x) return null; var o = { id: id, gain: x.gain }; if (extra != null) o.at = Number(extra) || 0; return o; }
       Promise.all(cur.lines.map(function (l) {
         return Promise.all([clipBlob(l.id), fetch(l.audio_url).then(function (r) { return r.arrayBuffer(); })]).then(function (x) {
-          return { amb: pick(l.ambience_id), sfx: pick(l.sfx_id, l.sfx_at), clip: x[0], audio: x[1], text: l.text.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
+          return { amb: pick(l.ambience_id), sfx: pick(l.sfx_id, l.sfx_at), clip: x[0], audio: x[1], text: captionText(l.text), color: (chars[l.character_id] || {}).color ? lighten(chars[l.character_id].color) : '#fff' };
         });
       })).then(function (parts) {
         return Promise.all([loadBumper().then(function () { return bumperParts(); }), getSounds]).then(function (y) { return { parts: parts, bp: y[0] }; });
