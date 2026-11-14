@@ -245,7 +245,7 @@
   function start(panel) {
     var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0, bumper = null;
     // Facebook: fb = answer of fb_status (page or the reason it cannot post), fbOpen = the publish box is shown, fbText = description being edited
-    var fb = null, fbOpen = false, fbText = null, fbTimer = null, fbWriting = false;
+    var fb = null, fbOpen = false, fbText = null, fbTimer = null, fbWriting = false, fbAgain = false;
     // „▶ Пусни всички“ (player) and „Провери ударенията“ (stress = proposals from the server, stressPick = chosen indexes)
     var player = null, playingId = null, stress = null, stressPick = {};
     var BUMPER_TITLE = 'Начало и край';
@@ -275,7 +275,7 @@
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
 
     function fromServer(d) {
-      if (!cur || cur.id !== d.episode.id) { stopAll(true); stress = null; stressPick = {}; fb = null; fbOpen = false; fbText = null; fbWriting = false; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
+      if (!cur || cur.id !== d.episode.id) { stopAll(true); stress = null; stressPick = {}; fb = null; fbOpen = false; fbAgain = false; fbText = null; fbWriting = false; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
       cur = d.episode; cur.lines = d.lines;
       draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text, ambience_id: l.ambience_id || '', sfx_id: l.sfx_id || '', sfx_at: l.sfx_at || 0 }; }) };
       var clipsBusy = d.lines.some(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; });
@@ -367,17 +367,18 @@
     // in the list: is the episode on Facebook (published from here or by Content Studio's weekly plan)?
     function fbBadge(e) {
       if (e.fb_status === 'published') return ' <span class="ve-status done" title="' + esc(e.fb_posted_at ? 'Публикуван ' + new Date(e.fb_posted_at).toLocaleDateString('bg-BG') : 'Публикуван') + '">✓ във Facebook</span>';
-      if (e.fb_status === 'processing' || e.fb_status === 'uploading') return ' <span class="ve-status rendering">Facebook…</span>';
+      if (['processing', 'uploading', 'queued', 'studio'].indexOf(e.fb_status) >= 0) return ' <span class="ve-status rendering">Facebook…</span>';
       return '';
     }
     function fbHtml() {
       var st = cur.fb_status, h = '<div class="ve-row" style="margin-top:8px">';
-      if (st === 'published') h += '<span class="ve-status done">✓ публикуван във Facebook' + (cur.fb_posted_at ? ' на ' + esc(new Date(cur.fb_posted_at).toLocaleDateString('bg-BG')) : '') + '</span><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
+      if (st === 'published' && !fbAgain) h += '<span class="ve-status done">✓ публикуван във Facebook' + (cur.fb_posted_at ? ' на ' + esc(new Date(cur.fb_posted_at).toLocaleDateString('bg-BG')) : '') + '</span><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a><button class="va-btn small" data-act="fb-again" title="напр. ако постът не се вижда от другите">публикувай наново</button>';
+      else if (st === 'queued' || st === 'studio') h += '<span class="ve-status rendering">' + (st === 'queued' ? 'Изпратено към Content Studio – излиза до 10 минути' : 'Content Studio го публикува…') + '</span><button class="va-btn small" data-act="fb-refresh">Провери</button>';
       else if (st === 'processing') h += '<span class="ve-status rendering">Facebook още го обработва</span><button class="va-btn small" data-act="fb-check">Провери</button><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
       else h += '<button class="va-btn' + (fbOpen ? '' : ' primary') + '" data-act="' + (fbOpen ? 'fb-close' : 'fb-open') + '">' + (fbOpen ? 'Скрий Facebook' : 'Публикувай във Facebook') + '</button>' + (st === 'uploading' || st === 'failed' ? '<span class="va-muted">предишният опит не завърши – може да се пусне наново</span>' : '');
       if ((st === 'uploading' || st === 'failed') && cur.fb_error) h += '</div><p class="va-err" style="margin-top:6px">Защо спря: ' + esc(cur.fb_error) + '</p><div>';
       h += '</div>';
-      if (!fbOpen || st === 'published' || st === 'processing') return h;
+      if (!fbOpen || (st === 'published' && !fbAgain) || st === 'processing' || st === 'queued' || st === 'studio') return h;
       if (!fb) return h + '<p class="va-muted">Проверявам Facebook…</p>';
       if (!fb.page) return h + '<p class="va-err">' + esc(fb.problem || 'Няма достъп до Facebook страницата.') + (fb.missing && fb.missing.length ? ' Липсват права: ' + esc(fb.missing.join(', ')) + '.' : '') + '</p>';
       h += '<p class="va-sub" style="margin-top:8px">Ще се публикува като Reel в страницата <b>' + esc(fb.page.name) + '</b> – веднага и публично. Текст под видеото:</p>';
@@ -417,34 +418,30 @@
         render(r.status === 'published' ? 'Публикувано във Facebook.' : r.status === 'failed' ? 'Facebook отказа видеото.' : quiet ? undefined : 'Facebook още го обработва – проверявам пак след малко.', r.status === 'failed');
       }).catch(function (e) { if (!quiet) render('Няма връзка: ' + e.message, true); });
     }
+    // The episode is handed to Content Studio, which publishes it through Base44's approved Facebook connection
+    // (a Reel posted from our own Meta app was visible only to the owner). Its autopilot runs every 10 minutes.
     function fbPublish() {
       if (!cur || busy || !fb || !fb.page) return;
       var text = (fbText || '').trim();
       if (!text) { render('Напиши текст под видеото.', true); return; }
-      if (!window.confirm('Публикувам „' + cur.title + '“ в страницата „' + fb.page.name + '“ сега? Ще се види веднага от всички.')) return;
+      if (!window.confirm('Да публикувам ли „' + cur.title + '“ в страницата „' + fb.page.name + '“? Излиза до 10 минути и се вижда от всички.')) return;
       var id = cur.id;
-      busy = true; progress = 0; render('Подготвям Facebook…');
-      function fail(msg) { busy = false; progress = 0; cur.fb_status = 'failed'; cur.fb_error = msg; render('Facebook: ' + msg, true); }
-      call({ action: 'fb_draft', id: id, description: text }).then(function (r) {
-        if (!r.ok) throw new Error(r.error);
-        return call({ action: 'fb_start', id: id, again: cur.fb_status === 'published' });
-      }).then(function (r) {
-        if (!r.ok) throw new Error(r.error);
-        cur.fb_status = 'uploading';
-        (function next(seq) {
-          call({ action: 'fb_upload', id: id, seq: seq }).then(function (u) {
-            if (!u.ok) return fail(u.error);
-            progress = u.next / u.total; render('Качвам във Facebook… ' + Math.round(progress * 100) + '%');
-            if (!u.done) return next(u.next);
-            return call({ action: 'fb_finish', id: id, description: text }).then(function (f) {
-              if (!f.ok) return fail(f.error);
-              busy = false; progress = 0; fbOpen = false; cur.fb_status = 'processing'; cur.fb_url = f.url; cur.fb_description = text;
-              render('Изпратено. Facebook обработва видеото – след минута-две ще е публикувано.');
-              fbTimer = setTimeout(function () { fbCheck(true); }, 20000);
-            });
-          }).catch(function (e) { fail('Няма връзка: ' + e.message); });
-        })(0);
-      }).catch(function (e) { fail(e.message); });
+      busy = true; render('Изпращам към Content Studio…');
+      call({ action: 'fb_queue', id: id, description: text, again: fbAgain }).then(function (r) {
+        busy = false;
+        if (!r.ok) { render('Facebook: ' + r.error, true); return; }
+        fbOpen = false; fbAgain = false; cur.fb_status = 'queued'; cur.fb_description = text; cur.fb_error = null;
+        render('Изпратено. Content Studio ще го публикува до 10 минути – после натисни „Провери“.');
+      }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
+    }
+    function fbRefresh() {
+      if (!cur) return;
+      call({ action: 'episode_get', id: cur.id }).then(function (r) {
+        if (!r.ok) { render(r.error, true); return; }
+        fromServer(r);
+        var st = cur.fb_status;
+        render(st === 'published' ? 'Публикувано във Facebook.' : st === 'failed' ? 'Публикуването не мина – виж защо под бутона.' : 'Още не е публикувано – провери пак след малко.', st === 'failed');
+      }).catch(function (e) { render('Няма връзка: ' + e.message, true); });
     }
 
     function editorHtml() {
@@ -833,7 +830,9 @@
       else if (act === 'stress-apply') { stopAll(true); stressApply(); }
       else if (act === 'stress-close') { stress = null; stressPick = {}; render(); }
       else if (act === 'fb-open') fbOpenBox();
-      else if (act === 'fb-close') { fbOpen = false; render(); }
+      else if (act === 'fb-again') { fbAgain = true; fbOpenBox(); }
+      else if (act === 'fb-refresh') fbRefresh();
+      else if (act === 'fb-close') { fbOpen = false; fbAgain = false; render(); }
       else if (act === 'fb-write') { if (!(fbText || '').trim() || window.confirm('Да сменя ли сегашния текст с нов от писателя?')) fbWrite(); }
       else if (act === 'fb-save') run(call({ action: 'fb_draft', id: cur.id, description: fbText || '' }).then(function (r) { if (r.ok) cur.fb_description = fbText; return r; }), 'Текстът е запазен.');
       else if (act === 'fb-publish') fbPublish();
