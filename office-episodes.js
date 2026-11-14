@@ -245,7 +245,7 @@
   function start(panel) {
     var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0, bumper = null;
     // Facebook: fb = answer of fb_status (page or the reason it cannot post), fbOpen = the publish box is shown, fbText = description being edited
-    var fb = null, fbOpen = false, fbText = null, fbTimer = null;
+    var fb = null, fbOpen = false, fbText = null, fbTimer = null, fbWriting = false;
     var BUMPER_TITLE = 'Начало и край';
     // tidy list: a title that starts with HIDDEN is kept (lines, voices, scenes) but folded away; titles that start
     // with a number ("03 – Мерките") are listed in that order, ahead of everything else
@@ -273,7 +273,7 @@
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
 
     function fromServer(d) {
-      if (!cur || cur.id !== d.episode.id) { fb = null; fbOpen = false; fbText = null; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
+      if (!cur || cur.id !== d.episode.id) { fb = null; fbOpen = false; fbText = null; fbWriting = false; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
       cur = d.episode; cur.lines = d.lines;
       draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text, ambience_id: l.ambience_id || '', sfx_id: l.sfx_id || '', sfx_at: l.sfx_at || 0 }; }) };
       var clipsBusy = d.lines.some(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; });
@@ -372,8 +372,9 @@
       if (!fb) return h + '<p class="va-muted">Проверявам Facebook…</p>';
       if (!fb.page) return h + '<p class="va-err">' + esc(fb.problem || 'Няма достъп до Facebook страницата.') + (fb.missing && fb.missing.length ? ' Липсват права: ' + esc(fb.missing.join(', ')) + '.' : '') + '</p>';
       h += '<p class="va-sub" style="margin-top:8px">Ще се публикува като Reel в страницата <b>' + esc(fb.page.name) + '</b> – веднага и публично. Текст под видеото:</p>';
-      h += '<textarea data-fb-text style="min-height:150px">' + esc(fbText == null ? '' : fbText) + '</textarea>';
-      h += '<div class="ve-row" style="margin-top:8px"><button class="va-btn small" data-act="fb-save">Запази текста</button><button class="va-btn primary" data-act="fb-publish"' + (busy ? ' disabled' : '') + '>Публикувай сега</button></div>';
+      if (fbWriting) h += '<p class="va-muted">Писателят пише текста по репликите…</p>';
+      h += '<textarea data-fb-text style="min-height:150px"' + (fbWriting ? ' disabled' : '') + '>' + esc(fbText == null ? '' : fbText) + '</textarea>';
+      h += '<div class="ve-row" style="margin-top:8px"><button class="va-btn small" data-act="fb-write"' + (fbWriting ? ' disabled' : '') + '>✍ Нов текст от писателя</button><button class="va-btn small" data-act="fb-save">Запази текста</button><button class="va-btn primary" data-act="fb-publish"' + (busy ? ' disabled' : '') + '>Публикувай сега</button></div>';
       return h;
     }
     function fbOpenBox() {
@@ -381,7 +382,20 @@
       call({ action: 'fb_status', id: cur.id }).then(function (r) {
         if (!r.ok) { fbOpen = false; render(r.error, true); return; }
         fb = r; if (r.fb && r.fb.fb_description && !fbText) fbText = r.fb.fb_description; render();
+        if (r.page && !(fbText || '').trim()) fbWrite();
       }).catch(function (e) { fbOpen = false; render('Няма връзка: ' + e.message, true); });
+    }
+    // the writer (on the server): a text under the video from this episode's lines, saved as the draft
+    function fbWrite() {
+      if (!cur || fbWriting) return;
+      var id = cur.id;
+      fbWriting = true; render();
+      call({ action: 'fb_suggest', id: id }).then(function (r) {
+        fbWriting = false;
+        if (!cur || cur.id !== id) return;
+        if (!r.ok) { render(r.error, true); return; }
+        fbText = r.description; cur.fb_description = r.description; render('Писателят предложи текст – прочети го и го поправи, ако трябва.');
+      }).catch(function (e) { fbWriting = false; render('Няма връзка: ' + e.message, true); });
     }
     function fbCheck(quiet) {
       if (!cur) return;
@@ -736,6 +750,7 @@
       else if (act === 'upload') uploadFinal();
       else if (act === 'fb-open') fbOpenBox();
       else if (act === 'fb-close') { fbOpen = false; render(); }
+      else if (act === 'fb-write') { if (!(fbText || '').trim() || window.confirm('Да сменя ли сегашния текст с нов от писателя?')) fbWrite(); }
       else if (act === 'fb-save') run(call({ action: 'fb_draft', id: cur.id, description: fbText || '' }).then(function (r) { if (r.ok) cur.fb_description = fbText; return r; }), 'Текстът е запазен.');
       else if (act === 'fb-publish') fbPublish();
       else if (act === 'fb-check') fbCheck(false);
