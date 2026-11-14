@@ -246,6 +246,8 @@
     var ov = null, cur = null, draft = null, looks = null, busy = false, pollTimer = null, settingsOpen = false, vsScenes = null, result = null, progress = 0, bumper = null;
     // Facebook: fb = answer of fb_status (page or the reason it cannot post), fbOpen = the publish box is shown, fbText = description being edited
     var fb = null, fbOpen = false, fbText = null, fbTimer = null, fbWriting = false;
+    // „▶ Пусни всички“ (player) and „Провери ударенията“ (stress = proposals from the server, stressPick = chosen indexes)
+    var player = null, playingId = null, stress = null, stressPick = {};
     var BUMPER_TITLE = 'Начало и край';
     // tidy list: a title that starts with HIDDEN is kept (lines, voices, scenes) but folded away; titles that start
     // with a number ("03 – Мерките") are listed in that order, ahead of everything else
@@ -273,7 +275,7 @@
     function charByName(name) { return (ov.characters || []).filter(function (c) { return c.name === name; })[0]; }
 
     function fromServer(d) {
-      if (!cur || cur.id !== d.episode.id) { fb = null; fbOpen = false; fbText = null; fbWriting = false; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
+      if (!cur || cur.id !== d.episode.id) { stopAll(true); stress = null; stressPick = {}; fb = null; fbOpen = false; fbText = null; fbWriting = false; if (fbTimer) clearTimeout(fbTimer); fbTimer = null; }
       cur = d.episode; cur.lines = d.lines;
       draft = { id: cur.id, title: cur.title, aspect: cur.aspect, captions: !!cur.captions, scene_image_url: cur.scene_image_url || '', lines: d.lines.map(function (l) { return { id: l.id, character_id: l.character_id, text: l.text, ambience_id: l.ambience_id || '', sfx_id: l.sfx_id || '', sfx_at: l.sfx_at || 0 }; }) };
       var clipsBusy = d.lines.some(function (l) { return l.clip_status === 'queued' || l.clip_status === 'in_progress'; });
@@ -511,14 +513,84 @@
       h += '<div class="ve-row">';
       h += '<button class="va-btn' + (changed ? ' primary' : '') + '" data-act="save">' + (cur ? 'Запази промените' : 'Запази епизода') + '</button>';
       if (cur) {
+        if (voiced) h += '<button class="va-btn" data-act="play-all"' + (changed ? ' disabled title="първо запази"' : '') + '>' + (player ? '■ Спри' : '▶ Пусни всички') + '</button>';
+        h += '<button class="va-btn" data-act="stress-check"' + (changed || busy ? ' disabled' : '') + ' title="Claude маркира думите с риск от грешно ударение">Провери ударенията</button>';
         h += '<button class="va-btn' + (!changed && voiced < d.lines.length ? ' primary' : '') + '" data-act="voice"' + (changed ? ' disabled title="първо запази"' : '') + '>Озвучи' + (voiced && voiced < d.lines.length ? ' останалите (' + (d.lines.length - voiced) + ')' : voiced ? ' наново' : '') + '</button>';
         if (ov.keys.vidu) h += '<button class="va-btn' + (!changed && voiced === d.lines.length && clipsDone < d.lines.length && !clipsBusy ? ' primary' : '') + '" data-act="scenes"' + (changed || voiced < d.lines.length || clipsBusy || !d.scene_image_url ? ' disabled' : '') + '>' + (clipsBusy ? 'Сцените се правят… (' + clipsBusy + ')' : clipsDone && clipsDone < d.lines.length ? 'Направи останалите сцени (' + (d.lines.length - clipsDone) + ')' : clipsDone ? 'Сцени наново' : 'Направи сцените (Vidu)') + '</button>';
         h += '<button class="va-btn' + (!changed && clipsDone === d.lines.length && !busy ? ' primary' : '') + '" data-act="stitch"' + (changed || clipsDone < d.lines.length || busy ? ' disabled' : '') + '>Сглоби епизода</button>';
         h += '<button class="va-btn small" data-act="render"' + (changed || voiced < d.lines.length || cur.status === 'rendering' ? ' disabled' : '') + ' title="резервен вариант: говорещи глави">HeyGen вариант</button>';
         h += '<span style="flex:1"></span><button class="va-btn small" data-act="hide" title="епизодът се пази, само не се вижда в списъка">' + (isHidden(cur) ? 'Върни в списъка' : 'Скрий епизода') + '</button><button class="va-btn small" data-act="delete">Изтрий епизода</button>';
       }
-      h += '</div></div>';
+      h += '</div>' + stressHtml() + '</div>';
       return h;
+    }
+
+    // --- play all lines one after another ---
+    function markPlaying(id) {
+      playingId = id;
+      [].forEach.call(panel.querySelectorAll('.ve-line'), function (row) {
+        var a = row.querySelector('[data-line-audio]'), on = !!(id && a && a.getAttribute('data-line-audio') === id);
+        row.style.outline = on ? '2px solid #477448' : ''; row.style.borderRadius = on ? '10px' : '';
+        if (on) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+    function stopAll(quiet) {
+      if (player) { player.a.onended = null; player.a.pause(); player = null; }
+      markPlaying(null);
+      if (!quiet) render();
+    }
+    function playAll() {
+      if (player) { stopAll(); return; }
+      var list = (cur && cur.lines || []).filter(function (l) { return l.audio_url; }), i = 0;
+      if (!list.length) return;
+      player = { a: new Audio() };
+      function next() {
+        if (!player) return;
+        if (i >= list.length) { stopAll(); return; }
+        var l = list[i++];
+        markPlaying(l.id);
+        player.a.src = l.audio_url;
+        player.a.play().catch(function () { stopAll(); });
+      }
+      player.a.onended = function () { setTimeout(next, 300); };
+      render();
+      next();
+    }
+
+    // --- stress check ---
+    function stressHtml() {
+      if (!stress) return '';
+      var h = '<div class="va-card" style="margin-top:10px"><h3>Проверка на ударенията</h3>';
+      if (!stress.length) return h + '<p class="va-sub">Не намерих рискови думи.</p><div class="ve-row"><button class="va-btn small" data-act="stress-close">Затвори</button></div></div>';
+      h += '<p class="va-sub">Ударената гласна е с главна буква (така я чете гласът; в субтитрите излиза нормално). Отметни тези, които искаш. Избраните реплики ще се озвучат наново' + ((cur.lines || []).some(function (l) { return l.clip_status === 'done'; }) ? ', а сцените им ще трябва да се внесат пак' : '') + '.</p>';
+      stress.forEach(function (p, k) {
+        h += '<label class="ve-row" style="align-items:flex-start;gap:8px;margin-top:6px;cursor:pointer"><input type="checkbox" data-stress="' + k + '"' + (stressPick[k] ? ' checked' : '') + ' style="margin-top:4px"><span><b>' + p.index + '.</b> ' + esc(p.new.replace(/\[[^\]]*\]\s*/g, '')) + '<br><span class="va-muted" style="font-size:12px">' + p.words.map(function (w) { return esc(w.word) + ' → <b>' + esc(w.stressed) + '</b>' + (w.why ? ' (' + esc(w.why) + ')' : ''); }).join(' · ') + '</span></span></label>';
+      });
+      h += '<div class="ve-row" style="margin-top:10px"><button class="va-btn primary" data-act="stress-apply"' + (busy ? ' disabled' : '') + '>Приложи избраните и озвучи</button><button class="va-btn small" data-act="stress-close">Затвори</button></div></div>';
+      return h;
+    }
+    function stressRun() {
+      if (!cur || busy) return;
+      busy = true; render('Claude проверява ударенията…');
+      call({ action: 'stress_check', id: cur.id }).then(function (r) {
+        busy = false;
+        if (!r.ok) { render(r.error, true); return; }
+        stress = r.proposals || []; stressPick = {}; stress.forEach(function (p, k) { stressPick[k] = true; });
+        render(stress.length ? 'Виж предложенията под бутоните.' : 'Не намерих рискови думи.');
+      }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
+    }
+    function stressApply() {
+      if (!cur || busy || !stress) return;
+      var chosen = stress.filter(function (p, k) { return stressPick[k]; });
+      if (!chosen.length) { render('Не е избрана нито една реплика.', true); return; }
+      chosen.forEach(function (p) { draft.lines.forEach(function (l) { if (l.id === p.line_id) l.text = p.new; }); });
+      busy = true; render('Записвам ударенията…');
+      call({ action: 'episode_update', id: cur.id, title: draft.title, aspect: draft.aspect, captions: draft.captions, scene_image_url: draft.scene_image_url, lines: linesOut() }).then(function (r) {
+        busy = false;
+        if (!r.ok) { render(r.error, true); return; }
+        fromServer(r); stress = null; stressPick = {};
+        voiceLoop(false);
+      }).catch(function (e) { busy = false; render('Няма връзка: ' + e.message, true); });
     }
 
     function readDraft() {
@@ -697,6 +769,7 @@
     panel.addEventListener('input', function (e) { if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-fb-text')) fbText = e.target.value; });
     panel.addEventListener('change', function (e) {
       if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-fb-text')) return;
+      if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-stress')) { stressPick[Number(e.target.getAttribute('data-stress'))] = e.target.checked; return; }
       var inp = e.target && e.target.getAttribute && e.target.getAttribute('data-upload-line');
       if (inp) {
         var f = e.target.files && e.target.files[0], isB = e.target.getAttribute('data-bumper');
@@ -755,6 +828,10 @@
       else if (act === 'stitch') stitchEpisode();
       else if (act === 'clip-prompt') copyPrompt(b.dataset.line);
       else if (act === 'upload') uploadFinal();
+      else if (act === 'play-all') playAll();
+      else if (act === 'stress-check') { stopAll(true); stressRun(); }
+      else if (act === 'stress-apply') { stopAll(true); stressApply(); }
+      else if (act === 'stress-close') { stress = null; stressPick = {}; render(); }
       else if (act === 'fb-open') fbOpenBox();
       else if (act === 'fb-close') { fbOpen = false; render(); }
       else if (act === 'fb-write') { if (!(fbText || '').trim() || window.confirm('Да сменя ли сегашния текст с нов от писателя?')) fbWrite(); }
