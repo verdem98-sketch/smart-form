@@ -300,7 +300,7 @@
       var hiddenCount = ov.episodes.filter(isHidden).length;
       listed().forEach(function (e) {
         if (isHidden(e) && !showHidden) return;
-        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '"' + (isHidden(e) ? ' style="opacity:.6"' : '') + '>' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + '</small></button>';
+        h += '<button data-open="' + esc(e.id) + '" class="' + (cur && cur.id === e.id ? 'is-on' : '') + '"' + (isHidden(e) ? ' style="opacity:.6"' : '') + '>' + esc(e.title) + '<small>' + e.lines + ' реплики · ' + e.voiced + ' озвучени · ' + (e.final_size ? '<span class="ve-status done">✓ видео</span>' : '<span class="ve-status ' + esc(e.status) + '">' + statusLabel(e.status) + '</span>') + fbBadge(e) + '</small></button>';
       });
       h += '</div>';
       if (hiddenCount) h += '<div class="ve-row" style="margin:8px 0 0"><button class="va-btn small" data-act="toggle-hidden">' + (showHidden ? 'Прибери скритите' : 'Скрити епизоди (' + hiddenCount + ')') + '</button></div>';
@@ -362,9 +362,15 @@
 
     // "Публикувай във Facebook": the uploaded episode goes to the Verde-M page as a Reel, with a description the owner
     // edits here. Nothing is posted until „Публикувай сега“ is pressed and confirmed.
+    // in the list: is the episode on Facebook (published from here or by Content Studio's weekly plan)?
+    function fbBadge(e) {
+      if (e.fb_status === 'published') return ' <span class="ve-status done" title="' + esc(e.fb_posted_at ? 'Публикуван ' + new Date(e.fb_posted_at).toLocaleDateString('bg-BG') : 'Публикуван') + '">✓ във Facebook</span>';
+      if (e.fb_status === 'processing' || e.fb_status === 'uploading') return ' <span class="ve-status rendering">Facebook…</span>';
+      return '';
+    }
     function fbHtml() {
       var st = cur.fb_status, h = '<div class="ve-row" style="margin-top:8px">';
-      if (st === 'published') h += '<span class="ve-status done">✓ публикуван във Facebook</span><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
+      if (st === 'published') h += '<span class="ve-status done">✓ публикуван във Facebook' + (cur.fb_posted_at ? ' на ' + esc(new Date(cur.fb_posted_at).toLocaleDateString('bg-BG')) : '') + '</span><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
       else if (st === 'processing') h += '<span class="ve-status rendering">Facebook още го обработва</span><button class="va-btn small" data-act="fb-check">Провери</button><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
       else h += '<button class="va-btn' + (fbOpen ? '' : ' primary') + '" data-act="' + (fbOpen ? 'fb-close' : 'fb-open') + '">' + (fbOpen ? 'Скрий Facebook' : 'Публикувай във Facebook') + '</button>' + (st === 'uploading' || st === 'failed' ? '<span class="va-muted">предишният опит не завърши – може да се пусне наново</span>' : '');
       h += '</div>';
