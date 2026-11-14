@@ -373,6 +373,7 @@
       if (st === 'published') h += '<span class="ve-status done">✓ публикуван във Facebook' + (cur.fb_posted_at ? ' на ' + esc(new Date(cur.fb_posted_at).toLocaleDateString('bg-BG')) : '') + '</span><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
       else if (st === 'processing') h += '<span class="ve-status rendering">Facebook още го обработва</span><button class="va-btn small" data-act="fb-check">Провери</button><a class="va-btn small" href="' + esc(cur.fb_url) + '" target="_blank" rel="noopener">Отвори във Facebook</a>';
       else h += '<button class="va-btn' + (fbOpen ? '' : ' primary') + '" data-act="' + (fbOpen ? 'fb-close' : 'fb-open') + '">' + (fbOpen ? 'Скрий Facebook' : 'Публикувай във Facebook') + '</button>' + (st === 'uploading' || st === 'failed' ? '<span class="va-muted">предишният опит не завърши – може да се пусне наново</span>' : '');
+      if ((st === 'uploading' || st === 'failed') && cur.fb_error) h += '</div><p class="va-err" style="margin-top:6px">Защо спря: ' + esc(cur.fb_error) + '</p><div>';
       h += '</div>';
       if (!fbOpen || st === 'published' || st === 'processing') return h;
       if (!fb) return h + '<p class="va-muted">Проверявам Facebook…</p>';
@@ -421,7 +422,7 @@
       if (!window.confirm('Публикувам „' + cur.title + '“ в страницата „' + fb.page.name + '“ сега? Ще се види веднага от всички.')) return;
       var id = cur.id;
       busy = true; progress = 0; render('Подготвям Facebook…');
-      function fail(msg) { busy = false; progress = 0; cur.fb_status = 'failed'; render(msg, true); }
+      function fail(msg) { busy = false; progress = 0; cur.fb_status = 'failed'; cur.fb_error = msg; render('Facebook: ' + msg, true); }
       call({ action: 'fb_draft', id: id, description: text }).then(function (r) {
         if (!r.ok) throw new Error(r.error);
         return call({ action: 'fb_start', id: id, again: cur.fb_status === 'published' });
