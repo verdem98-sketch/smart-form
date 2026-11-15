@@ -64,23 +64,29 @@
   /* ---------------- the gallery of the site (same origin) ---------------- */
   var projectsCache = null;
   function parse(html) { return new DOMParser().parseFromString(html, 'text/html'); }
+  var CATEGORIES = [['kuhni2', 'Кухни'], ['vsekidnevni', 'Всекидневни'], ['spalni', 'Спални'], ['detski-stai', 'Детски стаи'], ['koridori', 'Коридори'], ['drugi', 'Други']];
   function loadProjects() {
     if (projectsCache) return Promise.resolve(projectsCache);
     var seen = {}, out = [];
-    function page(url, n) {
+    // the gallery is split by category, each list is paginated ("?xxxx_page=2", relative to the category page)
+    function page(url, cat, n) {
       return fetch(url, { credentials: 'omit' }).then(function (r) { return r.text(); }).then(function (t) {
         var doc = parse(t);
         [].forEach.call(doc.querySelectorAll('a[href*="/product/"]'), function (a) {
           var m = /\/product\/([a-z0-9-]+)/i.exec(a.getAttribute('href') || ''); if (!m || seen[m[1]]) return;
           seen[m[1]] = 1;
-          out.push({ slug: m[1], name: m[1].replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }), url: location.origin + '/product/' + m[1] });
+          out.push({ slug: m[1], cat: cat, name: m[1].replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }), url: location.origin + '/product/' + m[1] });
         });
         var next = doc.querySelector('a.w-pagination-next');
         var href = next && next.getAttribute('href');
-        if (href && n < 15) return page(new URL(href, location.origin + '/shop').href, n + 1);
-      });
+        if (href && n < 20) return page(new URL(href, url).href, cat, n + 1);
+      }).catch(function () { /* one category failing must not hide the others */ });
     }
-    return page(location.origin + '/shop', 1).then(function () { out.sort(function (a, b) { return a.name.localeCompare(b.name); }); projectsCache = out; return out; });
+    return Promise.all(CATEGORIES.map(function (c) { return page(location.origin + '/category/' + c[0], c[1], 1); })).then(function () {
+      var order = CATEGORIES.map(function (c) { return c[1]; });
+      out.sort(function (a, b) { return order.indexOf(a.cat) - order.indexOf(b.cat) || a.name.localeCompare(b.name); });
+      projectsCache = out; return out;
+    });
   }
   function loadPhotos(url) {
     return fetch(url, { credentials: 'omit' }).then(function (r) { return r.text(); }).then(function (t) {
@@ -267,7 +273,7 @@
       var ready = shots.length && shots.every(function (s) { return s.clip_status === 'done'; });
       var html = '<div class="pv-card"><div class="pv-row" style="justify-content:space-between"><button type="button" class="pv-btn" data-act="back">← Всички видеа</button><span class="pv-badge ' + esc(cur.status || 'requested') + '">' + esc(STATUS[cur.status] || 'Нова заявка') + '</span></div>' +
         '<label>Име на видеото</label><input type="text" data-title value="' + esc(cur.title || '') + '" placeholder="напр. Clear Line – кухня с остров">' +
-        '<label>Проект от галерията</label><select data-project><option value="">' + (projects ? '— избери проект —' : 'зареждам проектите…') + '</option>' + (projects || []).map(function (p) { return '<option value="' + esc(p.url) + '"' + (p.url === cur.project_url ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select>' +
+        '<label>Проект от галерията</label><select data-project><option value="">' + (projects ? '— избери проект —' : 'зареждам проектите…') + '</option>' + (projects || []).map(function (p) { return '<option value="' + esc(p.url) + '"' + (p.url === cur.project_url ? ' selected' : '') + '>' + esc(p.cat + ' · ' + p.name) + '</option>'; }).join('') + '</select>' +
         (photos ? '<div class="pv-photos">' + photos.map(function (u, i) { var on = shots.some(function (s) { return s.photo_url === u; }); return '<div class="pv-photo' + (on ? ' on' : '') + '" data-photo="' + i + '"><img loading="lazy" src="' + esc(u.replace(/(\.(?:jpe?g|webp))$/i, '-p-500$1')) + '" onerror="this.onerror=null;this.src=\'' + esc(u) + '\'"></div>'; }).join('') + '</div><p class="pv-muted" style="margin:8px 0 0">Натисни снимка, за да я добавиш или махнеш (до ' + MAX_SHOTS + '). Най-добре 5: три за сглобяване, един близък план и една обща за финал.</p>' : (cur.project_url ? '<p class="pv-muted">Зареждам снимките…</p>' : '')) +
         '<label>Бележка за изпълнителя (по желание)</label><textarea data-note rows="2" placeholder="напр. наблегни на острова; без антрето">' + esc(cur.note || '') + '</textarea></div>';
       html += '<div class="pv-card"><h4 style="margin-top:0">Кадри (' + shots.length + ')</h4>' +
@@ -372,7 +378,7 @@
     });
     panel.addEventListener('change', function (e) {
       if (view !== 'edit') return;
-      if (e.target.matches('[data-project]')) { readForm(); cur.project_url = e.target.value; dirty = true; if (!cur.title) { var o = e.target.selectedOptions[0]; cur.title = o && o.value ? o.textContent : ''; } return openProject(cur.project_url); }
+      if (e.target.matches('[data-project]')) { readForm(); cur.project_url = e.target.value; dirty = true; if (!cur.title) { var o = e.target.selectedOptions[0]; cur.title = o && o.value ? o.textContent.replace(/^.*· /, '') : ''; } return openProject(cur.project_url); }
       if (e.target.matches('[data-music]')) { useMusic = e.target.checked; return; }
       if (e.target.matches('[data-own-music]')) { ownMusic = e.target.files[0] || null; readForm(); return render(); }
       var fi = e.target.closest('[data-file]');
