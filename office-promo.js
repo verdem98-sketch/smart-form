@@ -225,6 +225,14 @@
       return { exact: false, dur: v.duration, uniq: uniq, total: n, get: get, box: box, blend: false, close: function () { URL.revokeObjectURL(v.src); } };
     });
   }
+  // a camera move over the still photo: no Vidu clip, so no credits. The picture is drawn anew on every frame, so the
+  // motion is perfectly smooth. Moves change from shot to shot: slow push-in, slow pull-out, gentle sideways glide.
+  var PHOTO_SEC = 4.6, MOVES = ['in', 'pan', 'out'];
+  function photoClip(url, crop, move) {
+    return fetch(url, { mode: 'cors' }).then(function (r) { if (!r.ok) throw new Error('Снимката не се зареди (' + r.status + ').'); return r.blob(); })
+      .then(function (b) { return createImageBitmap(b); })
+      .then(function (bm) { return { photo: bm, move: move, crop: crop, dur: PHOTO_SEC, exact: true, close: function () { bm.close(); } }; });
+  }
   function prepareClip(MB, blob, crop) {
     if (!window.VideoDecoder || !window.EncodedVideoChunk || !MB) return seekingClip(blob, crop);
     return exactClip(MB, blob, crop).catch(function () { return seekingClip(blob, crop); });
@@ -240,11 +248,12 @@
     var actx = null, segs = [], logo = null, music = null, M = null, MB = null, inexact = 0;
     return Promise.all([import(MUXER_URL), import(MP4BOX_URL).catch(function () { return null; })]).then(function (mods) {
       M = mods[0]; MB = mods[1] ? (mods[1].default || mods[1]) : null; if (MB && !MB.createFile) MB = null;
-      var prepared = [];
+      var prepared = [], photoN = 0;
       return opts.shots.reduce(function (p, s, i) {
         return p.then(function () {
           say(i / opts.shots.length * 0.3, 'Подготвям клип ' + (i + 1) + ' от ' + opts.shots.length + '…');
-          return prepareClip(MB, s.blob, s.crop).then(function (r) { prepared.push(r); if (!r.exact) inexact++; });
+          var job = s.mode === 'fwd' ? photoClip(s.photo_url, s.crop, MOVES[photoN++ % MOVES.length]) : prepareClip(MB, s.blob, s.crop);
+          return job.then(function (r) { prepared.push(r); if (!r.exact) inexact++; });
         });
       }, Promise.resolve()).then(function () { return prepared; });
     }).then(function (prepared) {
@@ -279,7 +288,18 @@
         if (i >= m - 1) { i = m - 1; f = 0; }
         return { i: i, j: s.clip.blend && f > 0.02 ? i + 1 : -1, f: f };
       }
+      function drawPhoto(s, t, alpha) {
+        var c0 = s.clip, ph = c0.photo, pw = ph.width, phh = ph.height;
+        var q = clamp((t - s.start) / s.len, 0, 1), e = q * q * (3 - 2 * q) * 0.5 + q * 0.5; // calm start and end, never still
+        var z = c0.move === 'in' ? 1.0 + 0.12 * e : c0.move === 'out' ? 1.12 - 0.12 * e : 1.07;
+        var k = Math.max(W / pw, H / phh) * z, dw = pw * k, dh = phh * k;
+        var cx = c0.crop;
+        if (c0.move === 'pan') cx = clamp(c0.crop - 0.09 + 0.18 * e, 0, 1);
+        var x = -(dw - W) * cx, y = -(dh - H) * 0.5;
+        g.save(); g.globalAlpha = alpha; g.imageSmoothingQuality = 'high'; g.drawImage(ph, x, y, dw, dh); g.restore();
+      }
       function loadSeg(s, t) {
+        if (s.clip.photo) return Promise.resolve();
         var w = pick(s, t), u = s.clip.uniq;
         // one after the other: the fallback shares one <video> for both
         return s.clip.get(u[w.i]).then(function (a) {
@@ -293,6 +313,7 @@
         if (b) g.drawImage(img, b.sx, b.sy, b.sw, b.sh, 0, 0, W, H); else g.drawImage(img, 0, 0, W, H);
       }
       function drawSeg(s, t, alpha) {
+        if (s.clip.photo) return drawPhoto(s, t, alpha);
         var n = s.now; if (!n) return;
         g.save(); g.globalAlpha = alpha; put(s, n.a);
         if (n.b) { g.globalAlpha = alpha * n.f; put(s, n.b); }
@@ -410,28 +431,29 @@
         }).join('') : '<p class="pv-muted">Още няма заявки.</p>') + '</div></div>';
     }
     function renderEdit() {
-      var ready = shots.length && shots.every(function (s) { return s.clip_status === 'done'; });
+      var ready = shots.length && shots.every(function (s) { return s.mode === 'fwd' || s.clip_status === 'done'; });
       var html = '<div class="pv-card"><div class="pv-row" style="justify-content:space-between"><button type="button" class="pv-btn" data-act="back">← Всички видеа</button><span class="pv-badge ' + esc(cur.status || 'requested') + '">' + esc(STATUS[cur.status] || 'Нова заявка') + '</span></div>' +
         '<label>Име на видеото</label><input type="text" data-title value="' + esc(cur.title || '') + '" placeholder="напр. Clear Line – кухня с остров">' +
         '<label>Проект от галерията</label><select data-project><option value="">' + (projects ? '— избери проект —' : 'зареждам проектите…') + '</option>' + (projects || []).map(function (p) { return '<option value="' + esc(p.url) + '"' + (p.url === cur.project_url ? ' selected' : '') + '>' + esc(p.cat + ' · ' + p.name) + '</option>'; }).join('') + '</select>' +
         (photos ? '<div class="pv-photos">' + photos.map(function (u, i) { var on = shots.some(function (s) { return s.photo_url === u; }); return '<div class="pv-photo' + (on ? ' on' : '') + '" data-photo="' + i + '"><img loading="lazy" src="' + esc(u.replace(/(\.(?:jpe?g|webp))$/i, '-p-500$1')) + '" onerror="this.onerror=null;this.src=\'' + esc(u) + '\'"></div>'; }).join('') + '</div><p class="pv-muted" style="margin:8px 0 0">Натисни снимка, за да я добавиш или махнеш (до ' + MAX_SHOTS + '). Най-добре 5: три за сглобяване, един близък план и една обща за финал.</p>' : (cur.project_url ? '<p class="pv-muted">Зареждам снимките…</p>' : '')) +
         '<label>Бележка за изпълнителя (по желание)</label><textarea data-note rows="2" placeholder="напр. наблегни на острова; без антрето">' + esc(cur.note || '') + '</textarea></div>';
       html += '<div class="pv-card"><h4 style="margin-top:0">Кадри (' + shots.length + ')</h4>' +
-        '<ol class="pv-steps"><li>Подреди кадрите и надписите и натисни „Запази заявката“.</li><li>За всеки кадър се прави клип във vidu.com (Image to Video, 5 сек, Off-Peak Mode, кодек H264) с описанието от бутона „Копирай описанието“.</li><li>Линкът на готовия клип се поставя при кадъра и се натиска „Вземи клипа“.</li><li>Когато всички клипове са тук – „Сглоби видеото“.</li></ol>' +
+        '<ol class="pv-steps"><li>Подреди кадрите и надписите и натисни „Запази заявката“.</li><li>Само кадрите „Сглобяване“ искат клип от vidu.com (Image to Video, 5 сек, Off-Peak Mode) с описанието от бутона „Копирай описанието“. Кадрите „Движение по снимката“ се правят тук, без Vidu и без кредити.</li><li>Линкът на готовия клип се поставя при кадъра и се натиска „Вземи клипа“.</li><li>Когато всички клипове са тук – „Сглоби видеото“.</li></ol>' +
         (shots.length ? shots.map(function (s, i) {
           return '<div class="pv-shot" data-shot="' + i + '"><div><div class="pv-frame"><img src="' + esc(s.photo_url.replace(/(\.(?:jpe?g|webp))$/i, '-p-500$1')) + '" onerror="this.onerror=null;this.src=\'' + esc(s.photo_url) + '\'" style="object-position:' + Math.round(s.crop * 100) + '% 50%" data-prev></div>' +
             '<input type="range" min="0" max="100" value="' + Math.round(s.crop * 100) + '" data-crop title="Коя част от снимката да се вижда" style="width:120px;max-width:100%"></div><div>' +
             '<div class="pv-row" style="justify-content:space-between"><b>Кадър ' + (i + 1) + '</b><span class="pv-row"><button type="button" class="pv-btn" data-act="up" data-i="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="pv-btn" data-act="down" data-i="' + i + '"' + (i < shots.length - 1 ? '' : ' disabled') + '>↓</button><button type="button" class="pv-btn danger" data-act="drop" data-i="' + i + '">Махни</button></span></div>' +
-            '<label>Движение</label><select data-mode><option value="rev"' + (s.mode !== 'fwd' ? ' selected' : '') + '>Сглобяване (мебелите се появяват)</option><option value="fwd"' + (s.mode === 'fwd' ? ' selected' : '') + '>Приближаване (готовата мебел, бавна камера)</option></select>' +
+            '<label>Движение</label><select data-mode><option value="rev"' + (s.mode !== 'fwd' ? ' selected' : '') + '>Сглобяване (мебелите се появяват)</option><option value="fwd"' + (s.mode === 'fwd' ? ' selected' : '') + '>Движение по снимката (без Vidu)</option></select>' +
             '<div class="pv-two"><div><label>Надпис – голям</label><input type="text" data-c1 maxlength="60" value="' + esc(s.caption1 || '') + '"></div><div><label>Надпис – малък</label><input type="text" data-c2 maxlength="90" value="' + esc(s.caption2 || '') + '"></div></div>' +
-            '<label>Клип от Vidu</label>' + (s.clip_status === 'done' ? '<div class="pv-row"><span class="pv-ok">✓ Клипът е тук' + (s.clip_bytes > 1000 ? ' (' + (s.clip_bytes / 1048576).toFixed(1) + ' MB)' : '') + '</span><button type="button" class="pv-btn" data-act="clip-del" data-i="' + i + '">Смени клипа</button></div>'
-              : '<div class="pv-row"><input type="text" data-link placeholder="постави линка на клипа от vidu.com" style="flex:1 1 220px;width:auto"><button type="button" class="pv-btn pri" data-act="clip-link" data-i="' + i + '">Вземи клипа</button></div><div class="pv-row" style="margin-top:6px"><span class="pv-muted">или качи файл:</span><input type="file" accept="video/mp4,video/*" data-file="' + i + '"></div>') +
-            '<div class="pv-row" style="margin-top:8px"><button type="button" class="pv-btn" data-act="copy" data-i="' + i + '">Копирай описанието за Vidu</button><a class="pv-btn" style="text-decoration:none" href="' + esc(s.photo_url) + '" target="_blank" rel="noopener">Отвори снимката ↗</a></div></div></div>';
+            (s.mode === 'fwd' ? '<p class="pv-muted" style="margin:10px 0 0">Камерата се движи бавно по снимката – клип от Vidu не трябва.</p>' : '<label>Клип от Vidu</label>' + (s.clip_status === 'done' ? '<div class="pv-row"><span class="pv-ok">✓ Клипът е тук' + (s.clip_bytes > 1000 ? ' (' + (s.clip_bytes / 1048576).toFixed(1) + ' MB)' : '') + '</span><button type="button" class="pv-btn" data-act="clip-del" data-i="' + i + '">Смени клипа</button></div>'
+              : '<div class="pv-row"><input type="text" data-link placeholder="постави линка на клипа от vidu.com" style="flex:1 1 220px;width:auto"><button type="button" class="pv-btn pri" data-act="clip-link" data-i="' + i + '">Вземи клипа</button></div><div class="pv-row" style="margin-top:6px"><span class="pv-muted">или качи файл:</span><input type="file" accept="video/mp4,video/*" data-file="' + i + '"></div>')) +
+            '<div class="pv-row" style="margin-top:8px">' + (s.mode === 'fwd' ? '' : '<button type="button" class="pv-btn" data-act="copy" data-i="' + i + '">Копирай описанието за Vidu</button>') + '<a class="pv-btn" style="text-decoration:none" href="' + esc(s.photo_url) + '" target="_blank" rel="noopener">Отвори снимката ↗</a></div></div></div>';
         }).join('') : '<p class="pv-muted" style="margin-top:10px">Избери проект и натисни снимките, които да влязат във видеото.</p>') + '</div>';
       html += '<div class="pv-card"><div class="pv-row"><button type="button" class="pv-btn pri" data-act="save">Запази заявката</button>' +
         '<button type="button" class="pv-btn pri" data-act="stitch"' + (ready ? '' : ' disabled title="Трябват клиповете на всички кадри"') + '>Сглоби видеото</button>' +
         (cur.final_size ? '<button type="button" class="pv-btn pri" data-watch="' + esc(cur.id) + '">▶ Гледай</button><button type="button" class="pv-btn" data-act="download">Свали готовото видео</button>' : '') +
         (cur.id ? '<button type="button" class="pv-btn danger" data-act="delete">Изтрий</button>' : '') + '</div>' +
+        '<div class="pv-row" style="margin-top:10px"><span class="pv-muted">или качи вече готово видео (mp4):</span><input type="file" accept="video/mp4,video/*" data-final-file></div>' +
         '<div class="pv-row" style="margin-top:10px"><label style="margin:0;text-transform:none;font-size:14px;font-weight:400;color:#2f332f"><input type="checkbox" data-music' + (useMusic ? ' checked' : '') + '> с музика</label><span class="pv-muted">своя музика (mp3, по желание):</span><input type="file" accept="audio/*" data-own-music>' + (ownMusic ? '<span class="pv-ok">✓ ' + esc(ownMusic.name) + '</span>' : '') + '</div>' +
         '<p data-flash class="pv-muted" style="margin:10px 0 0"></p>' +
         (result ? '<video controls playsinline src="' + esc(result.url) + '"></video><div class="pv-row"><a class="pv-btn pri" style="text-decoration:none" href="' + esc(result.url) + '" download="' + esc((cur.title || 'verde-video').replace(/[^\wа-яА-Я -]+/g, '').trim() || 'verde-video') + '.mp4">Свали видеото</a><span class="pv-muted">' + Math.round(result.seconds) + ' сек · ' + (result.blob.size / 1048576).toFixed(1) + ' MB</span></div>' : '') + '</div>';
@@ -470,10 +492,10 @@
       var musicP = !useMusic ? Promise.resolve(null) : ownMusic ? ownMusic.arrayBuffer() : fetch(BEAT_URL).then(function (r) { if (!r.ok) throw new Error('музика'); return r.arrayBuffer(); }).catch(function () { return null; });
       return saved().then(function () {
         flash('Взимам клиповете от сървъра…');
-        return Promise.all(shots.map(function (s) { return post({ action: 'clip_content', shot_id: s.id }).then(function (r) { if (!r.ok || !/video/.test(r.headers.get('content-type') || '')) throw new Error('Клипът на кадър ' + (s.sort + 1) + ' не се зареди.'); return r.blob(); }); }));
+        return Promise.all(shots.map(function (s) { if (s.mode === 'fwd') return null; return post({ action: 'clip_content', shot_id: s.id }).then(function (r) { if (!r.ok || !/video/.test(r.headers.get('content-type') || '')) throw new Error('Клипът на кадър ' + (s.sort + 1) + ' не се зареди.'); return r.blob(); }); }));
       }).then(function (blobs) {
         return musicP.then(function (music) {
-          return stitch({ shots: shots.map(function (s, i) { return { blob: blobs[i], mode: s.mode, crop: s.crop, caption1: s.caption1, caption2: s.caption2 }; }), music: music, onProgress: function (p, t) { flash(t); } });
+          return stitch({ shots: shots.map(function (s, i) { return { blob: blobs[i], photo_url: s.photo_url, mode: s.mode, crop: s.crop, caption1: s.caption1, caption2: s.caption2 }; }), music: music, onProgress: function (p, t) { flash(t); } });
         });
       }).then(function (r) {
         result = { blob: r.blob, url: URL.createObjectURL(r.blob), seconds: r.seconds }; watchCache[cur.id] = result.url;
@@ -542,7 +564,14 @@
       if (view !== 'edit') return;
       if (e.target.matches('[data-project]')) { readForm(); cur.project_url = e.target.value; dirty = true; if (!cur.title) { var o = e.target.selectedOptions[0]; cur.title = o && o.value ? o.textContent.replace(/^.*· /, '') : ''; } return openProject(cur.project_url); }
       if (e.target.matches('[data-music]')) { useMusic = e.target.checked; return; }
+      if (e.target.matches('[data-mode]')) { readForm(); dirty = true; return render(); }
       if (e.target.matches('[data-own-music]')) { ownMusic = e.target.files[0] || null; readForm(); return render(); }
+      if (e.target.matches('[data-final-file]') && e.target.files[0]) {
+        var ff = e.target.files[0];
+        if (ff.size > 200 * 1048576) return flash('Файлът е твърде голям (до 200 MB).', true);
+        return guard(saved().then(function () { return uploadChunks('final_upload', 'id', cur.id, ff, function (p) { flash('Качвам видеото… ' + Math.round(p * 100) + '%'); }); })
+          .then(function (d) { if (d && d.video) { take(d); } result = null; delete watchCache[cur.id]; }), 'Видеото е качено. Гледа се с „▶ Гледай“.');
+      }
       var fi = e.target.closest('[data-file]');
       if (fi && fi.files[0]) {
         var i = Number(fi.dataset.file), file = fi.files[0];
