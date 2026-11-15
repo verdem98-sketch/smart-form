@@ -56,6 +56,10 @@
       '.pv-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pv-ok{color:#2f6b2a;font-weight:600}.pv-err{color:#a33}.pv-muted{color:#6b7266;font-size:13px}',
       '.pv-steps{margin:0;padding-left:20px;color:#4a5046;font-size:14px}.pv-steps li{margin:3px 0}',
       '.pv video{width:240px;max-width:100%;border-radius:10px;background:#000;display:block;margin:10px 0}',
+      '.pv-watch{position:fixed;inset:0;z-index:2147483000;background:rgba(10,12,10,.88);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}',
+      '.pv-watch video{width:auto;height:min(86vh,1200px);max-width:94vw;aspect-ratio:9/16;margin:0;border-radius:12px;background:#000}',
+      '.pv-watch .pv-x{position:absolute;top:14px;right:16px;width:44px;height:44px;border-radius:50%;border:0;background:#fff;color:#2f332f;font:700 22px/44px Arial;cursor:pointer}',
+      '.pv-watch .pv-wait{color:#fff;font:15px Montserrat,Arial,sans-serif}',
       '@media(max-width:560px){.pv-shot{grid-template-columns:80px 1fr}.pv-frame{width:80px}.pv-two{grid-template-columns:1fr}}'
     ].join('');
     document.head.appendChild(s);
@@ -103,20 +107,115 @@
   }
 
   /* ---------------- stitching in the browser ---------------- */
-  function loadClip(blob) {
+  // Every frame of a clip is decoded exactly (WebCodecs + mp4box), cropped to the 9:16 picture and kept as a JPEG.
+  // Seeking a <video> element and drawing it is not reliable (the browser often hands back the previous frame, which
+  // shows as a stutter), so it is used only where the browser cannot decode the clip itself.
+  // Vidu often repeats every 3rd or 4th frame; those repeats are dropped and the remaining frames are spread evenly
+  // over the clip and blended in between, so the motion runs smoothly.
+  var MP4BOX_URL = 'https://cdn.jsdelivr.net/npm/mp4box@0.5.3/+esm';
+  var SIG_W = 32, SIG_H = 56, SAME = 0.6;
+  function sigOf(src, sw, sh, crop) {
+    var c = document.createElement('canvas'); c.width = SIG_W; c.height = SIG_H; var x = c.getContext('2d', { willReadFrequently: true });
+    var k = Math.max(SIG_W / sw, SIG_H / sh), dw = sw * k, dh = sh * k;
+    x.drawImage(src, -(dw - SIG_W) * crop, -(dh - SIG_H) / 2, dw, dh);
+    var d = x.getImageData(0, 0, SIG_W, SIG_H).data, out = new Uint8Array(SIG_W * SIG_H);
+    for (var i = 0, j = 0; i < d.length; i += 4, j++) out[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+    return out;
+  }
+  function sigDiff(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
+  // keeps one frame (drawn at the final 1080×1920 crop) unless it repeats the previous one
+  function keeper(crop) {
+    var work = document.createElement('canvas'); work.width = W; work.height = H; var wg = work.getContext('2d');
+    var out = { frames: [], total: 0, prev: null };
+    out.add = function (src, sw, sh) {
+      out.total++;
+      var sig = sigOf(src, sw, sh, crop);
+      if (out.prev && sigDiff(sig, out.prev) < SAME) return Promise.resolve();
+      out.prev = sig;
+      var k = Math.max(W / sw, H / sh), dw = sw * k, dh = sh * k;
+      wg.drawImage(src, -(dw - W) * crop, -(dh - H) / 2, dw, dh);
+      return new Promise(function (res) { work.toBlob(function (b) { out.frames.push(b); res(); }, 'image/jpeg', 0.92); });
+    };
+    return out;
+  }
+  function demux(MB, ab) {
     return new Promise(function (resolve, reject) {
-      var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
-      v.addEventListener('loadeddata', function () { resolve(v); });
-      v.addEventListener('error', function () { reject(new Error('Клипът не може да се прочете от този браузър. Във Vidu избери кодек H264 и го направи пак.')); });
+      var file = MB.createFile(), track = null, samples = [];
+      file.onError = function (e) { reject(new Error('Клипът не се разчита: ' + e)); };
+      file.onReady = function (info) {
+        track = info.videoTracks && info.videoTracks[0];
+        if (!track) return;
+        file.setExtractionOptions(track.id, null, { nbSamples: 100000 });
+        file.start();
+      };
+      file.onSamples = function (id, user, s) { samples = samples.concat(s); };
+      ab.fileStart = 0; file.appendBuffer(ab); file.flush();
+      setTimeout(function () {
+        if (!track || !samples.length) return reject(new Error('В клипа няма видео.'));
+        var trak = file.getTrackById(track.id), desc = null;
+        (trak.mdia.minf.stbl.stsd.entries || []).forEach(function (e) {
+          var box = e.avcC || e.hvcC || e.vpcC || e.av1C;
+          if (box && !desc) { var ds = new MB.DataStream(undefined, 0, MB.DataStream.BIG_ENDIAN); box.write(ds); desc = new Uint8Array(ds.buffer, 8); }
+        });
+        resolve({ track: track, samples: samples, desc: desc });
+      }, 0);
     });
   }
-  function seek(v, t) {
-    return new Promise(function (resolve) {
-      if (Math.abs(v.currentTime - t) < 0.001) return resolve();
-      var done = false, fin = function () { if (!done) { done = true; v.removeEventListener('seeked', fin); resolve(); } };
-      v.addEventListener('seeked', fin); setTimeout(fin, 4000);
-      v.currentTime = t;
+  function decodeExact(MB, blob, crop) {
+    return blob.arrayBuffer().then(function (ab) { return demux(MB, ab); }).then(function (dm) {
+      var cfg = { codec: dm.track.codec, codedWidth: dm.track.video.width, codedHeight: dm.track.video.height };
+      if (dm.desc) cfg.description = dm.desc;
+      return VideoDecoder.isConfigSupported(cfg).then(function (sup) {
+        if (!sup || !sup.supported) throw new Error('unsupported');
+        var kept = keeper(crop), queue = [], busy = Promise.resolve(), err = null, pending = 0;
+        var dec = new VideoDecoder({
+          output: function (fr) {
+            pending++;
+            busy = busy.then(function () {
+              var p = kept.add(fr, fr.displayWidth, fr.displayHeight);
+              fr.close(); pending--;
+              return p;
+            });
+          },
+          error: function (e) { err = e; }
+        });
+        dec.configure(cfg);
+        var last = dm.samples[dm.samples.length - 1], ts = last.timescale;
+        var dur = (Math.max.apply(null, dm.samples.map(function (s) { return s.cts + s.duration; })) - Math.min.apply(null, dm.samples.map(function (s) { return s.cts; }))) / ts;
+        var i = 0;
+        function feed() {
+          if (err) throw err;
+          while (i < dm.samples.length && pending < 6 && dec.decodeQueueSize < 8) {
+            var s = dm.samples[i++];
+            dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(1e6 * s.cts / ts), duration: Math.round(1e6 * s.duration / ts), data: s.data }));
+          }
+          if (i < dm.samples.length) return wait(5).then(feed);
+          return dec.flush().then(function () { return busy; }).then(function () { dec.close(); if (err) throw err; return { frames: kept.frames, total: kept.total, dur: dur, exact: true }; });
+        }
+        return feed();
+      });
     });
+  }
+  // fallback for clips the browser cannot decode by itself: seek the <video>, one source frame at a time
+  function decodeBySeeking(blob, crop) {
+    return new Promise(function (resolve, reject) {
+      var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
+      v.addEventListener('loadeddata', function () { resolve(v); }, { once: true });
+      v.addEventListener('error', function () { reject(new Error('Клипът не може да се прочете от този браузър. Във Vidu избери кодек H264 и го направи пак.')); }, { once: true });
+    }).then(function (v) {
+      var kept = keeper(crop), n = Math.max(2, Math.round(v.duration * 24)), i = 0;
+      function next() {
+        if (i >= n) { URL.revokeObjectURL(v.src); return { frames: kept.frames, total: kept.total, dur: v.duration, exact: false }; }
+        var t = Math.min(v.duration - 0.01, (i + 0.5) / 24); i++;
+        return new Promise(function (res) { var done = false, fin = function () { if (!done) { done = true; res(); } }; v.addEventListener('seeked', fin, { once: true }); setTimeout(fin, 3000); v.currentTime = t; })
+          .then(function () { return wait(30); }).then(function () { return kept.add(v, v.videoWidth, v.videoHeight); }).then(next);
+      }
+      return next();
+    });
+  }
+  function prepareClip(MB, blob, crop) {
+    if (!window.VideoDecoder || !window.EncodedVideoChunk || !MB) return decodeBySeeking(blob, crop);
+    return decodeExact(MB, blob, crop).catch(function () { return decodeBySeeking(blob, crop); });
   }
   function fadeAlpha(t, a, b, d) { return clamp((t - a) / d, 0, 1) * clamp((b - t) / d, 0, 1); }
 
@@ -126,15 +225,21 @@
     var c = document.createElement('canvas'); c.width = W; c.height = H; var g = c.getContext('2d');
     var snap = document.createElement('canvas'); snap.width = W; snap.height = H; var sg = snap.getContext('2d');
     var say = opts.onProgress || function () {};
-    var actx = null, segs = [], logo = null, music = null, M = null;
-    return import(MUXER_URL).then(function (m) {
-      M = m; say(0, 'Зареждам клиповете…');
-      return Promise.all(opts.shots.map(function (s) { return loadClip(s.blob); }));
-    }).then(function (videos) {
+    var actx = null, segs = [], logo = null, music = null, M = null, MB = null, inexact = 0;
+    return Promise.all([import(MUXER_URL), import(MP4BOX_URL).catch(function () { return null; })]).then(function (mods) {
+      M = mods[0]; MB = mods[1] ? (mods[1].default || mods[1]) : null; if (MB && !MB.createFile) MB = null;
+      var prepared = [];
+      return opts.shots.reduce(function (p, s, i) {
+        return p.then(function () {
+          say(i / opts.shots.length * 0.3, 'Подготвям клип ' + (i + 1) + ' от ' + opts.shots.length + '…');
+          return prepareClip(MB, s.blob, s.crop).then(function (r) { prepared.push(r); if (!r.exact) inexact++; });
+        });
+      }, Promise.resolve()).then(function () { return prepared; });
+    }).then(function (prepared) {
       var t0 = 0;
-      videos.forEach(function (v, i) {
-        var s = opts.shots[i], dur = Math.max(0.5, v.duration - 0.06), hold = s.mode === 'fwd' ? HOLD_FWD : HOLD_REV;
-        segs.push({ v: v, mode: s.mode, crop: s.crop, c1: s.caption1, c2: s.caption2, dur: dur, len: dur + hold, start: t0 });
+      prepared.forEach(function (r, i) {
+        var s = opts.shots[i], dur = Math.max(0.5, r.dur - 0.06), hold = s.mode === 'fwd' ? HOLD_FWD : HOLD_REV;
+        segs.push({ frames: r.frames, cache: {}, mode: s.mode, c1: s.caption1, c2: s.caption2, dur: dur, len: dur + hold, start: t0 });
         t0 += dur + hold - XF;
       });
       return fetch(LOGO_URL).then(function (r) { return r.blob(); }).then(function (b) { return createImageBitmap(b); }).then(function (bm) { logo = bm; }).catch(function () { logo = null; });
@@ -151,13 +256,35 @@
       if (music) cfg.audio = { codec: 'aac', sampleRate: SR, numberOfChannels: 2 };
       var muxer = new M.Muxer(cfg), encErr = null;
       var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { encErr = e; } });
-      venc.configure({ codec: 'avc1.640028', width: W, height: H, bitrate: 8000000, framerate: FPS });
+      venc.configure({ codec: 'avc1.640028', width: W, height: H, bitrate: 6000000, framerate: FPS });
 
-      function drawSeg(s, t, alpha) {
-        var v = s.v, k = Math.max(W / v.videoWidth, H / v.videoHeight), dw = v.videoWidth * k, dh = v.videoHeight * k;
-        g.save(); g.globalAlpha = alpha; g.drawImage(v, -(dw - W) * s.crop, -(dh - H) / 2, dw, dh); g.restore();
+      // which kept frames a shot shows at time t: the frames are spread evenly over the clip, played backwards for an
+      // assembly shot, and the one in between is blended in, so the motion has no stops and no jumps
+      function pick(s, t) {
+        var m = s.frames.length, q = clamp((t - s.start) / s.dur, 0, 1);
+        if (s.mode !== 'fwd') q = 1 - q;
+        var p = q * (m - 1), i = Math.floor(p), f = p - i;
+        if (i >= m - 1) { i = m - 1; f = 0; }
+        return { i: i, j: f > 0.02 ? i + 1 : -1, f: f };
       }
-      function srcTime(s, t) { var local = clamp(t - s.start, 0, s.dur); return s.mode === 'fwd' ? local : s.dur - local; }
+      function bmp(s, idx) {
+        if (s.cache[idx]) return Promise.resolve(s.cache[idx]);
+        return createImageBitmap(s.frames[idx]).then(function (b) {
+          s.cache[idx] = b;
+          Object.keys(s.cache).forEach(function (k) { if (Math.abs(k - idx) > 2) { s.cache[k].close(); delete s.cache[k]; } });
+          return b;
+        });
+      }
+      function loadSeg(s, t) {
+        var w = pick(s, t);
+        return Promise.all([bmp(s, w.i), w.j >= 0 ? bmp(s, w.j) : null]).then(function (b) { s.now = { a: b[0], b: b[1], f: w.f }; });
+      }
+      function drawSeg(s, t, alpha) {
+        var n = s.now; if (!n) return;
+        g.save(); g.globalAlpha = alpha; g.drawImage(n.a, 0, 0, W, H);
+        if (n.b) { g.globalAlpha = alpha * n.f; g.drawImage(n.b, 0, 0, W, H); }
+        g.restore();
+      }
       function text(str, size, weight, y, alpha, dy) {
         if (!str || alpha <= 0) return;
         g.save(); g.globalAlpha = alpha; g.font = weight + ' ' + size + 'px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -189,7 +316,7 @@
       var snapped = false;
       function frame(f) {
         var t = f / FPS, active = segs.filter(function (s) { return t >= s.start && t < s.start + s.len; });
-        return active.reduce(function (p, s) { return p.then(function () { return seek(s.v, srcTime(s, t)); }); }, Promise.resolve()).then(function () {
+        return Promise.all(active.map(function (s) { return loadSeg(s, t); })).then(function () {
           g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
           active.forEach(function (s, i) { drawSeg(s, t, i === 0 ? 1 : clamp((t - s.start) / XF, 0, 1)); });
           // the last picture of the last shot (the real photo) is what the logo card is laid over
@@ -201,7 +328,7 @@
           var vf = new VideoFrame(c, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
           venc.encode(vf, { keyFrame: f % 60 === 0 }); vf.close();
           if (encErr) throw encErr;
-          if (f % 10 === 0) say(f / frames * 0.92, 'Сглобявам… ' + Math.round(f / frames * 100) + '%');
+          if (f % 10 === 0) say(0.3 + f / frames * 0.62, 'Сглобявам… ' + Math.round(f / frames * 100) + '%');
           return venc.encodeQueueSize > 6 ? wait(30) : (f % 5 === 0 ? wait(0) : null);
         });
       }
@@ -226,9 +353,9 @@
       }).then(function () {
         if (encErr) throw encErr;
         muxer.finalize(); if (actx) actx.close();
-        segs.forEach(function (s) { URL.revokeObjectURL(s.v.src); });
+        segs.forEach(function (s) { Object.keys(s.cache).forEach(function (k) { s.cache[k].close(); }); s.cache = {}; s.frames = null; });
         say(1, 'Готово');
-        return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), seconds: total, hasMusic: !!music };
+        return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), seconds: total, hasMusic: !!music, inexact: inexact };
       });
     });
   }
@@ -266,7 +393,7 @@
       return '<div class="pv-card"><h3>От празно до готово</h3><p class="pv-sub">Рекламно видео от снимките на един проект: мебелите се сглобяват сами в празната стая, следват близък план, надписи, музика и лого. Клиповете се правят във vidu.com в безплатния режим – без API кредити.</p>' +
         '<div class="pv-row"><button type="button" class="pv-btn pri" data-act="new">+ Нова заявка за видео</button><span data-flash class="pv-muted"></span></div></div>' +
         '<div class="pv-card"><h4 style="margin-top:0">Заявки и готови видеа</h4><div class="pv-list">' + (videos.length ? videos.map(function (v) {
-          return '<div class="pv-item" data-open="' + esc(v.id) + '"><div><b>' + esc(v.title) + '</b><div class="pv-muted">' + bgDate(v.created_at) + ' · ' + v.clips + ' от ' + v.shots + ' клипа</div></div><span class="pv-badge ' + esc(v.status) + '">' + esc(STATUS[v.status] || v.status) + '</span></div>';
+          return '<div class="pv-item" data-open="' + esc(v.id) + '"><div><b>' + esc(v.title) + '</b><div class="pv-muted">' + bgDate(v.created_at) + ' · ' + v.clips + ' от ' + v.shots + ' клипа</div></div><span class="pv-row">' + (v.final_size ? '<button type="button" class="pv-btn" data-watch="' + esc(v.id) + '">▶ Гледай</button>' : '') + '<span class="pv-badge ' + esc(v.status) + '">' + esc(STATUS[v.status] || v.status) + '</span></span></div>';
         }).join('') : '<p class="pv-muted">Още няма заявки.</p>') + '</div></div>';
     }
     function renderEdit() {
@@ -290,7 +417,7 @@
         }).join('') : '<p class="pv-muted" style="margin-top:10px">Избери проект и натисни снимките, които да влязат във видеото.</p>') + '</div>';
       html += '<div class="pv-card"><div class="pv-row"><button type="button" class="pv-btn pri" data-act="save">Запази заявката</button>' +
         '<button type="button" class="pv-btn pri" data-act="stitch"' + (ready ? '' : ' disabled title="Трябват клиповете на всички кадри"') + '>Сглоби видеото</button>' +
-        (cur.final_size ? '<button type="button" class="pv-btn" data-act="download">Свали готовото видео</button>' : '') +
+        (cur.final_size ? '<button type="button" class="pv-btn pri" data-watch="' + esc(cur.id) + '">▶ Гледай</button><button type="button" class="pv-btn" data-act="download">Свали готовото видео</button>' : '') +
         (cur.id ? '<button type="button" class="pv-btn danger" data-act="delete">Изтрий</button>' : '') + '</div>' +
         '<div class="pv-row" style="margin-top:10px"><label style="margin:0;text-transform:none;font-size:14px;font-weight:400;color:#2f332f"><input type="checkbox" data-music' + (useMusic ? ' checked' : '') + '> с музика</label><span class="pv-muted">своя музика (mp3, по желание):</span><input type="file" accept="audio/*" data-own-music>' + (ownMusic ? '<span class="pv-ok">✓ ' + esc(ownMusic.name) + '</span>' : '') + '</div>' +
         '<p data-flash class="pv-muted" style="margin:10px 0 0"></p>' +
@@ -336,13 +463,35 @@
           return stitch({ shots: shots.map(function (s, i) { return { blob: blobs[i], mode: s.mode, crop: s.crop, caption1: s.caption1, caption2: s.caption2 }; }), music: music, onProgress: function (p, t) { flash(t); } });
         });
       }).then(function (r) {
-        result = { blob: r.blob, url: URL.createObjectURL(r.blob), seconds: r.seconds };
+        result = { blob: r.blob, url: URL.createObjectURL(r.blob), seconds: r.seconds }; watchCache[cur.id] = result.url;
         flash('Качвам готовото видео на сървъра… 0%');
         return uploadChunks('final_upload', 'id', cur.id, r.blob, function (p) { flash('Качвам готовото видео на сървъра… ' + Math.round(p * 100) + '%'); }).then(function (d) { if (d && d.video) { cur = d.video; } return r; });
       });
     }
 
+    var watchCache = {};
+    function watch(id) {
+      var box = el('div', 'pv-watch', '<button type="button" class="pv-x" aria-label="Затвори">×</button><span class="pv-wait">Зареждам видеото…</span>');
+      document.body.appendChild(box);
+      var closed = false;
+      function close() { closed = true; var v = box.querySelector('video'); if (v) v.pause(); box.remove(); document.removeEventListener('keydown', onKey); }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+      document.addEventListener('keydown', onKey);
+      box.addEventListener('click', function (e) { if (e.target === box || e.target.closest('.pv-x')) close(); });
+      (watchCache[id] ? Promise.resolve(watchCache[id]) : post({ action: 'final_content', id: id }).then(function (r) {
+        if (!r.ok || !/video/.test(r.headers.get('content-type') || '')) throw new Error('Видеото не се зареди от сървъра.');
+        return r.blob();
+      }).then(function (b) { watchCache[id] = URL.createObjectURL(b); return watchCache[id]; })).then(function (url) {
+        if (closed) return;
+        var w = box.querySelector('.pv-wait'); if (w) w.remove();
+        var v = document.createElement('video'); v.controls = true; v.playsInline = true; v.autoplay = true; v.src = url;
+        box.appendChild(v);
+      }).catch(function (e) { var w = box.querySelector('.pv-wait'); if (w) w.textContent = e.message; });
+    }
+
     panel.addEventListener('click', function (e) {
+      var wb = e.target.closest('[data-watch]');
+      if (wb) { e.stopPropagation(); return watch(wb.dataset.watch); }
       var open = e.target.closest('[data-open]');
       if (open && !busy) return guard(call({ action: 'get', id: open.dataset.open }).then(function (d) { if (!d.ok) throw new Error(d.error); openEdit(d); }));
       var ph = e.target.closest('[data-photo]');
