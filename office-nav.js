@@ -2,7 +2,7 @@
 (function(){
   var GROUPS=[
     ['clients','Клиенти',['calendar','passport','products']],
-    ['video','Видео',['episodes','promo']],
+    ['video','Видео',['episodes','promo','presenter']],
     ['insights','Анализ и реклами',['analysis','ads']],
     ['tools','Инструменти',['visual','studio','webcut']]
   ];
