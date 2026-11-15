@@ -13,12 +13,13 @@
   function orderOf(t){for(var i=0;i<GROUPS.length;i++){var k=GROUPS[i][2].indexOf(t);if(k>=0)return k;}return 99;}
   function css(){
     var s=document.createElement('style');
-    s.textContent='.vo-groups{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 0}'+
+    s.textContent='.vo-groups{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 100%;order:-99;margin:0 0 4px}'+
       '.vo-group{flex:1 1 150px;padding:15px 16px;border:1px solid #cfd4cb;border-radius:12px;background:#fff;color:#2f332f;font:700 15px/1.2 Montserrat,Arial,sans-serif;cursor:pointer;transition:background .15s,color .15s}'+
       '.vo-group:hover{border-color:#2f332f}.vo-group.is-on{background:#2f332f;border-color:#2f332f;color:#fff}'+
       '.vo-group small{display:block;margin-top:4px;font:500 11px/1.2 Montserrat,Arial,sans-serif;opacity:.65}'+
-      '.office-shell .vo-tabs.vo-sub{margin:10px 0 20px;padding:8px;gap:6px;background:#f1f3ee;border-radius:12px}'+
-      '.office-shell .vo-tabs.vo-sub .vo-tab{flex:0 1 auto;padding:10px 18px;font-size:14px;border-radius:9px;text-align:center}'+
+      '.office-shell .vo-tabs.vo-sub{gap:6px}'+
+      '.office-shell .vo-tabs.vo-sub .vo-tab{flex:0 1 auto;padding:10px 18px;font-size:14px;border-radius:9px;text-align:center;background:#f1f3ee}'+
+      '.office-shell .vo-tabs.vo-sub .vo-tab.is-on{background:#5c6b4f;border-color:#5c6b4f;color:#fff}'+
       '.office-shell .vo-tabs.vo-sub .vo-tab.vo-g-hide{display:none!important}';
     document.head.appendChild(s);
   }
@@ -27,7 +28,8 @@
     css(); bar.classList.add('vo-sub');
     var gbar=document.createElement('div'); gbar.className='vo-groups';
     GROUPS.forEach(function(g){var b=document.createElement('button');b.type='button';b.className='vo-group';b.setAttribute('data-group',g[0]);b.innerHTML=g[1]+'<small></small>';gbar.appendChild(b);});
-    bar.parentNode.insertBefore(gbar,bar);
+    /* вътре в лентата: инструментите скриват всичко останало в .office-shell, но лентата остава */
+    bar.insertBefore(gbar,bar.firstChild);
     var cur=null,restore=ls(LS_G),restoreUntil=Date.now()+10000;
     function tabs(){return [].slice.call(bar.querySelectorAll('.vo-tab'));}
     function key(b){return b.getAttribute('data-tab')||'';}
