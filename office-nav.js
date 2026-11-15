@@ -1,11 +1,10 @@
-/* /verde-office: групи от табове — подрежда съществуващите бутони в 5 групи (само навигация, инструментите не се пипат) */
+/* /verde-office: групи от табове — подрежда съществуващите бутони в 4 групи (само навигация, инструментите не се пипат) */
 (function(){
   var GROUPS=[
-    ['clients','Клиенти',['calendar','passport']],
+    ['clients','Клиенти',['calendar','passport','products']],
     ['video','Видео',['episodes','promo']],
-    ['content','Съдържание',['studio','visual','products']],
     ['insights','Анализ и реклами',['analysis','ads']],
-    ['tools','Инструменти',['webcut']]
+    ['tools','Инструменти',['visual','studio','webcut']]
   ];
   var LS_G='vo-group',LS_T='vo-group-tab-';
   function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}}
@@ -20,6 +19,7 @@
       '.office-shell .vo-tabs.vo-sub{gap:6px}'+
       '.office-shell .vo-tabs.vo-sub .vo-tab{flex:0 1 auto;padding:10px 18px;font-size:14px;border-radius:9px;text-align:center;background:#f1f3ee}'+
       '.office-shell .vo-tabs.vo-sub .vo-tab.is-on{background:#5c6b4f;border-color:#5c6b4f;color:#fff}'+
+      '.office-shell .vo-tabs.vo-sub a.vo-tab:after{content:"  \\2197";opacity:.6}'+
       '.office-shell .vo-tabs.vo-sub .vo-tab.vo-g-hide{display:none!important}';
     document.head.appendChild(s);
   }
@@ -31,6 +31,7 @@
     /* вътре в лентата: инструментите скриват всичко останало в .office-shell, но лентата остава */
     bar.insertBefore(gbar,bar.firstChild);
     var cur=null,restore=ls(LS_G),restoreUntil=Date.now()+10000;
+    if(restore&&!GROUPS.some(function(g){return g[0]===restore;}))restore=null;
     function tabs(){return [].slice.call(bar.querySelectorAll('.vo-tab'));}
     function key(b){return b.getAttribute('data-tab')||'';}
     function apply(){
