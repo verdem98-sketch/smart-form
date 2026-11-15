@@ -185,7 +185,7 @@
         var i = 0;
         function feed() {
           if (err) throw err;
-          while (i < dm.samples.length && pending < 6 && dec.decodeQueueSize < 8) {
+          while (i < dm.samples.length && pending < 8 && dec.decodeQueueSize < 64) {
             var s = dm.samples[i++];
             dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(1e6 * s.cts / ts), duration: Math.round(1e6 * s.duration / ts), data: s.data }));
           }
