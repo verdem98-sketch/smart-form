@@ -228,10 +228,10 @@
   // a camera move over the still photo: no Vidu clip, so no credits. The picture is drawn anew on every frame, so the
   // motion is perfectly smooth. Moves change from shot to shot: slow push-in, slow pull-out, gentle sideways glide.
   var PHOTO_SEC = 4.6, MOVES = ['in', 'pan', 'out'];
-  function photoClip(url, crop, move) {
+  function photoClip(url, crop, move, sec) {
     return fetch(url, { mode: 'cors' }).then(function (r) { if (!r.ok) throw new Error('Снимката не се зареди (' + r.status + ').'); return r.blob(); })
       .then(function (b) { return createImageBitmap(b); })
-      .then(function (bm) { return { photo: bm, move: move, crop: crop, dur: PHOTO_SEC, exact: true, close: function () { bm.close(); } }; });
+      .then(function (bm) { return { photo: bm, move: move, crop: crop, dur: sec || PHOTO_SEC, exact: true, close: function () { bm.close(); } }; });
   }
   function prepareClip(MB, blob, crop) {
     if (!window.VideoDecoder || !window.EncodedVideoChunk || !MB) return seekingClip(blob, crop);
@@ -245,21 +245,21 @@
     var c = document.createElement('canvas'); c.width = W; c.height = H; var g = c.getContext('2d');
     var snap = document.createElement('canvas'); snap.width = W; snap.height = H; var sg = snap.getContext('2d');
     var say = opts.onProgress || function () {};
-    var actx = null, segs = [], logo = null, music = null, M = null, MB = null, inexact = 0;
+    var actx = null, segs = [], logo = null, music = null, voice = null, voiceAt = opts.voiceAt == null ? 0.4 : opts.voiceAt, M = null, MB = null, inexact = 0;
     return Promise.all([import(MUXER_URL), import(MP4BOX_URL).catch(function () { return null; })]).then(function (mods) {
       M = mods[0]; MB = mods[1] ? (mods[1].default || mods[1]) : null; if (MB && !MB.createFile) MB = null;
       var prepared = [], photoN = 0;
       return opts.shots.reduce(function (p, s, i) {
         return p.then(function () {
           say(i / opts.shots.length * 0.3, 'Подготвям клип ' + (i + 1) + ' от ' + opts.shots.length + '…');
-          var job = s.mode === 'fwd' ? photoClip(s.photo_url, s.crop, MOVES[photoN++ % MOVES.length]) : prepareClip(MB, s.blob, s.crop);
+          var job = s.mode === 'fwd' ? photoClip(s.photo_url, s.crop, s.move || MOVES[photoN++ % MOVES.length], s.sec) : prepareClip(MB, s.blob, s.crop);
           return job.then(function (r) { prepared.push(r); if (!r.exact) inexact++; });
         });
       }, Promise.resolve()).then(function () { return prepared; });
     }).then(function (prepared) {
       var t0 = 0;
       prepared.forEach(function (r, i) {
-        var s = opts.shots[i], dur = Math.max(0.5, r.dur - 0.06), hold = s.mode === 'fwd' ? HOLD_FWD : HOLD_REV;
+        var s = opts.shots[i], dur = Math.max(0.5, r.dur - 0.06), hold = s.mode === 'rev' ? HOLD_REV : HOLD_FWD;
         segs.push({ clip: r, mode: s.mode, c1: s.caption1, c2: s.caption2, dur: dur, len: dur + hold, start: t0 });
         t0 += dur + hold - XF;
       });
@@ -269,12 +269,16 @@
       actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
       return actx.decodeAudioData(opts.music.slice(0)).then(function (buf) { music = buf; }).catch(function () { music = null; });
     }).then(function () {
+      if (!opts.voice || !window.AudioEncoder || !window.AudioData) return null;
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+      return actx.decodeAudioData(opts.voice.slice(0)).then(function (buf) { voice = buf; }).catch(function () { voice = null; });
+    }).then(function () {
       try { return Promise.all([document.fonts.load('700 62px Montserrat'), document.fonts.load('400 42px Montserrat')]).catch(function () {}); } catch (e) { return null; }
     }).then(function () {
-      var last = segs[segs.length - 1], endStart = last.start + last.len - XF, total = endStart + END, frames = Math.round(total * FPS);
+      var last = segs[segs.length - 1], endStart = last.start + last.len - XF, total = Math.max(endStart + END, voice ? voiceAt + voice.duration + 0.8 : 0), frames = Math.round(total * FPS);
       var SR = 48000;
       var cfg = { target: new M.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory' };
-      if (music) cfg.audio = { codec: 'aac', sampleRate: SR, numberOfChannels: 2 };
+      if (music || voice) cfg.audio = { codec: 'aac', sampleRate: SR, numberOfChannels: 2 };
       var muxer = new M.Muxer(cfg), encErr = null;
       var venc = new VideoEncoder({ output: function (ch, meta) { muxer.addVideoChunk(ch, meta); }, error: function (e) { encErr = e; } });
       venc.configure({ codec: 'avc1.640028', width: W, height: H, bitrate: 6000000, framerate: FPS });
@@ -283,7 +287,7 @@
       // assembly shot, and the one in between is blended in, so the motion has no stops and no jumps
       function pick(s, t) {
         var m = s.clip.uniq.length, q = clamp((t - s.start) / s.dur, 0, 1);
-        if (s.mode !== 'fwd') q = 1 - q;
+        if (s.mode === 'rev') q = 1 - q;
         var p = q * (m - 1), i = Math.floor(p), f = p - i;
         if (i >= m - 1) { i = m - 1; f = 0; }
         return { i: i, j: s.clip.blend && f > 0.02 ? i + 1 : -1, f: f };
@@ -338,6 +342,11 @@
           text(s.c2, 42, 400, 1660, fadeAlpha(t, a + 0.25, b, 0.35));
         });
       }
+      function badge(str, alpha) {
+        g.save(); g.globalAlpha = alpha * 0.9; g.font = '600 30px ' + FONT; var w = g.measureText(str).width + 44;
+        g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); if (g.roundRect) g.roundRect(W - w - 40, 60, w, 54, 27); else g.rect(W - w - 40, 60, w, 54); g.fill();
+        g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(str, W - w - 18, 88); g.restore();
+      }
       function endCard(tc, alpha) {
         g.save(); g.globalAlpha = alpha; g.filter = 'blur(18px) brightness(0.6) saturate(0.8)'; g.drawImage(snap, -40, -40, W + 80, H + 80); g.restore();
         if (logo) { var lw = 520, lh = logo.height * lw / logo.width; g.save(); g.globalAlpha = alpha * clamp((tc - 0.5) / 0.7, 0, 1); g.drawImage(logo, (W - lw) / 2, H / 2 - 330, lw, lh); g.restore(); }
@@ -356,6 +365,7 @@
           // the last picture of the last shot (the real photo) is what the logo card is laid over
           if (!snapped && t >= last.start + last.dur) { sg.drawImage(c, 0, 0); snapped = true; }
           if (t < endStart + XF) captions(t);
+          if (opts.label && t < endStart + XF) badge(opts.label, 1 - clamp((t - endStart) / XF, 0, 1));
           if (t >= endStart) { if (!snapped) { sg.drawImage(c, 0, 0); snapped = true; } endCard(t - endStart, clamp((t - endStart) / XF, 0, 1)); }
           var black = Math.max(1 - clamp(t / 0.5, 0, 1), 1 - clamp((total - t) / 0.6, 0, 1));
           if (black > 0) { g.fillStyle = 'rgba(0,0,0,' + black + ')'; g.fillRect(0, 0, W, H); }
@@ -369,11 +379,13 @@
       var seq = Promise.resolve();
       for (var f = 0; f < frames; f++) (function (f) { seq = seq.then(function () { return frame(f); }); })(f);
       return seq.then(function () { return venc.flush(); }).then(function () {
-        if (!music) return;
-        say(0.94, 'Добавям музиката…');
-        var n = Math.round(total * SR), L = new Float32Array(n), R = new Float32Array(n), a = music.getChannelData(0), b = music.numberOfChannels > 1 ? music.getChannelData(1) : a;
+        if (!music && !voice) return;
+        say(0.94, 'Добавям звука…');
+        var n = Math.round(total * SR), L = new Float32Array(n), R = new Float32Array(n), a = music ? music.getChannelData(0) : null, b = music && music.numberOfChannels > 1 ? music.getChannelData(1) : a, mg = voice ? 0.2 : 0.85;
         // the track is resampled by decodeAudioData to SR already; a shorter one starts over
-        for (var i = 0; i < n; i++) { var k = i % a.length, gain = 0.85 * clamp(i / (0.3 * SR), 0, 1) * Math.pow(clamp((n - i) / (2.8 * SR), 0, 1), 1.5); L[i] = a[k] * gain; R[i] = b[k] * gain; }
+        if (a) for (var i = 0; i < n; i++) { var k = i % a.length, gain = mg * clamp(i / (0.3 * SR), 0, 1) * Math.pow(clamp((n - i) / (2.8 * SR), 0, 1), 1.5); L[i] = a[k] * gain; R[i] = b[k] * gain; }
+        if (voice) { var va = voice.getChannelData(0), vb = voice.numberOfChannels > 1 ? voice.getChannelData(1) : va, v0 = Math.round(voiceAt * SR);
+          for (var j = 0; j < va.length && v0 + j < n; j++) { L[v0 + j] += va[j]; R[v0 + j] += vb[j]; } }
         var aenc = new AudioEncoder({ output: function (ch, meta) { muxer.addAudioChunk(ch, meta); }, error: function (e) { encErr = e; } });
         aenc.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 160000 });
         var STEP = 4800;
@@ -389,7 +401,7 @@
         muxer.finalize(); if (actx) actx.close();
         segs.forEach(function (s) { s.clip.close(); });
         say(1, 'Готово');
-        return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), seconds: total, hasMusic: !!music, inexact: inexact };
+        return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), seconds: total, hasMusic: !!music, hasVoice: !!voice, inexact: inexact };
       });
     });
   }
