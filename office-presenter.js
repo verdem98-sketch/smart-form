@@ -10,8 +10,8 @@
   var STATUS = { requested: 'Заявено', working: 'Прави се', clips_ready: 'Прави се', done: 'Готово' };
   var DEFAULT_LINES = [
     ['Здравейте! Това е {name} – кухня, правена по поръчка, сантиметър по сантиметър.', '{NAME}', 'кухня по поръчка'],
-    ['Остров от дъб и бял гланц, а под шкафовете – топла лед светлина, която прави вечерите уютни.', 'ДЕТАЙЛИТЕ', 'материали, подбрани с грижа'],
-    ['Високите шкафове дават много място за съхранение.', 'МЯСТО ЗА ВСИЧКО', 'всичко е подредено'],
+    ['', 'ДЕТАЙЛИТЕ', 'материали, подбрани с грижа'],
+    ['', 'МЯСТО ЗА ВСИЧКО', 'всичко е подредено'],
     ['Всичко е по размерите на стаята – всеки сантиметър е използван.', 'ПО ВАШИТЕ РАЗМЕРИ', 'всеки сантиметър е използван'],
     ['Искате ли такава кухня и у Вас? Елате в офиса ни – правим безплатна 3D визуализация и проект.', 'ЕЛАТЕ В ОФИСА НИ', 'безплатна 3D визуализация и проект']
   ];
@@ -142,7 +142,7 @@
         (shots.length ? shots.map(function (s, i) {
           return '<div class="pv-shot" data-shot="' + i + '"><div><div class="pv-frame"><img src="' + esc(s.photo_url.replace(/(\.(?:jpe?g|webp))$/i, '-p-500$1')) + '" onerror="this.onerror=null;this.src=\'' + esc(s.photo_url) + '\'"></div></div><div>' +
             '<div class="pv-row" style="justify-content:space-between"><b>Кадър ' + (i + 1) + '</b><span class="pv-row"><button type="button" class="pv-btn" data-act="up" data-i="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button type="button" class="pv-btn" data-act="down" data-i="' + i + '"' + (i < shots.length - 1 ? '' : ' disabled') + '>↓</button><button type="button" class="pv-btn danger" data-act="drop" data-i="' + i + '">Махни</button></span></div>' +
-            '<label>Какво казва водещата</label><textarea data-line rows="2">' + esc(s.prompt || '') + '</textarea>' +
+            '<label>Какво казва водещата</label><textarea data-line rows="2" placeholder="Само за това, което се вижда на ТАЗИ снимка (напр. витрини с лед светлина, вградена фурна, дъбов плот)">' + esc(s.prompt || '') + '</textarea>' +
             '<div class="pv-two"><div><label>Надпис – голям</label><input type="text" data-c1 maxlength="60" value="' + esc(s.caption1 || '') + '"></div><div><label>Надпис – малък</label><input type="text" data-c2 maxlength="90" value="' + esc(s.caption2 || '') + '"></div></div></div></div>';
         }).join('') : '<p class="pv-muted" style="margin-top:10px">Избери проект и натисни снимките, които да влязат във видеото.</p>') + '</div>';
       html += '<div class="pv-card"><div class="pv-row"><button type="button" class="pv-btn pri" data-act="save">Запази заявката</button>' +
