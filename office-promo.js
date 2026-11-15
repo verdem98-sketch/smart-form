@@ -107,37 +107,26 @@
   }
 
   /* ---------------- stitching in the browser ---------------- */
-  // Every frame of a clip is decoded exactly (WebCodecs + mp4box), cropped to the 9:16 picture and kept as a JPEG.
-  // Seeking a <video> element and drawing it is not reliable (the browser often hands back the previous frame, which
-  // shows as a stutter), so it is used only where the browser cannot decode the clip itself.
-  // Vidu often repeats every 3rd or 4th frame; those repeats are dropped and the remaining frames are spread evenly
-  // over the clip and blended in between, so the motion runs smoothly.
+  // Clips are read frame-exactly with WebCodecs (mp4box splits the file into samples). Seeking a <video> and drawing it
+  // is not reliable (the browser often hands back the previous frame, which shows as a stutter), so that is only the
+  // fallback for a clip the browser cannot decode itself.
+  // One quick pass finds the frames that Vidu repeats (often every 3rd or 4th); those are skipped, and the remaining
+  // frames are spread evenly over the clip and blended in between, so the motion runs smoothly.
+  // While rendering, frames are decoded on demand one keyframe-interval at a time, so a reversed clip never needs all
+  // its frames in memory. Vidu's files use open groups: a window [key w, key w+1) is decoded from key w up to key w+2.
   var MP4BOX_URL = 'https://cdn.jsdelivr.net/npm/mp4box@0.5.3/+esm';
   var SIG_W = 32, SIG_H = 56, SAME = 0.6;
-  function sigOf(src, sw, sh, crop) {
+  function coverBox(sw, sh, crop) { var k = Math.max(W / sw, H / sh), cw = W / k, ch = H / k; return { sx: (sw - cw) * crop, sy: (sh - ch) / 2, sw: cw, sh: ch }; }
+  function sigReader() {
     var c = document.createElement('canvas'); c.width = SIG_W; c.height = SIG_H; var x = c.getContext('2d', { willReadFrequently: true });
-    var k = Math.max(SIG_W / sw, SIG_H / sh), dw = sw * k, dh = sh * k;
-    x.drawImage(src, -(dw - SIG_W) * crop, -(dh - SIG_H) / 2, dw, dh);
-    var d = x.getImageData(0, 0, SIG_W, SIG_H).data, out = new Uint8Array(SIG_W * SIG_H);
-    for (var i = 0, j = 0; i < d.length; i += 4, j++) out[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
-    return out;
+    return function (src, box) {
+      x.drawImage(src, box.sx, box.sy, box.sw, box.sh, 0, 0, SIG_W, SIG_H);
+      var d = x.getImageData(0, 0, SIG_W, SIG_H).data, out = new Uint8Array(SIG_W * SIG_H);
+      for (var i = 0, j = 0; i < d.length; i += 4, j++) out[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+      return out;
+    };
   }
   function sigDiff(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
-  // keeps one frame (drawn at the final 1080×1920 crop) unless it repeats the previous one
-  function keeper(crop) {
-    var work = document.createElement('canvas'); work.width = W; work.height = H; var wg = work.getContext('2d');
-    var out = { frames: [], total: 0, prev: null };
-    out.add = function (src, sw, sh) {
-      out.total++;
-      var sig = sigOf(src, sw, sh, crop);
-      if (out.prev && sigDiff(sig, out.prev) < SAME) return Promise.resolve();
-      out.prev = sig;
-      var k = Math.max(W / sw, H / sh), dw = sw * k, dh = sh * k;
-      wg.drawImage(src, -(dw - W) * crop, -(dh - H) / 2, dw, dh);
-      return new Promise(function (res) { work.toBlob(function (b) { out.frames.push(b); res(); }, 'image/jpeg', 0.92); });
-    };
-    return out;
-  }
   function demux(MB, ab) {
     return new Promise(function (resolve, reject) {
       var file = MB.createFile(), track = null, samples = [];
@@ -161,61 +150,84 @@
       }, 0);
     });
   }
-  function decodeExact(MB, blob, crop) {
+  function exactClip(MB, blob, crop) {
     return blob.arrayBuffer().then(function (ab) { return demux(MB, ab); }).then(function (dm) {
       var cfg = { codec: dm.track.codec, codedWidth: dm.track.video.width, codedHeight: dm.track.video.height };
       if (dm.desc) cfg.description = dm.desc;
       return VideoDecoder.isConfigSupported(cfg).then(function (sup) {
         if (!sup || !sup.supported) throw new Error('unsupported');
-        var kept = keeper(crop), queue = [], busy = Promise.resolve(), err = null, pending = 0;
+        var S = dm.samples, ts = S[0].timescale, err = null;
+        function chunk(s) { return new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(1e6 * s.cts / ts), duration: Math.round(1e6 * s.duration / ts), data: s.data }); }
+        var keys = []; S.forEach(function (s, i) { if (s.is_sync) keys.push({ i: i, t: Math.round(1e6 * s.cts / ts) }); });
+        if (!keys.length || keys[0].i !== 0) throw new Error('unsupported');
+        var box = null, sig = sigReader(), sigs = {};
+        // pass 1: every frame once, only its small fingerprint
         var dec = new VideoDecoder({
-          output: function (fr) {
-            pending++;
-            busy = busy.then(function () {
-              var p = kept.add(fr, fr.displayWidth, fr.displayHeight);
-              fr.close(); pending--;
-              return p;
-            });
-          },
+          output: function (fr) { if (!box) box = coverBox(fr.displayWidth, fr.displayHeight, crop); sigs[fr.timestamp] = sig(fr, box); fr.close(); },
           error: function (e) { err = e; }
         });
         dec.configure(cfg);
-        var last = dm.samples[dm.samples.length - 1], ts = last.timescale;
-        var dur = (Math.max.apply(null, dm.samples.map(function (s) { return s.cts + s.duration; })) - Math.min.apply(null, dm.samples.map(function (s) { return s.cts; }))) / ts;
-        var i = 0;
-        function feed() {
-          if (err) throw err;
-          while (i < dm.samples.length && pending < 8 && dec.decodeQueueSize < 64) {
-            var s = dm.samples[i++];
-            dec.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: Math.round(1e6 * s.cts / ts), duration: Math.round(1e6 * s.duration / ts), data: s.data }));
+        S.forEach(function (s) { dec.decode(chunk(s)); });
+        return dec.flush().then(function () {
+          dec.close(); if (err) throw err;
+          var times = Object.keys(sigs).map(Number).sort(function (a, b) { return a - b; });
+          if (times.length < 2) throw new Error('unsupported');
+          var uniq = [times[0]], last = sigs[times[0]];
+          times.forEach(function (t) { if (sigDiff(sigs[t], last) >= SAME) { uniq.push(t); last = sigs[t]; } });
+          var keep = {}; uniq.forEach(function (t) { keep[t] = 1; });
+          var endT = Math.max.apply(null, S.map(function (s) { return Math.round(1e6 * (s.cts + s.duration) / ts); }));
+          // pass 2 (while rendering): decode one window at a time and keep only the frames that are used
+          var dec2 = null, handler = null, cache = {}, order = [], chain = Promise.resolve();
+          function windowOf(t) { var w = 0; for (var i = 0; i < keys.length; i++) if (keys[i].t <= t) w = i; return w; }
+          function decodeWindow(w) {
+            if (!dec2) { dec2 = new VideoDecoder({ output: function (fr) { if (handler) handler(fr); else fr.close(); }, error: function (e) { err = e; } }); dec2.configure(cfg); }
+            var lo = keys[w].t, hi = w + 1 < keys.length ? keys[w + 1].t : Infinity, got = {}, jobs = [];
+            function onOut(fr) {
+              var t = fr.timestamp;
+              if (t >= lo && t < hi && keep[t]) jobs.push(createImageBitmap(fr, box.sx, box.sy, box.sw, box.sh).then(function (b) { got[t] = b; }).finally(function () { fr.close(); }));
+              else fr.close();
+            }
+            handler = onOut;
+            var a = keys[w].i, b = w + 2 < keys.length ? keys[w + 2].i : S.length;
+            for (var i = a; i < b; i++) dec2.decode(chunk(S[i]));
+            return dec2.flush().then(function () { return Promise.all(jobs); }).then(function () { if (err) throw err; return got; });
           }
-          if (i < dm.samples.length) return wait(5).then(feed);
-          return dec.flush().then(function () { return busy; }).then(function () { dec.close(); if (err) throw err; return { frames: kept.frames, total: kept.total, dur: dur, exact: true }; });
-        }
-        return feed();
+          function get(t) {
+            var w = windowOf(t);
+            if (cache[w]) return cache[w].then(function (g) { return g[t]; });
+            var p = chain.then(function () { return decodeWindow(w); });
+            chain = p.catch(function () {});
+            cache[w] = p; order.push(w);
+            while (order.length > 3) { var old = order.shift(); if (cache[old]) { cache[old].then(function (g) { Object.keys(g).forEach(function (k) { g[k].close(); }); }); delete cache[old]; } }
+            return p.then(function (g) { return g[t]; });
+          }
+          function close() { Object.keys(cache).forEach(function (w) { cache[w].then(function (g) { Object.keys(g).forEach(function (k) { g[k].close(); }); }); }); cache = {}; if (dec2 && dec2.state !== 'closed') dec2.close(); }
+          return { exact: true, dur: (endT - times[0]) / 1e6, uniq: uniq, total: times.length, get: get, close: close, blend: true };
+        });
       });
     });
   }
-  // fallback for clips the browser cannot decode by itself: seek the <video>, one source frame at a time
-  function decodeBySeeking(blob, crop) {
+  // fallback for clips the browser cannot decode by itself: seek the <video> and draw it as it is
+  function seekingClip(blob, crop) {
     return new Promise(function (resolve, reject) {
       var v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
       v.addEventListener('loadeddata', function () { resolve(v); }, { once: true });
       v.addEventListener('error', function () { reject(new Error('Клипът не може да се прочете от този браузър. Във Vidu избери кодек H264 и го направи пак.')); }, { once: true });
     }).then(function (v) {
-      var kept = keeper(crop), n = Math.max(2, Math.round(v.duration * 24)), i = 0;
-      function next() {
-        if (i >= n) { URL.revokeObjectURL(v.src); return { frames: kept.frames, total: kept.total, dur: v.duration, exact: false }; }
-        var t = Math.min(v.duration - 0.01, (i + 0.5) / 24); i++;
-        return new Promise(function (res) { var done = false, fin = function () { if (!done) { done = true; res(); } }; v.addEventListener('seeked', fin, { once: true }); setTimeout(fin, 3000); v.currentTime = t; })
-          .then(function () { return wait(30); }).then(function () { return kept.add(v, v.videoWidth, v.videoHeight); }).then(next);
+      var box = coverBox(v.videoWidth, v.videoHeight, crop), n = Math.max(2, Math.round(v.duration * 24)), uniq = [];
+      for (var i = 0; i < n; i++) uniq.push(Math.round((i + 0.5) / 24 * 1e6));
+      function get(t) {
+        return new Promise(function (res) {
+          var done = false, fin = function () { if (!done) { done = true; res(v); } };
+          v.addEventListener('seeked', fin, { once: true }); setTimeout(fin, 3000); v.currentTime = Math.min(v.duration - 0.01, t / 1e6);
+        });
       }
-      return next();
+      return { exact: false, dur: v.duration, uniq: uniq, total: n, get: get, box: box, blend: false, close: function () { URL.revokeObjectURL(v.src); } };
     });
   }
   function prepareClip(MB, blob, crop) {
-    if (!window.VideoDecoder || !window.EncodedVideoChunk || !MB) return decodeBySeeking(blob, crop);
-    return decodeExact(MB, blob, crop).catch(function () { return decodeBySeeking(blob, crop); });
+    if (!window.VideoDecoder || !window.EncodedVideoChunk || !MB) return seekingClip(blob, crop);
+    return exactClip(MB, blob, crop).catch(function () { return seekingClip(blob, crop); });
   }
   function fadeAlpha(t, a, b, d) { return clamp((t - a) / d, 0, 1) * clamp((b - t) / d, 0, 1); }
 
@@ -239,7 +251,7 @@
       var t0 = 0;
       prepared.forEach(function (r, i) {
         var s = opts.shots[i], dur = Math.max(0.5, r.dur - 0.06), hold = s.mode === 'fwd' ? HOLD_FWD : HOLD_REV;
-        segs.push({ frames: r.frames, cache: {}, mode: s.mode, c1: s.caption1, c2: s.caption2, dur: dur, len: dur + hold, start: t0 });
+        segs.push({ clip: r, mode: s.mode, c1: s.caption1, c2: s.caption2, dur: dur, len: dur + hold, start: t0 });
         t0 += dur + hold - XF;
       });
       return fetch(LOGO_URL).then(function (r) { return r.blob(); }).then(function (b) { return createImageBitmap(b); }).then(function (bm) { logo = bm; }).catch(function () { logo = null; });
@@ -261,28 +273,29 @@
       // which kept frames a shot shows at time t: the frames are spread evenly over the clip, played backwards for an
       // assembly shot, and the one in between is blended in, so the motion has no stops and no jumps
       function pick(s, t) {
-        var m = s.frames.length, q = clamp((t - s.start) / s.dur, 0, 1);
+        var m = s.clip.uniq.length, q = clamp((t - s.start) / s.dur, 0, 1);
         if (s.mode !== 'fwd') q = 1 - q;
         var p = q * (m - 1), i = Math.floor(p), f = p - i;
         if (i >= m - 1) { i = m - 1; f = 0; }
-        return { i: i, j: f > 0.02 ? i + 1 : -1, f: f };
-      }
-      function bmp(s, idx) {
-        if (s.cache[idx]) return Promise.resolve(s.cache[idx]);
-        return createImageBitmap(s.frames[idx]).then(function (b) {
-          s.cache[idx] = b;
-          Object.keys(s.cache).forEach(function (k) { if (Math.abs(k - idx) > 2) { s.cache[k].close(); delete s.cache[k]; } });
-          return b;
-        });
+        return { i: i, j: s.clip.blend && f > 0.02 ? i + 1 : -1, f: f };
       }
       function loadSeg(s, t) {
-        var w = pick(s, t);
-        return Promise.all([bmp(s, w.i), w.j >= 0 ? bmp(s, w.j) : null]).then(function (b) { s.now = { a: b[0], b: b[1], f: w.f }; });
+        var w = pick(s, t), u = s.clip.uniq;
+        // one after the other: the fallback shares one <video> for both
+        return s.clip.get(u[w.i]).then(function (a) {
+          if (w.j < 0) { s.now = { a: a, b: null, f: 0 }; return; }
+          return s.clip.get(u[w.j]).then(function (b) { s.now = { a: a, b: b, f: w.f }; });
+        });
+      }
+      function put(s, img) {
+        if (!img) return;
+        var b = s.clip.box;
+        if (b) g.drawImage(img, b.sx, b.sy, b.sw, b.sh, 0, 0, W, H); else g.drawImage(img, 0, 0, W, H);
       }
       function drawSeg(s, t, alpha) {
         var n = s.now; if (!n) return;
-        g.save(); g.globalAlpha = alpha; g.drawImage(n.a, 0, 0, W, H);
-        if (n.b) { g.globalAlpha = alpha * n.f; g.drawImage(n.b, 0, 0, W, H); }
+        g.save(); g.globalAlpha = alpha; put(s, n.a);
+        if (n.b) { g.globalAlpha = alpha * n.f; put(s, n.b); }
         g.restore();
       }
       function text(str, size, weight, y, alpha, dy) {
@@ -316,7 +329,7 @@
       var snapped = false;
       function frame(f) {
         var t = f / FPS, active = segs.filter(function (s) { return t >= s.start && t < s.start + s.len; });
-        return Promise.all(active.map(function (s) { return loadSeg(s, t); })).then(function () {
+        return active.reduce(function (p, s) { return p.then(function () { return loadSeg(s, t); }); }, Promise.resolve()).then(function () {
           g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
           active.forEach(function (s, i) { drawSeg(s, t, i === 0 ? 1 : clamp((t - s.start) / XF, 0, 1)); });
           // the last picture of the last shot (the real photo) is what the logo card is laid over
@@ -353,7 +366,7 @@
       }).then(function () {
         if (encErr) throw encErr;
         muxer.finalize(); if (actx) actx.close();
-        segs.forEach(function (s) { Object.keys(s.cache).forEach(function (k) { s.cache[k].close(); }); s.cache = {}; s.frames = null; });
+        segs.forEach(function (s) { s.clip.close(); });
         say(1, 'Готово');
         return { blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }), seconds: total, hasMusic: !!music, inexact: inexact };
       });
