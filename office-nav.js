@@ -6,6 +6,7 @@
     ['insights','Анализ и реклами',['analysis','ads']],
     ['tools','Инструменти',['visual','studio','webcut']]
   ];
+  var LABELS={episodes:'Фикс и Микси'};
   var LS_G='vo-group',LS_T='vo-group-tab-';
   function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null;}}
   function groupOf(t){for(var i=0;i<GROUPS.length;i++)if(GROUPS[i][2].indexOf(t)>=0)return GROUPS[i][0];return 'tools';}
@@ -36,7 +37,7 @@
     function key(b){return b.getAttribute('data-tab')||'';}
     function apply(){
       var counts={};
-      tabs().forEach(function(b){var g=groupOf(key(b));counts[g]=(counts[g]||0)+1;b.style.order=orderOf(key(b));b.classList.toggle('vo-g-hide',g!==cur);});
+      tabs().forEach(function(b){var g=groupOf(key(b));if(LABELS[key(b)]&&b.textContent!==LABELS[key(b)])b.textContent=LABELS[key(b)];counts[g]=(counts[g]||0)+1;b.style.order=orderOf(key(b));b.classList.toggle('vo-g-hide',g!==cur);});
       [].forEach.call(gbar.children,function(gb){var g=gb.getAttribute('data-group');gb.classList.toggle('is-on',g===cur);gb.style.display=counts[g]?'':'none';
         gb.querySelector('small').textContent=tabs().filter(function(b){return groupOf(key(b))===g;}).sort(function(a,b){return orderOf(key(a))-orderOf(key(b));}).map(function(b){return b.textContent.trim();}).join(' · ');});
     }
