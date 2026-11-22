@@ -23,20 +23,37 @@
   '.vmo-drawing-page .vmo-drawing-frame img,.vmo-drawing-page .vmo-drawing-frame canvas{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}'+
   '.vmo-drawing-page .vmo-page-footer{margin-top:1.5mm!important;padding-top:1mm!important}';
 
-  function rotate(img){
+  // bounding box of the non-white pixels (the drawing itself, without the empty paper around it)
+  function inkBox(ctx,w,h){
+    var d=ctx.getImageData(0,0,w,h).data,x0=w,y0=h,x1=-1,y1=-1;
+    for(var y=0;y<h;y++){for(var x=0;x<w;x++){var i=(y*w+x)*4;
+      if(d[i+3]>20&&(d[i]<235||d[i+1]<235||d[i+2]<235)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}}}
+    if(x1<0)return null;
+    var pad=Math.round(Math.max(w,h)*0.008);
+    x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w-1,x1+pad);y1=Math.min(h-1,y1+pad);
+    return {x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
+  }
+  // trims the white margins, then turns a landscape drawing 90° so it fills a portrait A4 page
+  function fit(img){
     return new Promise(function(done){
       function go(){
         try{
-          var w=img.naturalWidth,h=img.naturalHeight;
-          if(img.getAttribute('data-vm-rot')||!w||w<=h){done();return;}
-          var c=img.ownerDocument.createElement('canvas');c.width=h;c.height=w;
-          var x=c.getContext('2d');x.translate(0,w);x.rotate(-Math.PI/2);x.drawImage(img,0,0);
+          if(img.getAttribute('data-vm-rot')){done();return;}
+          var doc=img.ownerDocument,W=img.naturalWidth,H=img.naturalHeight;if(!W||!H){done();return;}
+          var a=doc.createElement('canvas');a.width=W;a.height=H;var ax=a.getContext('2d');
+          ax.fillStyle='#fff';ax.fillRect(0,0,W,H);ax.drawImage(img,0,0);
+          var b=inkBox(ax,W,H)||{x:0,y:0,w:W,h:H};
+          var land=b.w>b.h,c=doc.createElement('canvas');
+          c.width=land?b.h:b.w;c.height=land?b.w:b.h;var x=c.getContext('2d');
+          x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+          if(land){x.translate(0,b.w);x.rotate(-Math.PI/2);}
+          x.drawImage(a,b.x,b.y,b.w,b.h,0,0,b.w,b.h);
           var url=c.toDataURL('image/png');
           img.setAttribute('data-vm-rot','1');
           img.onload=function(){done();};img.onerror=function(){done();};
           img.src=url;
           setTimeout(done,3000);
-        }catch(e){done();} /* e.g. a picture from another site: printed unrotated */
+        }catch(e){done();} /* e.g. a picture from another site: printed as it is */
       }
       if(img.complete&&img.naturalWidth)go();else{img.addEventListener('load',go,{once:true});img.addEventListener('error',function(){done();},{once:true});}
     });
@@ -46,7 +63,7 @@
     var imgs=[].slice.call(d.querySelectorAll('.print-page .drawing img,.vmo-drawing-page .vmo-drawing-frame img'));
     if(!imgs.length)return Promise.resolve();
     if(!d.getElementById('vm-drawings-a4')){var s=d.createElement('style');s.id='vm-drawings-a4';s.textContent='@media print{'+CSS+'}'+CSS;(d.head||d.documentElement).appendChild(s);}
-    return Promise.all(imgs.map(rotate)).then(function(){return new Promise(function(r){setTimeout(r,200);});});
+    return Promise.all(imgs.map(fit)).then(function(){return new Promise(function(r){setTimeout(r,200);});});
   }
   var open=window.open;
   window.open=function(){
