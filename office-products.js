@@ -82,7 +82,7 @@
     var header = $('.office-header', shell);
     var bar = el('div', 'vo-tabs', '<button type="button" class="vo-tab" data-tab="passport">Digital Passport</button><button type="button" class="vo-tab" data-tab="products">Нов проект в галерията</button>');
     if (header) header.after(bar); else shell.prepend(bar);
-    var ppBar = el('div', 'pp-bar', '<button type="button" class="op-btn pri" data-pp="new">+ Нов паспорт</button><button type="button" class="op-btn" data-pp="edit">Редактирай / допълни паспорт</button>');
+    var ppBar = el('div', 'pp-bar', '<button type="button" class="op-btn pri" data-pp="new">+ Нов паспорт</button><button type="button" class="op-btn" data-pp="edit">Редактирай / допълни паспорт</button><button type="button" class="op-btn" data-pp="all">Всички паспорти</button>');
     bar.after(ppBar);
     app = el('div', 'op'); app.hidden = true; shell.appendChild(app);
     ppApp = el('div', 'op pp'); ppApp.hidden = true; shell.appendChild(ppApp);
@@ -105,7 +105,7 @@
     bar.addEventListener('click', function (e) { var b = e.target.closest('.vo-tab'); if (b) show(b.dataset.tab); });
     ppBar.addEventListener('click', function (e) {
       var b = e.target.closest('[data-pp]'); if (!b) return;
-      show('pp'); if (b.dataset.pp === 'new') ppOpen(null); else ppList();
+      show('pp'); if (b.dataset.pp === 'new') ppOpen(null); else if (b.dataset.pp === 'all') ppAll(); else ppList();
     });
     show(ls(LS_TAB) === 'products' ? 'products' : 'passport');
     return true;
@@ -845,6 +845,32 @@
         $$('[data-id]', ppApp).forEach(function (b) { b.onclick = function () { ppOpen(b.dataset.id); }; });
       }
       $('#pp-q').oninput = draw; draw();
+    });
+  }
+
+  // „Всички паспорти“: every passport/contract, newest first
+  function bgDate(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
+  function ppAll() {
+    ppApp.innerHTML = '<div class="op-card"><div class="op-row" style="justify-content:space-between"><h2 id="pp-all-h">Всички паспорти</h2><button class="op-btn sm" data-back>← Digital Passport</button></div><input type="text" id="pp-all-q" placeholder="Търси по име, телефон или номер на договор" style="margin:10px 0"><div id="pp-all"><span class="op-busy"></span> Зареждам…</div></div>';
+    $('[data-back]', ppApp).onclick = function () { VO.show('passport'); };
+    ppCall('list').then(function (j) {
+      if (!j.ok) { $('#pp-all').innerHTML = '<span class="op-err">' + esc(j.error) + '</span>'; return; }
+      var all = j.items.slice().sort(function (a, b) { return (b.created || '').localeCompare(a.created || ''); });
+      $('#pp-all-h').textContent = 'Всички паспорти (' + all.length + ')';
+      function draw() {
+        var q = norm($('#pp-all-q').value), qd = q.replace(/\D/g, '');
+        var rows = all.filter(function (i) { var hay = norm(i.name + ' ' + i.client + ' ' + i.contract + ' ' + i.contracts.join(' ')); return !q || hay.indexOf(q) >= 0 || (qd && String(i.phone).replace(/\D/g, '').indexOf(qd) >= 0); });
+        $('#pp-all').innerHTML = rows.map(function (i) {
+          var nrs = i.contracts.join(', ') || i.contract || '—';
+          var docs = (i.docs || []).map(function (d) { return '<a class="op-btn sm" href="/verde-m-office-documents/' + esc(d.slug) + '" target="_blank" rel="noopener">Договор ' + esc(d.nr || '') + '</a>'; }).join('');
+          return '<div class="op-row" style="justify-content:space-between;border-bottom:1px solid #eceeea;padding:10px 0">' +
+            '<div style="flex:1 1 260px"><b>' + esc(nrs) + '</b> · <b>' + esc(i.client || i.name) + '</b>' + (i.draft ? ' <span class="op-muted">(чернова)</span>' : '') +
+            '<br><span class="op-muted">' + [esc(i.phone), i.date ? 'договор от ' + bgDate(i.date) : '', (i.rooms || []).map(esc).join(', '), i.value != null && i.value !== '' ? esc(i.value) + ' €' : ''].filter(Boolean).join(' · ') + '</span></div>' +
+            '<div class="op-row">' + (i.slug ? '<a class="op-btn sm" href="/verde-m-projects/' + esc(i.slug) + '" target="_blank" rel="noopener">Паспорт</a>' : '') + docs + '<button class="op-btn sm" data-open="' + i.id + '">Редактирай</button></div></div>';
+        }).join('') || '<span class="op-muted">Няма намерени.</span>';
+        $$('[data-open]', ppApp).forEach(function (b) { b.onclick = function () { ppOpen(b.dataset.open); }; });
+      }
+      $('#pp-all-q').oninput = draw; draw();
     });
   }
 
