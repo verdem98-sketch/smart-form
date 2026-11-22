@@ -805,7 +805,7 @@
   function addMonths(iso, m) { var x = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!x || !m) return ''; var d = new Date(Date.UTC(+x[1], +x[2] - 1 + Number(m), +x[3])); return d.toISOString().slice(0, 10); }
   function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
 
-  function newRoom(name) { return { name: name || '', materials: [], hw: { flap: [], slides: [], hinges: [] }, hwFree: [], accessories: [''], pdf: { keep: true, url: '' }, installDate: '', gallery: [], galleryChanged: false }; }
+  function newRoom(name) { return { name: name || '', materials: [], hw: { flap: [], slides: [], hinges: [] }, hwFree: [], accessories: [{ text: '', qty: '' }], pdf: { keep: true, url: '' }, installDate: '', gallery: [], galleryChanged: false }; }
   function roomFromServer(r) {
     var room = newRoom(r.name);
     room.materials = (r.materials || []).map(function (l) { return { role: '', thick: '', sub: '', line: l }; });
@@ -814,7 +814,7 @@
       HW.forEach(function (c) { c[2].forEach(function (o) { if (!hit && norm(o) === norm(text)) hit = [c[0], o]; }); });
       if (hit) room.hw[hit[0]].push({ item: hit[1], qty: qty }); else room.hwFree.push(freeHw(l));
     });
-    room.accessories = (r.accessories || []).length ? r.accessories.slice() : [''];
+    room.accessories = (r.accessories || []).length ? r.accessories.map(freeHw) : [{ text: '', qty: '' }];
     room.pdf = { keep: true, url: r.pdf || '' };
     room.installDate = r.installDate || ''; room.gallery = (r.gallery || []).map(function (u) { return { url: u }; });
     return room;
@@ -957,30 +957,23 @@
         });
       }
       drawHw();
-      function lines(box, arr, ph) {
-        box.innerHTML = '';
-        arr.forEach(function (t, k) {
-          var row = el('div', 'op-row', '<input type="text" class="op-grow" placeholder="' + ph + '" value="' + esc(t) + '"><button class="op-btn sm">✕</button>'); row.style.marginBottom = '6px';
-          $('input', row).oninput = function (e) { arr[k] = e.target.value; };
-          $('button', row).onclick = function () { arr.splice(k, 1); lines(box, arr, ph); };
-          box.appendChild(row);
-        });
-      }
       var hwf = $('[data-hwfree]', c), acc = $('[data-acc]', c);
-      function hwFreeRows() {
-        hwf.innerHTML = '';
-        r.hwFree.forEach(function (h, k) {
-          var row = el('div', 'pp-hw', '<input type="text" placeholder="Друг обков, напр. Механизъм за кош за отпадъци" value="' + esc(h.text) + '"><input type="number" min="0" placeholder="бр." value="' + esc(h.qty) + '"><button class="op-btn sm" title="Махни">✕</button>');
+      // text + quantity rows (free hardware lines and accessories)
+      function qtyRows(box, arr, ph) {
+        box.innerHTML = '';
+        arr.forEach(function (h, k) {
+          var row = el('div', 'pp-hw', '<input type="text" placeholder="' + ph + '" value="' + esc(h.text) + '"><input type="number" min="0" placeholder="бр." value="' + esc(h.qty) + '"><button class="op-btn sm" title="Махни">✕</button>');
           var ins = $$('input', row);
           ins[0].oninput = function (e) { h.text = e.target.value; };
           ins[1].oninput = function (e) { h.qty = e.target.value; };
-          $('button', row).onclick = function () { r.hwFree.splice(k, 1); hwFreeRows(); };
-          hwf.appendChild(row);
+          $('button', row).onclick = function () { arr.splice(k, 1); qtyRows(box, arr, ph); };
+          box.appendChild(row);
         });
       }
-      hwFreeRows(); lines(acc, r.accessories, 'Напр. LED осветление - вкопан алуминиев профил, топла светлина');
-      $('[data-addhw]', c).onclick = function () { r.hwFree.push({ text: '', qty: '' }); hwFreeRows(); };
-      $('[data-addacc]', c).onclick = function () { r.accessories.push(''); lines(acc, r.accessories, 'Аксесоар'); };
+      var PH_HW = 'Друг обков, напр. Механизъм за кош за отпадъци', PH_ACC = 'Напр. LED осветление - вкопан алуминиев профил, топла светлина';
+      qtyRows(hwf, r.hwFree, PH_HW); qtyRows(acc, r.accessories, PH_ACC);
+      $('[data-addhw]', c).onclick = function () { r.hwFree.push({ text: '', qty: '' }); qtyRows(hwf, r.hwFree, PH_HW); };
+      $('[data-addacc]', c).onclick = function () { r.accessories.push({ text: '', qty: '' }); qtyRows(acc, r.accessories, PH_ACC); };
       // PDF
       var pdfBox = $('[data-pdf]', c);
       function drawPdf() {
@@ -1034,7 +1027,7 @@
           return {
             name: r.name, installDate: r.installDate,
             materials: r.materials.map(function (m) { return m.line || ppLine(m); }).filter(Boolean),
-            hardware: hwLines.concat(r.hwFree.map(freeHwLine).filter(Boolean)), accessories: r.accessories.filter(Boolean),
+            hardware: hwLines.concat(r.hwFree.map(freeHwLine).filter(Boolean)), accessories: r.accessories.map(freeHwLine).filter(Boolean),
             pdf: r.pdf === null ? null : r.pdf.keep ? { keep: true } : { url: r.pdf.url },
             gallery: r.galleryChanged ? r.gallery.map(function (g) { return g.url; }).filter(Boolean) : null
           };
