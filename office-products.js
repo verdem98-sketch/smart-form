@@ -812,13 +812,20 @@
     (r.hardware || []).forEach(function (l) {
       var m = /^(\d+)\s*бр\.?\s*(.+)$/.exec(l), qty = m ? m[1] : '', text = m ? m[2] : l, hit = null;
       HW.forEach(function (c) { c[2].forEach(function (o) { if (!hit && norm(o) === norm(text)) hit = [c[0], o]; }); });
-      if (hit) room.hw[hit[0]].push({ item: hit[1], qty: qty }); else room.hwFree.push(l);
+      if (hit) room.hw[hit[0]].push({ item: hit[1], qty: qty }); else room.hwFree.push(freeHw(l));
     });
     room.accessories = (r.accessories || []).length ? r.accessories.slice() : [''];
     room.pdf = { keep: true, url: r.pdf || '' };
     room.installDate = r.installDate || ''; room.gallery = (r.gallery || []).map(function (u) { return { url: u }; });
     return room;
   }
+  // free hardware line ↔ { text, qty }: "5бр. Панти" or "Панти 5бр." → { text: 'Панти', qty: '5' }
+  function freeHw(l) {
+    var t = String(l || '').trim(), m = /^(\d+)\s*бр\.?\s*(.+)$/i.exec(t) || null, q = '';
+    if (m) { q = m[1]; t = m[2]; } else { m = /^(.+?)[\s,–-]*(\d+)\s*бр\.?$/i.exec(t); if (m) { t = m[1]; q = m[2]; } }
+    return { text: t.trim(), qty: q };
+  }
+  function freeHwLine(h) { var t = String(h.text || '').trim(); return t ? (String(h.qty || '').trim() ? String(h.qty).trim() + 'бр. ' : '') + t : ''; }
   function ppLine(m) {
     var d = m.decor; if (!d) return m.line || '';
     return ((m.role || 'Корпус') + ' - ' + [m.sub, m.thick, d.code, d.surface, d.name, brand(d.brand)].filter(Boolean).join(' ')).replace(/\s+/g, ' ').trim();
@@ -960,8 +967,19 @@
         });
       }
       var hwf = $('[data-hwfree]', c), acc = $('[data-acc]', c);
-      lines(hwf, r.hwFree, 'Друг обков, напр. 2бр. Механизъм за кош за отпадъци'); lines(acc, r.accessories, 'Напр. LED осветление - вкопан алуминиев профил, топла светлина');
-      $('[data-addhw]', c).onclick = function () { r.hwFree.push(''); lines(hwf, r.hwFree, 'Друг обков'); };
+      function hwFreeRows() {
+        hwf.innerHTML = '';
+        r.hwFree.forEach(function (h, k) {
+          var row = el('div', 'pp-hw', '<input type="text" placeholder="Друг обков, напр. Механизъм за кош за отпадъци" value="' + esc(h.text) + '"><input type="number" min="0" placeholder="бр." value="' + esc(h.qty) + '"><button class="op-btn sm" title="Махни">✕</button>');
+          var ins = $$('input', row);
+          ins[0].oninput = function (e) { h.text = e.target.value; };
+          ins[1].oninput = function (e) { h.qty = e.target.value; };
+          $('button', row).onclick = function () { r.hwFree.splice(k, 1); hwFreeRows(); };
+          hwf.appendChild(row);
+        });
+      }
+      hwFreeRows(); lines(acc, r.accessories, 'Напр. LED осветление - вкопан алуминиев профил, топла светлина');
+      $('[data-addhw]', c).onclick = function () { r.hwFree.push({ text: '', qty: '' }); hwFreeRows(); };
       $('[data-addacc]', c).onclick = function () { r.accessories.push(''); lines(acc, r.accessories, 'Аксесоар'); };
       // PDF
       var pdfBox = $('[data-pdf]', c);
@@ -1016,7 +1034,7 @@
           return {
             name: r.name, installDate: r.installDate,
             materials: r.materials.map(function (m) { return m.line || ppLine(m); }).filter(Boolean),
-            hardware: hwLines.concat(r.hwFree.filter(Boolean)), accessories: r.accessories.filter(Boolean),
+            hardware: hwLines.concat(r.hwFree.map(freeHwLine).filter(Boolean)), accessories: r.accessories.filter(Boolean),
             pdf: r.pdf === null ? null : r.pdf.keep ? { keep: true } : { url: r.pdf.url },
             gallery: r.galleryChanged ? r.gallery.map(function (g) { return g.url; }).filter(Boolean) : null
           };
