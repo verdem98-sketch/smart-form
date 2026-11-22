@@ -82,7 +82,7 @@
     var header = $('.office-header', shell);
     var bar = el('div', 'vo-tabs', '<button type="button" class="vo-tab" data-tab="passport">Digital Passport</button><button type="button" class="vo-tab" data-tab="products">Нов проект в галерията</button>');
     if (header) header.after(bar); else shell.prepend(bar);
-    var ppBar = el('div', 'pp-bar', '<button type="button" class="op-btn pri" data-pp="new">+ Нов паспорт</button><button type="button" class="op-btn" data-pp="edit">Редактирай / допълни паспорт</button><button type="button" class="op-btn" data-pp="all">Всички паспорти</button>');
+    var ppBar = el('div', 'pp-bar', '<button type="button" class="op-btn pri" data-pp="new">+ Нов паспорт</button><button type="button" class="op-btn" data-pp="all">Всички паспорти</button>');
     bar.after(ppBar);
     app = el('div', 'op'); app.hidden = true; shell.appendChild(app);
     ppApp = el('div', 'op pp'); ppApp.hidden = true; shell.appendChild(ppApp);
@@ -866,9 +866,31 @@
           return '<div class="op-row" style="justify-content:space-between;border-bottom:1px solid #eceeea;padding:10px 0">' +
             '<div style="flex:1 1 260px"><b>' + esc(nrs) + '</b> · <b>' + esc(i.client || i.name) + '</b>' + (i.draft ? ' <span class="op-muted">(чернова)</span>' : '') +
             '<br><span class="op-muted">' + [esc(i.phone), i.date ? 'договор от ' + bgDate(i.date) : '', (i.rooms || []).map(esc).join(', '), i.value != null && i.value !== '' ? esc(i.value) + ' €' : ''].filter(Boolean).join(' · ') + '</span></div>' +
-            '<div class="op-row">' + (i.slug ? '<a class="op-btn sm" href="/verde-m-projects/' + esc(i.slug) + '" target="_blank" rel="noopener">Паспорт</a>' : '') + docs + '<button class="op-btn sm" data-open="' + i.id + '">Редактирай</button></div></div>';
+            '<div class="op-row">' + (i.slug ? '<a class="op-btn sm" href="/verde-m-projects/' + esc(i.slug) + '" target="_blank" rel="noopener">Паспорт</a>' : '') + docs + (nrs === '—' ? '<button class="op-btn sm" data-num="' + i.id + '">Поискай номер</button>' : '') + '<button class="op-btn sm" data-open="' + i.id + '">Редактирай</button><button class="op-btn sm" data-del="' + i.id + '" data-name="' + esc(i.client || i.name) + '" style="color:#b42318;border-color:#f1b5ae">Изтрий</button></div></div>';
         }).join('') || '<span class="op-muted">Няма намерени.</span>';
         $$('[data-open]', ppApp).forEach(function (b) { b.onclick = function () { ppOpen(b.dataset.open); }; });
+        $$('[data-del]', ppApp).forEach(function (b) {
+          b.onclick = function () {
+            var nm = b.dataset.name;
+            var t = prompt('Изтриване на паспорта на „' + nm + '“ заедно с договорите и достъпа с телефон/QR.\nТова НЕ може да се върне.\n\nЗа потвърждение напишете името на клиента:');
+            if (t == null) return;
+            b.disabled = true; b.textContent = 'Трия…';
+            ppCall('delete', { id: b.dataset.del, confirmName: t }).then(function (r) {
+              if (!r.ok) { alert(r.error || 'Грешка'); b.disabled = false; b.textContent = 'Изтрий'; return; }
+              alert('Паспортът на ' + r.client + ' е изтрит.' + (r.freed.length ? '\nОсвободен номер (ще се ползва отново): ' + r.freed.join(', ') : '') + (r.kept.length ? '\nНомер, който остава зает: ' + r.kept.join(', ') : ''));
+              ppAll();
+            }).catch(function () { alert('Няма връзка със сървъра.'); b.disabled = false; b.textContent = 'Изтрий'; });
+          };
+        });
+        $$('[data-num]', ppApp).forEach(function (b) {
+          b.onclick = function () {
+            b.disabled = true; b.textContent = 'Чакам номера…';
+            ppCall('renumber', { id: b.dataset.num }).then(function (r) {
+              if (!r.ok) { alert(r.error || 'Грешка'); b.disabled = false; b.textContent = 'Поискай номер'; return; }
+              setTimeout(ppAll, 20000);
+            });
+          };
+        });
       }
       $('#pp-all-q').oninput = draw; draw();
     });
